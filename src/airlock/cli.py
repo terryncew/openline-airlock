@@ -13,6 +13,7 @@ from .providers import builtin_providers
 from .verification import ensure_key, verify_offline
 from .adoption import install_github
 from .runner import run_tournament
+from .swarm import run_swarm
 from .util import write_json
 
 
@@ -29,6 +30,7 @@ def _update_local_exclude(repo: Path) -> None:
         ".airlock/records/",
         ".airlock/index.json",
         ".airlock/verification.key",
+        ".airlock/swarms/",
     ]
     missing = [row for row in entries if row not in existing.splitlines()]
     if missing:
@@ -117,6 +119,30 @@ def command_run(args: argparse.Namespace) -> int:
     return 0 if report.get("status") == "READY" else 3
 
 
+
+def command_swarm(args: argparse.Namespace) -> int:
+    repo = root(Path(args.repo).resolve())
+    config_path = repo / ".airlock" / "config.json"
+    if not config_path.exists():
+        print("ERROR: .airlock/config.json is missing; run `airlock init` first", file=sys.stderr)
+        return 2
+    models = [item.strip() for item in (args.models or "").split(",") if item.strip()]
+    try:
+        report = run_swarm(
+            repo,
+            args.issue_or_prompt,
+            agents=args.agents,
+            rounds=args.rounds,
+            models=models,
+            budget=args.budget,
+            open_pr=not args.no_pr,
+            config_path=config_path,
+        )
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    return 0 if report.get("status") == "READY" else 3
+
 def command_verify(args: argparse.Namespace) -> int:
     repo = root(Path(args.repo).resolve())
     verification_path = Path(args.verification_file)
@@ -164,7 +190,7 @@ def command_install_github(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
-        description="Let coding agents try. Only patches that survive your repo checks reach review.",
+        description="Spend machine attempts on software problems without turning every attempt into human review work.",
     )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -174,12 +200,25 @@ def build_parser() -> argparse.ArgumentParser:
     init.add_argument("--timeout", type=int, default=1200)
     init.set_defaults(func=command_init)
 
-    runp = sub.add_parser("run", help="Run the same task across multiple coding agents and block patches that fail your repo checks.")
+    swarm = sub.add_parser(
+        "swarm",
+        help="Spend more agent attempts on one issue, share discoveries across rounds, and review only what survives.",
+    )
+    swarm.add_argument("issue_or_prompt")
+    swarm.add_argument("--repo", default=".")
+    swarm.add_argument("--agents", "-n", type=int, default=8, help="Agent attempts per round.")
+    swarm.add_argument("--rounds", type=int, default=2, help="Search rounds; later rounds receive bounded notes from earlier ones.")
+    swarm.add_argument("--models", help="Comma-separated provider aliases from .airlock/config.json")
+    swarm.add_argument("--budget", type=float, help="Total recorded swarm budget hint, split evenly across rounds and attempts.")
+    swarm.add_argument("--no-pr", action="store_true", help="Keep the final survivor local instead of attempting a GitHub PR.")
+    swarm.set_defaults(func=command_swarm)
+
+    runp = sub.add_parser("run", help="Run independent agent attempts once and block patches that fail your repo checks.")
     runp.add_argument("issue_or_prompt")
     runp.add_argument("--repo", default=".")
     runp.add_argument("--agents", "-n", type=int, default=12)
     runp.add_argument("--models", help="Comma-separated provider aliases from .airlock/config.json")
-    runp.add_argument("--budget", type=float, help="Recorded swarm budget; passed per-agent as AIRLOCK_BUDGET_USD")
+    runp.add_argument("--budget", type=float, help="Recorded run budget hint; passed per-agent as AIRLOCK_BUDGET_USD")
     runp.add_argument("--no-pr", action="store_true", help="Keep the surviving branch local instead of attempting a GitHub PR.")
     runp.set_defaults(func=command_run)
 

@@ -1,28 +1,70 @@
 # OpenLine Airlock
 
-**Admission control for coding-agent patches.**
+**Turn machine attempts into software improvements without turning them into review debt.**
 
-Coding agents can already generate more patches than humans want to review. Airlock sits at the boundary between **an agent produced something** and **a maintainer now has to care about it**.
+One coding agent gives you one answer. Airlock lets you spend many machine attempts on the same software problem while keeping human attention scarce.
 
-Keep using Claude Code, Codex, Cursor, Aider, OpenCode, local models, or your own harness. Airlock does not replace them. It gives the repository an independent pre-PR gate.
+Give your repository an issue. Let Claude Code, Codex, Aider, OpenCode, local models, or custom agents explore different fixes across multiple rounds. Agents can share bounded search discoveries and inspect earlier failed attempts. Airlock keeps the repository's tests, protected paths, and verification commands outside that coordination loop.
 
-A candidate that touches protected files is stopped before candidate code runs. A candidate that fails the repository's configured checks is blocked. If the available checks do not justify sending the change forward, Airlock returns `NEEDS_EVIDENCE`. Only a surviving candidate can earn human review.
+At the end, you review only what survived.
 
-**Agents generate. The repo decides what earns attention.**
+**Zero survivors is a valid result. More compute does not have to mean more PRs.**
 
-> Review bots ask whether a PR looks good after it arrives. Airlock asks why a bad machine attempt became a PR in the first place.
-
-## Put Airlock in front of your PR queue
-
-Airlock's public contribution path runs entirely in GitHub Actions. It does not require a hosted service or webhook server.
-
-Install from the repository:
+## Autonomous software search
 
 ```bash
 python -m pip install "git+https://github.com/terryncew/openline-airlock.git"
+
+airlock init
+airlock swarm <issue-or-prompt> \
+  --agents 8 \
+  --rounds 3 \
+  --models claude-code,codex,aider \
+  --budget 6.00
 ```
 
-Then, from your own repository:
+`airlock swarm` repeats the search instead of treating the first agent answer as special.
+
+Each attempt runs in its own Git worktree. Across rounds, agents can share typed search notes such as root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings. Later agents can inspect prior candidate commits and Airlock outcomes instead of rediscovering every dead end from scratch.
+
+The shared blackboard is deliberately **not** part of the admission authority. It cannot rewrite protected files, tests, Airlock config, verification commands, or the evidence sufficiency rule. Search can coordinate. Passing cannot.
+
+A swarm run can therefore end with:
+
+- `READY` — exactly one final candidate survived and is ready for review.
+- `MULTIPLE_SURVIVORS` — several survived; Airlock refuses to invent a winner.
+- `NO_PATCH_READY` — nothing earned review.
+- `BASELINE_NOT_GREEN` — the repository was already failing, so Airlock refuses to start unattended search.
+
+Airlock records the run under `.airlock/swarms/` with attempts, shared findings, generated patches, blocked candidates, evidence gaps, survivors, elapsed time, and reported provider cost.
+
+The `--budget` value is a planning and provider hint split across the scheduled attempts. Airlock records actual provider cost when agents report it, and leaves missing cost unknown. It does not claim a hard provider billing cap unless the provider itself enforces one.
+
+## Why use this instead of one agent at a time?
+
+Software debugging is search. A single agent can anchor on the wrong diagnosis, produce a locally convincing regression, or simply choose a weaker implementation.
+
+Machine attempts are cheap enough to explore more of the solution space. Human review is not.
+
+Airlock lets you make being wrong cheap: run many attempts, let later agents learn from earlier failures, and discard unsuccessful search before it becomes maintainer work.
+
+**The goal is not more AI-written code. It is better code per minute of human attention.**
+
+## The repo keeps the final veto
+
+Airlock does not use an LLM judge to pick the least-bad patch.
+
+A candidate that touches protected files is stopped. A candidate that fails the repository's configured checks is blocked. If the available checks do not justify sending the change forward, Airlock returns `NEEDS_EVIDENCE`.
+
+When several patches survive, Airlock does not rank one into existence. When none survive, the output is zero.
+
+**Agents search. The repository decides what earns attention.**
+
+## Public machine contributions without raw agent PRs
+
+Airlock also supports an Actions-only public contribution gate. It requires no hosted service or webhook server.
+
+From your repository:
 
 ```bash
 airlock init
@@ -31,7 +73,7 @@ git add .airlock .github/workflows/airlock.yml CONTRIBUTING.md
 git commit -m "chore: install OpenLine Airlock"
 ```
 
-After that commit reaches your default branch, a contributor can use any coding agent, push the result to a public fork, and submit the commit SHA on the relevant issue:
+A contributor can use any coding agent, push the result to a public fork, and submit the commit SHA on the relevant issue:
 
 ```text
 /airlock submit alice/widget@0123456789abcdef0123456789abcdef01234567
@@ -43,7 +85,7 @@ Airlock evaluates the candidate first. `BLOCKED` means the patch failed a repo r
 
 No agent gets push access. No candidate gets a GitHub token. No agent decides what "passing" means.
 
-## What happens before a PR exists
+## What happens before a public PR exists
 
 Airlock splits the public path into three jobs with different authority.
 
@@ -55,37 +97,21 @@ Airlock splits the public path into three jobs with different authority.
 
 Every submission leaves an outcome. A survivor gets a PR with the base SHA, patch hash, config hash, exact commands, exit codes, and verification-record digest attached.
 
-The default public gate is conservative: one evaluation at a time per repository, one unresolved candidate per submitter per issue, a seven-day GitHub-account floor, five submissions per user per rolling day, and patch size/file-count ceilings.
+## One-round mode
 
-## Why this is separate from your agent stack
-
-Airlock is not a coding model, IDE, orchestrator, or AI reviewer.
-
-Agent tools are getting very good at generating work in parallel. Review tools are getting very good at inspecting PRs after they arrive. Airlock owns the smaller boundary in between: **which machine attempts are allowed to become review work at all.**
-
-That lets you keep whatever generation system you already prefer while moving the admission decision back to repository-owned checks.
-
-## Run several agents locally
-
-Airlock also supports local best-of-N without handing agents merge authority.
+If you only want independent best-of-N attempts without cross-round coordination:
 
 ```bash
-airlock init
 airlock run <issue-or-prompt> -n 12 --models claude-code,codex,aider --budget 2.00
-airlock verify .airlock/records/<run>.json
 ```
 
-Each agent gets a separate Git worktree. Airlock evaluates the resulting patches after generation finishes.
-
-Exactly one survivor becomes ready for review. Zero survivors means zero candidates to review. If several patches survive, Airlock refuses to invent a winner; a human can decide whether any deserves attention.
-
-The `--budget` value is passed to agents as a budget hint and recorded with the run. Airlock does not claim provider-level spend enforcement unless the provider itself honors that limit. Missing cost telemetry stays unknown.
+Exactly one survivor becomes ready for review. Zero survivors means zero candidates to review. Several survivors remain several survivors.
 
 ## What Airlock checks
 
 `airlock init` discovers common repository checks and freezes the starting configuration. Current automatic discovery includes Python (`pytest`, `ruff`, `mypy`), Node (`npm test`, `lint`, `typecheck`), Rust (`cargo test --all-targets`), and Go (`go test ./...`).
 
-Airlock also protects test directories, workflow/config files, and detected build/test configuration so a candidate cannot make itself look green by rewriting the referee.
+Airlock protects test directories, workflow/config files, and detected build/test configuration so a candidate cannot make itself look green by rewriting the referee.
 
 When the available tests do not meaningfully touch the changed module and there is no issue-specific target check, the result is `NEEDS_EVIDENCE`.
 
@@ -103,28 +129,14 @@ For a stronger task-specific bar, add a frozen target command before running the
 
 Airlock shells out to agent commands you already use.
 
-Built-in adapters cover common installed CLIs including Claude Code, Codex, Aider, and OpenCode. Custom commands can be added in `.airlock/config.json`.
+Built-in adapters cover installed Claude Code, Codex, Aider, and OpenCode CLIs. Custom commands can be added in `.airlock/config.json`.
 
-Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's normal Git credential configuration unless explicitly allowed as provider credentials. If you treat an agent command as hostile native code, run generation inside a container or VM.
-
-## Try the boundary from the outside
-
-This repository has a deliberately small public Airlock challenge:
-
-https://github.com/terryncew/openline-airlock/issues/8
-
-The bug is intentionally small. The interesting part is the boundary: an outside agent works in a repo it does not control, cannot change the protected tests or Airlock rules, and cannot open its own PR. A surviving patch can earn one through the repository.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the exact contribution rule.
-
-## Tested boundary
-
-Airlock tests its Actions-only path in normal CI on GitHub-hosted runners. The integration job builds the evaluator image with real Docker and freezes three outcomes: a surviving patch, a patch that returns `NEEDS_EVIDENCE`, and a protected-path candidate that is `BLOCKED` before execution. It also checks that the candidate container receives no GitHub token.
+Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's normal Git credential configuration unless explicitly allowed as provider credentials. Worktree isolation is not a strong sandbox; if you treat an agent command as hostile native code, run generation inside a container or VM.
 
 ## What Airlock does not promise
 
-Airlock does not make weak tests strong, prove perfect correctness, or decide that one passing implementation is globally best.
+Airlock does not make weak tests strong, prove perfect correctness, decide that one passing implementation is globally best, or guarantee a provider obeys a budget hint.
 
 It solves a narrower problem:
 
-**let machine attempts scale without making human review scale at the same rate.**
+**let machine search scale without making human review scale at the same rate.**

@@ -10,6 +10,7 @@ import time
 import uuid
 from pathlib import Path
 
+from .blackboard import coordination_prompt, normalize_findings
 from .config import load as load_config
 from .discovery import protected_fingerprint, run_baseline
 from .gitops import (
@@ -64,6 +65,9 @@ def _agent_report(path: Path) -> dict:
             keep[key] = obj[key]
     if "local_checks_passed" in keep:
         keep["local_checks_passed"] = bool(keep["local_checks_passed"])
+    findings = normalize_findings(obj.get("findings"))
+    if findings:
+        keep["findings"] = findings
     return keep
 
 
@@ -137,6 +141,7 @@ def run_tournament(
     budget: float | None,
     open_pr: bool,
     config_path: Path,
+    coordination: dict | None = None,
 ) -> dict:
     repo = repo.resolve()
     ensure_clean(repo)
@@ -174,24 +179,40 @@ def run_tournament(
     print(f"Agents started: {agents}")
     temp_root = Path(tempfile.mkdtemp(prefix=f"airlock-{run_id}-"))
     entries = []
+    roles = list((coordination or {}).get("roles") or [])
     for i in range(agents):
         candidate_id = f"candidate-{i+1:02d}"
         model = models[i % len(models)]
+        role = roles[i % len(roles)] if roles else None
         branch = sanitize_branch(f"airlock/{run_id}/{candidate_id}")
         worktree = temp_root / candidate_id
         add_worktree(repo, worktree, branch=branch, commit=base)
-        entries.append((candidate_id, model, branch, worktree))
+        entries.append((candidate_id, model, branch, worktree, role))
 
     per_agent_budget = None if budget is None else budget / agents
 
-    def generate(entry: tuple[str, str, str, Path]) -> dict:
-        candidate_id, model, branch, worktree = entry
+    def generate(entry: tuple[str, str, str, Path, str | None]) -> dict:
+        candidate_id, model, branch, worktree, role = entry
         provider = resolve_provider(config, model)
         report_path = run_dir / "agent-reports" / f"{candidate_id}.json"
         report_path.parent.mkdir(parents=True, exist_ok=True)
+        candidate_prompt = prompt
+        candidate_prompt_path = prompt_path
+        if coordination is not None:
+            candidate_prompt = coordination_prompt(
+                prompt,
+                candidate_id=candidate_id,
+                role=role or "builder",
+                round_number=int(coordination.get("round", 1)),
+                total_rounds=int(coordination.get("rounds", 1)),
+                blackboard_text=str(coordination.get("blackboard") or "No prior round notes are available."),
+            )
+            candidate_prompt_path = run_dir / "prompts" / f"{candidate_id}.txt"
+            candidate_prompt_path.parent.mkdir(parents=True, exist_ok=True)
+            candidate_prompt_path.write_text(candidate_prompt)
         values = {
-            "prompt": prompt,
-            "prompt_file": str(prompt_path),
+            "prompt": candidate_prompt,
+            "prompt_file": str(candidate_prompt_path),
             "candidate_id": candidate_id,
             "worktree": str(worktree),
             "branch": branch,
@@ -203,9 +224,11 @@ def run_tournament(
             home=temp_root / f"{candidate_id}-home",
             extra={
                 "AIRLOCK_CANDIDATE_ID": candidate_id,
-                "AIRLOCK_PROMPT_FILE": str(prompt_path),
+                "AIRLOCK_PROMPT_FILE": str(candidate_prompt_path),
                 "AIRLOCK_AGENT_REPORT": str(report_path),
                 "AIRLOCK_BUDGET_USD": values["budget"],
+                "AIRLOCK_SWARM_ROLE": role or "",
+                "AIRLOCK_SWARM_ROUND": "" if coordination is None else str(coordination.get("round", "")),
             },
         )
         result = run(argv, worktree, env=env, timeout=int(provider.get("timeout_seconds", 3600)))
@@ -216,9 +239,11 @@ def run_tournament(
         return {
             "candidate_id": candidate_id,
             "model": model,
+            "role": role,
             "branch": branch,
             "commit": commit,
             "changed_paths": paths,
+            "prompt_sha256": sha256_bytes(candidate_prompt.encode()),
             "branch_integrity": branch_ok,
             "agent_execution": compact_result(result),
             "agent_report": _agent_report(report_path),
@@ -233,7 +258,7 @@ def run_tournament(
                 generated.append(future.result())
         generated.sort(key=lambda row: row["candidate_id"])
     finally:
-        for _, _, _, worktree in entries:
+        for _, _, _, worktree, _ in entries:
             remove_worktree(repo, worktree)
         shutil.rmtree(temp_root, ignore_errors=True)
 
@@ -304,6 +329,14 @@ def run_tournament(
         "status": final_status,
         "base_commit": base,
         "prompt_sha256": sha256_bytes(prompt.encode()),
+        "coordination": None if coordination is None else {
+            "schema": coordination.get("schema"),
+            "swarm_id": coordination.get("swarm_id"),
+            "round": coordination.get("round"),
+            "rounds": coordination.get("rounds"),
+            "roles": roles,
+            "blackboard_sha256": sha256_bytes(str(coordination.get("blackboard") or "").encode()),
+        },
         "requested_agents": agents,
         "models": models,
         "budget_usd": budget,
@@ -341,7 +374,7 @@ def run_tournament(
                 "coverage_check": next((c for c in ready["checks"] if c.get("rule") == "evidence_sufficiency"), None),
             },
             "config_sha256": sha256_file(config_path),
-            "prompt_sha256": sha256_bytes(prompt.encode()),
+            "prompt_sha256": ready.get("prompt_sha256", sha256_bytes(prompt.encode())),
             "reported_cost": ready.get("agent_report", {}).get("reported_cost_usd"),
             "what_this_record_means": (
                 "This record confirms the exact candidate passed the checks listed here and did not change protected paths. "
@@ -355,7 +388,7 @@ def run_tournament(
         evidence_hashes = [
             baseline["protected_fingerprint"]["root_sha256"],
             sha256_file(config_path),
-            sha256_bytes(prompt.encode()),
+            ready.get("prompt_sha256", sha256_bytes(prompt.encode())),
         ] + [r["stdout_sha256"] for r in commands] + [r["stderr_sha256"] for r in commands]
         index_add(repo / ".airlock" / "index.json", str(verification_path.relative_to(repo)), evidence_hashes)
         report["verification_file"] = str(verification_path.relative_to(repo))

@@ -225,7 +225,7 @@ class AirlockTests(unittest.TestCase):
         from airlock.cli import build_parser
         parser = build_parser()
         action = next(a for a in parser._actions if isinstance(a, __import__('argparse')._SubParsersAction))
-        self.assertEqual(set(action.choices), {"init", "run", "verify", "install-github"})
+        self.assertEqual(set(action.choices), {"init", "swarm", "run", "verify", "install-github"})
 
 
 if __name__ == "__main__":

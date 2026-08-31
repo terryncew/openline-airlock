@@ -1,35 +1,31 @@
-# Show HN: Airlock – admission control for coding-agent patches
+# Show HN: Airlock – turn a GitHub issue into autonomous software search
 
-Coding agents can already generate more patches than humans want to review.
+Coding agents made attempts cheap. Human attention is still expensive.
 
-Cursor, Codex, Claude, Aider and the rest are getting very good at producing work. PR reviewers are getting very good at inspecting that work after it arrives.
+Airlock lets a repository spend many coding-agent attempts on one issue without turning every attempt into a pull request.
 
-I built Airlock for the boundary in between: **which machine attempts should be allowed to become review work at all?**
-
-Airlock sits in front of the PR queue. Keep whatever agent stack you already like. The repository owns the tests, protected files, and acceptance rules. A machine patch has to clear that boundary before it can earn a normal PR.
-
-For the public contribution path, an outside contributor pushes a candidate to a public fork and submits only the commit SHA on the relevant issue:
-
-```text
-/airlock submit USER/FORK@FULL_COMMIT_SHA
+```bash
+airlock swarm <issue-or-prompt> \
+  --agents 8 \
+  --rounds 3 \
+  --models claude-code,codex,aider \
+  --budget 6.00
 ```
 
-That comment is not a PR.
+Each attempt gets an isolated Git worktree. Agents can use bounded, typed notes from earlier rounds — root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings — so later attempts can avoid rediscovering the same dead ends.
 
-Airlock checks the submitter and fork, rejects protected-file edits before candidate code runs, evaluates the patch in a Docker container with no network and no GitHub token, and reserves PR creation for a separate trusted job that never executes candidate code.
+The important part is what the agents cannot share or change: the repository's admission boundary.
 
-`BLOCKED` means the patch violated a repo rule or failed a configured check. `NEEDS_EVIDENCE` means the available checks do not justify sending it forward. `REOPEN` means the base moved and the candidate needs a fresh run. A `SURVIVED` patch can earn a normal PR for human review.
+Protected files stay protected. The configured tests, lint/type checks, task-specific commands, and evidence-sufficiency rule remain repository-owned. Shared agent notes are untrusted search hints only.
 
-The agent never gets push access and never decides what passing means.
+That means a swarm can spend twenty attempts and still produce zero PRs.
 
-Airlock also has a local best-of-N path for running several coding agents against the same task in isolated Git worktrees, but that is secondary to the point: generation can come from anywhere. Airlock is the independent admission boundary.
+If exactly one final patch survives, it can become ready for review. If several survive, Airlock refuses to invent a winner. If none survive, the maintainer gets nothing to clean up.
 
-The question I care about is simple:
+The public contribution path is separate and Actions-only: outside contributors submit a fork commit on an issue, candidate code runs without a GitHub token or network access, and only a trusted publisher can open a PR after the patch survives.
 
-**As machine-generated patches become cheap, can we keep failed attempts from becoming human review work?**
+The product idea is simple:
+
+**machine search should be allowed to scale without forcing human review to scale with it.**
 
 Repo: https://github.com/terryncew/openline-airlock
-
-There is a deliberately small public challenge here if you want to see the pre-PR boundary from the outside:
-
-https://github.com/terryncew/openline-airlock/issues/8
