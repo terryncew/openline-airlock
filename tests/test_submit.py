@@ -3,6 +3,7 @@ from __future__ import annotations
 import hashlib
 import hmac
 import json
+import subprocess
 import tempfile
 import unittest
 from datetime import datetime, timezone, timedelta
@@ -157,6 +158,36 @@ class SubmitTests(unittest.TestCase):
             self.assertIn("--read-only", argv)
             self.assertNotIn("GITHUB_TOKEN", env)
             self.assertEqual(result["exit_code"], 0)
+
+    def test_10b_service_side_effect_guard_compares_against_existing_candidate_state(self):
+        from airlock_submit import worker as worker_mod
+
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.name", "Airlock Test"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.email", "airlock@example.invalid"], cwd=repo, check=True)
+            tracked = repo / "demo.py"
+            tracked.write_text("value = 1\n")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(["git", "commit", "-m", "base"], cwd=repo, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            tracked.write_text("value = 2\n")
+            subprocess.run(["git", "add", "demo.py"], cwd=repo, check=True)
+
+            clean_record = {"argv": ["python", "-c", "pass"], "exit_code": 0, "timed_out": False}
+            with mock.patch("airlock_submit.worker._docker_result", return_value=clean_record.copy()):
+                result = worker_mod._run_group(repo, "image:test", [["python", "-c", "pass"]], cfg(), kind="static")
+            self.assertEqual(result["status"], "PASS")
+            self.assertFalse(result["commands"][0]["tracked_side_effect"])
+
+            def mutate(*args, **kwargs):
+                tracked.write_text("value = 3\n")
+                return clean_record.copy()
+
+            with mock.patch("airlock_submit.worker._docker_result", side_effect=mutate):
+                result = worker_mod._run_group(repo, "image:test", [["python", "-c", "pass"]], cfg(), kind="static")
+            self.assertEqual(result["status"], "FAIL")
+            self.assertEqual(result["reason"], "EVALUATOR_SIDE_EFFECT")
 
     def test_11_pr_receipt_says_exactly_what_ran(self):
         submission = {"submitter":"alice", "issue_number":7}

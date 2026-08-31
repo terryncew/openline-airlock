@@ -105,14 +105,29 @@ def _docker_result(workspace: Path, image: str, argv: list[str], config: dict, t
     return compact_result(raw)
 
 
+def _tracked_state_fingerprint(workspace: Path) -> str:
+    # Candidate changes are already staged when checks begin. Compare the exact
+    # tracked-file state around each evaluator command so the candidate diff is
+    # allowed while any new mutation caused by the evaluator is still denied.
+    cp = _run(
+        ["git", "-c", "core.hooksPath=/dev/null", "diff", "--binary", "--full-index", "HEAD", "--"],
+        workspace,
+        timeout=120,
+        text=False,
+    )
+    if cp.returncode != 0:
+        raise RuntimeError(cp.stderr.decode(errors="replace")[-1000:])
+    return sha256_bytes(cp.stdout)
+
+
 def _run_group(workspace: Path, image: str, commands: list[list[str]], config: dict, *, kind: str) -> dict:
     records = []
     for argv in commands:
-        before = _git(workspace, "status", "--porcelain", "--untracked-files=no")
+        before = _tracked_state_fingerprint(workspace)
         record = _docker_result(workspace, image, argv, config, int(config["evaluation_timeout_seconds"]))
         record["kind"] = kind
-        after = _git(workspace, "status", "--porcelain", "--untracked-files=no")
-        record["tracked_side_effect"] = bool(before.strip() or after.strip())
+        after = _tracked_state_fingerprint(workspace)
+        record["tracked_side_effect"] = before != after
         records.append(record)
         if record["tracked_side_effect"]:
             return {"rule": kind, "status": "FAIL", "reason": "EVALUATOR_SIDE_EFFECT", "commands": records}

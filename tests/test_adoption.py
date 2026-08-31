@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -128,6 +129,37 @@ class AdoptionTests(unittest.TestCase):
         with mock.patch("airlock_submit.actions._api", return_value=page):
             with self.assertRaisesRegex(RuntimeError, "too large"):
                 actions_mod._paged_comments("token", "alice/demo", "/repos/alice/demo/issues/comments", max_pages=2)
+
+    def test_actions_side_effect_guard_allows_the_candidate_diff_but_blocks_new_mutation(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            subprocess.run(["git", "init", "-b", "main"], cwd=repo, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            subprocess.run(["git", "config", "user.name", "Airlock Test"], cwd=repo, check=True)
+            subprocess.run(["git", "config", "user.email", "airlock@example.invalid"], cwd=repo, check=True)
+            (repo / "src").mkdir()
+            tracked = repo / "src" / "demo.py"
+            tracked.write_text("value = 1\n")
+            subprocess.run(["git", "add", "."], cwd=repo, check=True)
+            subprocess.run(["git", "commit", "-m", "base"], cwd=repo, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+
+            # A candidate patch is expected to be staged before evaluator commands run.
+            tracked.write_text("value = 2\n")
+            subprocess.run(["git", "add", "src/demo.py"], cwd=repo, check=True)
+            clean_record = {"argv": ["python", "-c", "pass"], "exit_code": 0, "timed_out": False}
+            with mock.patch("airlock_submit.actions._docker_run", return_value=clean_record.copy()):
+                result = actions_mod._run_group(repo, "image:test", [["python", "-c", "pass"]], {}, "static")
+            self.assertEqual(result["status"], "PASS")
+            self.assertFalse(result["commands"][0]["tracked_side_effect"])
+
+            def mutate(*args, **kwargs):
+                tracked.write_text("value = 3\n")
+                return clean_record.copy()
+
+            with mock.patch("airlock_submit.actions._docker_run", side_effect=mutate):
+                result = actions_mod._run_group(repo, "image:test", [["python", "-c", "pass"]], {}, "static")
+            self.assertEqual(result["status"], "FAIL")
+            self.assertEqual(result["reason"], "EVALUATOR_SIDE_EFFECT")
+            self.assertTrue(result["commands"][0]["tracked_side_effect"])
 
     def test_evaluation_exception_becomes_error_outcome(self):
         incoming = self.repo / "admitted"
