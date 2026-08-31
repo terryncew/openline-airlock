@@ -58,6 +58,15 @@ def run(argv: list[str], cwd: Path, *, env: dict[str, str] | None = None, timeou
             "duration_seconds": round(time.monotonic() - started, 6),
             "timed_out": True,
         }
+    except OSError as exc:
+        return {
+            "argv": argv,
+            "exit_code": 127,
+            "stdout": "",
+            "stderr": str(exc),
+            "duration_seconds": round(time.monotonic() - started, 6),
+            "timed_out": False,
+        }
 
 
 def compact_result(result: dict) -> dict:

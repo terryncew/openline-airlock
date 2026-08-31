@@ -1,20 +1,19 @@
 from __future__ import annotations
 
 import argparse
-import json
+import shlex
 import sys
 from pathlib import Path
 
 from . import __version__
-from .config import save as save_config
-from .discovery import discover_commands, protected_patterns, run_baseline
+from .adoption import install_github
+from .config import load as load_config, save as save_config
+from .discovery import discovery_metadata, discover_commands, protected_patterns, run_baseline
 from .gitops import ensure_clean, root
 from .providers import builtin_providers
-from .verification import ensure_key, verify_offline
-from .adoption import install_github
 from .runner import run_tournament
 from .swarm import run_swarm
-from .util import write_json
+from .verification import ensure_key, verify_offline
 
 
 def _update_local_exclude(repo: Path) -> None:
@@ -42,57 +41,174 @@ def _update_local_exclude(repo: Path) -> None:
                 f.write(row + "\n")
 
 
+def _configured_commands(config: dict) -> dict[str, list[list[str]]]:
+    verification = config.get("verification", {})
+    return {
+        "static": verification.get("static_commands", []),
+        "tests": verification.get("test_commands", []),
+    }
+
+
+def _has_commands(commands: dict[str, list[list[str]]]) -> bool:
+    return bool(commands.get("static") or commands.get("tests"))
+
+
+def _command_text(argv: list[str]) -> str:
+    return shlex.join(str(part) for part in argv)
+
+
+def _print_project(metadata: dict, *, baseline_green: bool = False) -> None:
+    print("Project")
+    runners = set(metadata["test_runners"])
+    runner_for = {
+        "Python": "pytest",
+        "Node": "npm test",
+        "Rust": "cargo test",
+        "Go": "go test",
+    }
+    shown_runners: set[str] = set()
+    if metadata["project_types"]:
+        for project_type in metadata["project_types"]:
+            runner = runner_for.get(project_type)
+            if runner in runners:
+                print(f"  ✓ {project_type} / {runner}")
+                shown_runners.add(runner)
+            else:
+                print(f"  ✓ {project_type}")
+    else:
+        print("  • Project type not identified")
+    for runner in metadata["test_runners"]:
+        if runner not in shown_runners:
+            print(f"  ✓ {runner}")
+    if metadata["test_count"] is not None:
+        noun = "test" if metadata["test_count"] == 1 else "tests"
+        print(f"  ✓ {metadata['test_count']} {noun} found")
+    for tool in metadata["quality_tools"]:
+        print(f"  ✓ {tool}")
+    if baseline_green:
+        print("  ✓ Starting repo passes its checks")
+
+
+def _print_no_checks(metadata: dict) -> None:
+    print("Airlock couldn't find enough checks to run unattended.")
+    print("I found:")
+    if metadata["project_types"]:
+        for project_type in metadata["project_types"]:
+            print(f"  ✓ {project_type} project")
+    else:
+        print("  ✗ No supported project type")
+    if metadata["test_runners"]:
+        for runner in metadata["test_runners"]:
+            print(f"  ✓ {runner}")
+    else:
+        print("  ✗ No test command")
+    if metadata["quality_tools"]:
+        for tool in metadata["quality_tools"]:
+            print(f"  ✓ {tool}")
+    else:
+        print("  ✗ No lint or type check")
+    print("\nStarter Rules draft saved to .airlock/config.json.")
+    print("Add a check or edit .airlock/config.json, then run:")
+    print("  airlock init")
+
+
+def _print_failed_baseline(baseline: dict) -> None:
+    print("Airlock found your Starter Rules, but the repo does not currently pass them.")
+    print("Airlock won't start autonomous search from a broken starting point.")
+    print("Failed:")
+    failed = [
+        row for row in baseline.get("commands", [])
+        if row.get("exit_code") != 0 or row.get("timed_out") or row.get("side_effect")
+    ]
+    for row in failed:
+        detail = ""
+        if row.get("timed_out"):
+            detail = " (timed out)"
+        elif row.get("side_effect"):
+            detail = " (changed tracked files while running)"
+        elif row.get("exit_code") == 127:
+            detail = " (could not run)"
+        print(f"  ✗ {_command_text(row['argv'])}{detail}")
+    print("Fix the starting repo and run airlock init again.")
+
+
 def command_init(args: argparse.Namespace) -> int:
     repo = root(Path(args.repo).resolve())
     ensure_clean(repo)
-    commands = discover_commands(repo)
-    protected = protected_patterns(repo)
-    baseline = run_baseline(repo, commands, timeout=args.timeout)
-
-    config = {
-        "schema": "airlock.config.v1",
-        "parallelism": 4,
-        "protected_paths": protected,
-        "verification": {
-            "static_commands": commands["static"],
-            "test_commands": commands["tests"],
-            "target_commands": [],
-            "timeout_seconds": args.timeout,
-            "coverage_mode": "changed-module-reference",
-        },
-        "providers": builtin_providers(),
-        "init_baseline": baseline,
-    }
     config_path = repo / ".airlock" / "config.json"
+    discovered = discover_commands(repo)
+    detected_protected = protected_patterns(repo)
+    detected_providers = builtin_providers()
+
+    if config_path.exists():
+        try:
+            config = load_config(config_path)
+        except Exception as exc:
+            print("Airlock found .airlock/config.json, but couldn't read its Starter Rules.")
+            print(f"  {exc}")
+            print("Fix the file and run airlock init again.")
+            return 2
+        commands = _configured_commands(config)
+        if not _has_commands(commands) and _has_commands(discovered):
+            verification = config.setdefault("verification", {})
+            verification["static_commands"] = discovered["static"]
+            verification["test_commands"] = discovered["tests"]
+            existing_protected = config.get("protected_paths", [])
+            config["protected_paths"] = list(dict.fromkeys(existing_protected + detected_protected))
+            commands = discovered
+        providers = config.setdefault("providers", {})
+        for name, provider in detected_providers.items():
+            providers.setdefault(name, provider)
+        protected = config.setdefault("protected_paths", detected_protected)
+        timeout = int(config.get("verification", {}).get("timeout_seconds", args.timeout))
+    else:
+        commands = discovered
+        protected = detected_protected
+        timeout = args.timeout
+        config = {
+            "schema": "airlock.config.v1",
+            "parallelism": 4,
+            "protected_paths": protected,
+            "verification": {
+                "static_commands": commands["static"],
+                "test_commands": commands["tests"],
+                "target_commands": [],
+                "timeout_seconds": timeout,
+                "coverage_mode": "changed-module-reference",
+            },
+            "providers": detected_providers,
+            "init_baseline": {},
+        }
+
+    baseline = run_baseline(repo, commands, timeout=timeout)
+    config["init_baseline"] = baseline
     save_config(config_path, config)
     ensure_key(repo / ".airlock" / "verification.key")
     _update_local_exclude(repo)
 
-    print("OpenLine Airlock")
-    print(f"Repository: {repo}")
-    print("\nFound checks:")
-    rows = commands["static"] + commands["tests"]
-    if rows:
-        for argv in rows:
-            print("  ✓ " + " ".join(argv))
-    else:
-        print("  none")
-    print("\nProtected automatically:")
-    for pattern in protected:
-        print(f"  • {pattern}")
-    print(f"\nBaseline: {'GREEN' if baseline['green'] else 'NOT GREEN'}")
-    print(f"Config: {config_path.relative_to(repo)}")
-    if config["providers"]:
-        print("Agent adapters found: " + ", ".join(sorted(config["providers"])))
-    else:
-        print("Agent adapters found: none (add provider commands to .airlock/config.json)")
-
-    if not rows:
-        print("\nAirlock needs at least one test, lint, or typecheck command before it can run unattended.")
+    metadata = discovery_metadata(repo, discovered, baseline)
+    if not _has_commands(commands):
+        _print_no_checks(metadata)
         return 2
     if not baseline["green"]:
-        print("\nAirlock will not start a tournament from a failing baseline.")
+        _print_failed_baseline(baseline)
         return 2
+
+    print("Airlock found your project and set up Starter Rules.")
+    _print_project(metadata, baseline_green=True)
+    print("Accepted patches cannot change")
+    if protected:
+        for pattern in protected:
+            print(f"  • {pattern}")
+    else:
+        print("  • No paths configured")
+    print("Before a patch can reach you, it must pass")
+    for argv in commands["tests"] + commands["static"]:
+        print(f"  • {_command_text(argv)}")
+    print(f"Starter Rules saved to {config_path.relative_to(repo)}")
+    print("You can change these rules whenever you want.")
+    print("Next:")
+    print('  airlock swarm "fix issue #417"')
     return 0
 
 
@@ -195,7 +311,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
 
-    init = sub.add_parser("init", help="Find your repo checks, protect tests/config, and confirm the baseline is green.")
+    init = sub.add_parser("init", help="Set up editable Starter Rules from the checks Airlock finds in your repo.")
     init.add_argument("--repo", default=".")
     init.add_argument("--timeout", type=int, default=1200)
     init.set_defaults(func=command_init)
@@ -231,7 +347,7 @@ def build_parser() -> argparse.ArgumentParser:
     install.add_argument("--repo", default=".")
     install.add_argument("--github-repo", help="GitHub repository in owner/name form; inferred from origin when omitted.")
     install.add_argument("--base-branch", default="main")
-    install.add_argument("--force", action="store_true", help="Regenerate the maintainer-owned evaluator Dockerfile.")
+    install.add_argument("--force", action="store_true", help="Regenerate the maintainer-owned check-runner Dockerfile.")
     install.set_defaults(func=command_install_github)
     return parser
 

@@ -5,7 +5,16 @@ Coding agents made attempts cheap. Human attention is still expensive.
 Airlock lets a repository spend many coding-agent attempts on one issue without turning every attempt into a pull request.
 
 ```bash
-airlock swarm <issue-or-prompt> \
+python -m pip install "git+https://github.com/terryncew/openline-airlock.git"
+airlock init
+```
+
+`airlock init` looks at the repository, chooses editable Starter Rules from the checks already there, and prints exactly what it found: project type, paths accepted patches cannot change, commands every patch must pass, and whether the starting commit passes them. Read that output. If the checks are missing or already red, Airlock stops there.
+
+Then:
+
+```bash
+airlock swarm "fix issue #417" \
   --agents 8 \
   --rounds 3 \
   --models claude-code,codex,aider \
@@ -14,9 +23,9 @@ airlock swarm <issue-or-prompt> \
 
 Each attempt gets an isolated Git worktree. Agents can use bounded, typed notes from earlier rounds — root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings — so later attempts can avoid rediscovering the same dead ends.
 
-The important part is what the agents cannot share or change: the repository's admission boundary.
+The important part is what shared notes cannot rewrite and accepted patches cannot change: the repository's Starter Rules.
 
-Protected files stay protected. The configured tests, lint/type checks, task-specific commands, and evidence-sufficiency rule remain repository-owned. Shared agent notes are untrusted search hints only.
+Changes to listed files are rejected. The configured tests, lint/type checks, task-specific commands, and evidence-sufficiency rule remain repository-owned. Shared agent notes are untrusted search hints only.
 
 That means a swarm can spend twenty attempts and still produce zero PRs.
 

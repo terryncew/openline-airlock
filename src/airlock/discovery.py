@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import shutil
 import tempfile
 from pathlib import Path
@@ -23,7 +24,8 @@ def _package_scripts(repo: Path) -> dict:
     if not path.exists():
         return {}
     try:
-        return json.loads(path.read_text()).get("scripts", {})
+        scripts = json.loads(path.read_text()).get("scripts", {})
+        return scripts if isinstance(scripts, dict) else {}
     except Exception:
         return {}
 
@@ -44,11 +46,23 @@ def _looks_like_pytest_repo(repo: Path) -> bool:
     return False
 
 
+def _looks_like_python_repo(repo: Path) -> bool:
+    if any((repo / name).exists() for name in ("pyproject.toml", "pytest.ini", "setup.py", "setup.cfg")):
+        return True
+    if any(repo.glob("*.py")):
+        return True
+    for root_name in ("src", "tests", "test"):
+        root = repo / root_name
+        if root.exists() and next(root.rglob("*.py"), None) is not None:
+            return True
+    return False
+
+
 def discover_commands(repo: Path) -> dict[str, list[list[str]]]:
     static: list[list[str]] = []
     tests: list[list[str]] = []
 
-    has_python = (repo / "pyproject.toml").exists() or (repo / "pytest.ini").exists() or (repo / "tests").exists()
+    has_python = _looks_like_python_repo(repo)
     if has_python and (shutil.which("pytest") or _looks_like_pytest_repo(repo)):
         tests.append(["pytest", "-q"])
     if shutil.which("ruff") and ((repo / "ruff.toml").exists() or (repo / "pyproject.toml").exists()):
@@ -82,13 +96,96 @@ def discover_commands(repo: Path) -> dict[str, list[list[str]]]:
     return {"static": dedupe(static), "tests": dedupe(tests)}
 
 
+def _is_command(argv: list[str], *prefix: str) -> bool:
+    return len(argv) >= len(prefix) and tuple(argv[:len(prefix)]) == prefix
+
+
+def _is_pytest(argv: list[str]) -> bool:
+    if not argv:
+        return False
+    executable = Path(argv[0]).name
+    return executable in {"pytest", "py.test"} or (
+        len(argv) >= 3 and argv[1:3] == ["-m", "pytest"]
+    )
+
+
+def _pytest_count(baseline: dict | None) -> int | None:
+    """Return an exact count only when one successful pytest run reports it."""
+    if not baseline:
+        return None
+    rows = [
+        row for row in baseline.get("commands", [])
+        if row.get("kind") == "tests"
+        and _is_pytest(row.get("argv", []))
+        and row.get("exit_code") == 0
+        and not row.get("timed_out")
+        and not row.get("side_effect")
+    ]
+    if len(rows) != 1:
+        return None
+    output = "\n".join((rows[0].get("stdout_tail", ""), rows[0].get("stderr_tail", "")))
+    for line in reversed(output.splitlines()):
+        counts = re.findall(r"\b(\d+)\s+(passed|skipped|xfailed|xpassed)\b", line)
+        if counts and re.search(r"\bin\s+\d", line):
+            return sum(int(count) for count, _ in counts)
+    return None
+
+
+def discovery_metadata(
+    repo: Path,
+    commands: dict[str, list[list[str]]],
+    baseline: dict | None = None,
+) -> dict:
+    """Describe reliable, human-readable facts behind discovered Starter Rules."""
+    static = commands.get("static", [])
+    tests = commands.get("tests", [])
+
+    project_types: list[str] = []
+    if _looks_like_python_repo(repo):
+        project_types.append("Python")
+    if (repo / "package.json").exists():
+        project_types.append("Node")
+    if (repo / "Cargo.toml").exists():
+        project_types.append("Rust")
+    if (repo / "go.mod").exists():
+        project_types.append("Go")
+
+    test_runners: list[str] = []
+    if any(_is_pytest(argv) for argv in tests):
+        test_runners.append("pytest")
+    if any(_is_command(argv, "npm", "test") for argv in tests):
+        test_runners.append("npm test")
+    if any(_is_command(argv, "cargo", "test") for argv in tests):
+        test_runners.append("cargo test")
+    if any(_is_command(argv, "go", "test") for argv in tests):
+        test_runners.append("go test")
+
+    quality_tools: list[str] = []
+    if any(_is_command(argv, "ruff", "check") for argv in static):
+        quality_tools.append("Ruff")
+    if any(argv and Path(argv[0]).name == "mypy" for argv in static):
+        quality_tools.append("mypy")
+    if any(_is_command(argv, "npm", "run", "lint") for argv in static):
+        quality_tools.append("npm lint")
+    if any(_is_command(argv, "npm", "run", "typecheck") for argv in static):
+        quality_tools.append("npm typecheck")
+
+    return {
+        "project_types": project_types,
+        "test_runners": test_runners,
+        "quality_tools": quality_tools,
+        "test_count": _pytest_count(baseline),
+    }
+
+
 def protected_patterns(repo: Path) -> list[str]:
-    patterns = list(ALWAYS_PROTECTED)
+    patterns: list[str] = []
     tracked = set(tracked_files(repo))
     for pattern in TEST_PATTERNS:
         root_name = pattern.split("/")[0]
         if any(path == root_name or path.startswith(root_name + "/") for path in tracked):
             patterns.append(pattern)
+    patterns.extend(ALWAYS_PROTECTED)
     for name in sorted(PROTECTED_CONFIG_NAMES):
         if name in tracked:
             patterns.append(name)

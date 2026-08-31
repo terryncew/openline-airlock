@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 — Starter Rules
+
+- Turns `airlock init` into a zero-config onboarding step with plain-English sections for detected project tools, paths accepted patches cannot change, commands every patch must pass, and starting-repo status.
+- Keeps the existing `airlock.config.v1` format and preserves developer-edited rules, target commands, providers, limits, and paths on rerun.
+- Keeps Python, Node, Rust, and Go discovery, while adding reliable names for detected test runners, linters, and type checkers.
+- Reports a pytest count only when the already-completed successful run provides an exact summary; otherwise it omits the count.
+- Stops with actionable output when no meaningful checks are found, a command cannot run, or the starting commit is red.
+- Ends every successful setup with one next command: `airlock swarm "fix issue #417"`.
+
 ## 0.2.0 — Autonomous software search
 
 - Adds `airlock swarm`: give one issue or prompt to repeated rounds of heterogeneous coding-agent attempts while Airlock keeps the repository's existing admission checks authoritative.
