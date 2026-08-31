@@ -18,6 +18,8 @@ One patch survives? That is the one a maintainer sees.
 
 **Use whatever coding agent you want. The repo decides what passes.**
 
+Airlock also tests its own Actions-only boundary in normal CI. The integration job builds the maintainer-owned evaluator image on a GitHub runner and freezes three outcomes: a patch that survives, a patch that needs more evidence, and a protected-path cheat rejected before candidate execution. The resulting outcome files are saved as a workflow artifact.
+
 ## What this lets you do
 
 Airlock makes high-volume autonomous coding practical without scaling human review at the same rate.

@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.3 — AIRLOCK-INTEGRATION-001
+
+- Adds a GitHub-runner integration test for the Actions-only public contribution path.
+- Exercises a real Docker evaluator with no GitHub token inside the candidate container.
+- Freezes three outcomes: `SURVIVED`, `NEEDS_EVIDENCE`, and a protected-path `BLOCKED` that never executes candidate code.
+- Uploads the three outcome files plus a machine-readable integration report as a CI artifact.
+- Runs automatically in normal CI; maintainers do not start a separate workflow or operate a service.
+
 ## 0.1.2 — AIRLOCK-ADOPTION-001
 
 - Added `airlock install-github`, an Actions-only install path with no standing webhook service.

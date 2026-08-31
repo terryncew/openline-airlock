@@ -173,3 +173,22 @@ class AdoptionTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ActionsRuntimeProofTests(unittest.TestCase):
+    def test_ci_runs_real_docker_runtime_proof(self):
+        repo = Path(__file__).resolve().parents[1]
+        workflow = (repo / ".github" / "workflows" / "ci.yml").read_text()
+        self.assertIn("Actions runtime integration", workflow)
+        self.assertIn("docker version", workflow)
+        self.assertIn("run_actions_runtime_selftest.py", workflow)
+        self.assertIn("airlock-actions-runtime", workflow)
+
+    def test_runtime_proof_script_freezes_three_expected_outcomes(self):
+        repo = Path(__file__).resolve().parents[1]
+        script = (repo / "scripts" / "run_actions_runtime_selftest.py").read_text()
+        self.assertIn('!= "SURVIVED"', script)
+        self.assertIn('!= "NEEDS_EVIDENCE"', script)
+        self.assertIn('"PROTECTED_FILES_CHANGED"', script)
+        self.assertIn('"execution_attempted": False', script)
+        self.assertIn("container_received_no_github_token", script)
