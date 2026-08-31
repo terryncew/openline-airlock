@@ -11,7 +11,7 @@ from pathlib import Path
 from airlock.util import canonical_json_bytes, sha256_bytes, sha256_file, write_json
 
 from .policy import load_submit_config, protected_touches
-from .seal import load_verified
+from .seal import load_verified, seal
 from .store import Store
 
 
@@ -43,6 +43,7 @@ def _receipt_markdown(submission: dict, evaluation: dict, receipt_sha: str, rece
         f"- Candidate commit: `{evaluation['source_sha']}`",
         f"- Patch SHA-256: `{evaluation['patch_sha256']}`",
         f"- Airlock config SHA-256: `{evaluation['airlock_config_sha256']}`",
+        f"- Outcome SHA-256: `{evaluation.get('outcome_sha256', 'unknown')}`",
         f"- Protected files changed: `{len(evaluation.get('protected_touches', []))}`",
         f"- Receipt SHA-256: `{receipt_sha}`",
         "",
@@ -78,6 +79,27 @@ def _receipt_markdown(submission: dict, evaluation: dict, receipt_sha: str, rece
     return "\n".join(lines) + "\n"
 
 
+def _write_reopen_record(*, artifact_dir: Path, submission: dict, current_base_sha: str, key: str) -> tuple[Path, str]:
+    payload = {
+        "schema": "airlock.submit.reopen.v1",
+        "submission_id": submission["id"],
+        "repo": submission["repo"],
+        "issue_number": submission["issue_number"],
+        "submitter": submission["submitter"],
+        "source_sha": submission["source_sha"],
+        "evaluated_base_sha": submission["base_sha"],
+        "current_base_sha": current_base_sha,
+        "reason": "BASE_MOVED",
+        "decision": "REOPEN",
+        "requires_fresh_evaluation": True,
+        "rebase_performed": False,
+        "pr_opened": False,
+    }
+    path = artifact_dir / "reopen.json"
+    write_json(path, seal(payload, key))
+    return path, sha256_file(path)
+
+
 def open_pr(*, submission_id: str, config_path: Path, db_path: Path, evaluation_key: str | None = None) -> dict:
     config = load_submit_config(config_path)
     key = evaluation_key or os.environ.get("AIRLOCK_EVALUATION_KEY", "")
@@ -95,12 +117,23 @@ def open_pr(*, submission_id: str, config_path: Path, db_path: Path, evaluation_
         bundle = load_verified(artifact_dir / "bundle.json", key)
         if bundle.get("submission_id") != submission_id:
             raise RuntimeError("bundle is bound to a different submission")
+
         patch_path = artifact_dir / bundle["patch"]["name"]
         evaluation_path = artifact_dir / bundle["evaluation"]["name"]
+        outcome_path = artifact_dir / bundle["outcome"]["name"]
         if sha256_file(patch_path) != bundle["patch"]["sha256"]:
             raise RuntimeError("candidate patch hash mismatch")
         if sha256_file(evaluation_path) != bundle["evaluation"]["sha256"]:
             raise RuntimeError("evaluation record hash mismatch")
+        if sha256_file(outcome_path) != bundle["outcome"]["sha256"]:
+            raise RuntimeError("outcome record hash mismatch")
+
+        outcome = load_verified(outcome_path, key)
+        if outcome.get("decision") != "SURVIVED":
+            raise RuntimeError("outcome does not authorize review")
+        if outcome.get("submission_id") != submission_id:
+            raise RuntimeError("outcome is bound to a different submission")
+
         evaluation = json.loads(evaluation_path.read_text())
         if evaluation.get("decision") != "SURVIVED":
             raise RuntimeError("evaluation does not authorize review")
@@ -109,6 +142,7 @@ def open_pr(*, submission_id: str, config_path: Path, db_path: Path, evaluation_
         if evaluation.get("base_sha") != submission["base_sha"] or evaluation.get("source_sha") != submission["source_sha"]:
             raise RuntimeError("evaluation commit binding mismatch")
         evaluation["patch_sha256"] = sha256_file(patch_path)
+        evaluation["outcome_sha256"] = sha256_file(outcome_path)
         touched = protected_touches(evaluation.get("changed_paths", []), evaluation.get("protected_paths", []))
         if touched:
             raise RuntimeError("protected-path check failed again in trusted opener")
@@ -123,7 +157,38 @@ def open_pr(*, submission_id: str, config_path: Path, db_path: Path, evaluation_
             _must(["git", "remote", "add", "origin", remote], repo)
             remote_head = _must(["git", "ls-remote", remote, f"refs/heads/{config['base_branch']}"], repo).split()[0]
             if remote_head != submission["base_sha"]:
-                raise RuntimeError("base branch moved; candidate must be re-evaluated")
+                reopen_path, reopen_sha = _write_reopen_record(
+                    artifact_dir=artifact_dir,
+                    submission=submission,
+                    current_base_sha=remote_head,
+                    key=key,
+                )
+                row = store.transition(
+                    submission_id,
+                    "REOPEN",
+                    detail={
+                        "reopen": {
+                            "reason": "BASE_MOVED",
+                            "evaluated_base_sha": submission["base_sha"],
+                            "current_base_sha": remote_head,
+                            "requires_fresh_evaluation": True,
+                            "record": str(reopen_path),
+                            "record_sha256": reopen_sha,
+                        }
+                    },
+                )
+                return {
+                    "submission_id": submission_id,
+                    "state": row["state"],
+                    "reason": "BASE_MOVED",
+                    "evaluated_base_sha": submission["base_sha"],
+                    "current_base_sha": remote_head,
+                    "requires_fresh_evaluation": True,
+                    "reopen_record": str(reopen_path),
+                    "reopen_sha256": reopen_sha,
+                    "pr_opened": False,
+                }
+
             _must(["git", "fetch", "--no-tags", "origin", submission["base_sha"]], repo, timeout=300)
             _must(["git", "checkout", "--detach", submission["base_sha"]], repo)
             apply = _run(["git", "apply", "--index", "--whitespace=nowarn", str(patch_path)], repo)
@@ -155,6 +220,7 @@ def open_pr(*, submission_id: str, config_path: Path, db_path: Path, evaluation_
                 "base_sha": evaluation["base_sha"],
                 "source_sha": evaluation["source_sha"],
                 "patch_sha256": evaluation["patch_sha256"],
+                "outcome_sha256": evaluation["outcome_sha256"],
                 "airlock_config_sha256": evaluation["airlock_config_sha256"],
                 "container_image": evaluation["container_image"],
                 "changed_paths": evaluation["changed_paths"],
@@ -166,7 +232,7 @@ def open_pr(*, submission_id: str, config_path: Path, db_path: Path, evaluation_
             receipt_path = artifact_dir / "receipt.json"
             write_json(receipt_path, receipt)
             body_path = temp / "pr-body.md"
-            body_path.write_text(_receipt_markdown(submission, {**evaluation, "patch_sha256": evaluation["patch_sha256"]}, receipt_sha, receipt))
+            body_path.write_text(_receipt_markdown(submission, evaluation, receipt_sha, receipt))
             title = _safe_title(submission["issue_title"])
             cp = _run([
                 "gh", "pr", "create", "--repo", submission["repo"], "--head", branch,

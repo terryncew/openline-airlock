@@ -73,6 +73,10 @@ def _base_airlock_config(repo: Path, base: str) -> dict:
     return obj
 
 
+def _airlock_config_sha256(airlock_config: dict) -> str:
+    return sha256_bytes(json.dumps(airlock_config, sort_keys=True, separators=(",", ":")).encode())
+
+
 def _docker_result(workspace: Path, image: str, argv: list[str], config: dict, timeout: int) -> dict:
     if not shutil.which("docker"):
         raise RuntimeError("public Airlock evaluation requires Docker")
@@ -117,11 +121,90 @@ def _run_group(workspace: Path, image: str, commands: list[list[str]], config: d
     return {"rule": kind, "status": "PASS", "commands": records}
 
 
+def _write_outcome(
+    *,
+    artifact_dir: Path,
+    submission: dict,
+    evaluation_key: str,
+    decision: str,
+    reason: str,
+    changed_paths: list[str] | None = None,
+    protected_paths: list[str] | None = None,
+    protected_touches_list: list[str] | None = None,
+    airlock_config_sha256: str | None = None,
+    container_image: str | None = None,
+    checks: list[dict] | None = None,
+    execution_attempted: bool = False,
+    patch_path: Path | None = None,
+    expected_tree: str | None = None,
+    extra: dict | None = None,
+) -> dict:
+    payload = {
+        "schema": "airlock.submit.outcome.v1",
+        "submission_id": submission["id"],
+        "repo": submission["repo"],
+        "issue_number": submission["issue_number"],
+        "submitter": submission["submitter"],
+        "source_repo": submission["source_repo"],
+        "source_sha": submission["source_sha"],
+        "base_sha": submission["base_sha"],
+        "decision": decision,
+        "reason": reason,
+        "changed_paths": sorted(set(changed_paths or [])),
+        "protected_paths": list(protected_paths or []),
+        "protected_touches": sorted(set(protected_touches_list or [])),
+        "airlock_config_sha256": airlock_config_sha256,
+        "container_image": container_image,
+        "checks": list(checks or []),
+        "execution_attempted": bool(execution_attempted),
+        "expected_tree": expected_tree,
+    }
+    if patch_path is not None and patch_path.exists():
+        payload["patch"] = file_binding(patch_path)
+    if extra:
+        payload["detail"] = dict(extra)
+    path = artifact_dir / "outcome.json"
+    write_json(path, seal(payload, evaluation_key))
+    return {
+        **payload,
+        "outcome_file": str(path),
+        "outcome_sha256": sha256_file(path),
+    }
+
+
 def evaluate_submission(submission: dict, *, config: dict, artifact_dir: Path, evaluation_key: str) -> dict:
     artifact_dir.mkdir(parents=True, exist_ok=False)
     temp = Path(tempfile.mkdtemp(prefix=f"airlock-submit-{submission['id']}-"))
     repo = temp / "repo"
     workspace = temp / "workspace"
+    changed: list[str] = []
+    protected: list[str] = []
+    airlock_config: dict | None = None
+    airlock_config_digest: str | None = None
+    patch: Path | None = None
+    expected_tree: str | None = None
+    checks: list[dict] = []
+    execution_attempted = False
+
+    def finish(decision: str, reason: str, *, touched: list[str] | None = None, extra: dict | None = None) -> dict:
+        return _write_outcome(
+            artifact_dir=artifact_dir,
+            submission=submission,
+            evaluation_key=evaluation_key,
+            decision=decision,
+            reason=reason,
+            changed_paths=changed,
+            protected_paths=protected,
+            protected_touches_list=touched,
+            airlock_config_sha256=airlock_config_digest,
+            container_image=config.get("container_image"),
+            checks=checks,
+            execution_attempted=execution_attempted,
+            patch_path=patch,
+            expected_tree=expected_tree,
+            extra=extra,
+        )
+
     try:
         repo.mkdir()
         _git(repo, "init", "-q")
@@ -131,16 +214,20 @@ def evaluate_submission(submission: dict, *, config: dict, artifact_dir: Path, e
         _git(repo, "fetch", "--no-tags", "source", submission["source_sha"], timeout=300)
         ancestor = _run(["git", "merge-base", "--is-ancestor", submission["base_sha"], submission["source_sha"]], repo)
         if ancestor.returncode != 0:
-            return {"decision": "BLOCKED", "reason": "BASE_NOT_ANCESTOR"}
+            return finish("BLOCKED", "BASE_NOT_ANCESTOR")
 
         airlock_config = _base_airlock_config(repo, submission["base_sha"])
+        airlock_config_digest = _airlock_config_sha256(airlock_config)
         protected = list(airlock_config.get("protected_paths", []))
         changed = _changed_paths(repo, submission["base_sha"], submission["source_sha"])
+
+        # Static, credential-free, zero-compute gate. A candidate that touches protected
+        # surfaces is rejected before a Docker container is ever started.
         touched = protected_touches(changed, protected)
         if touched:
-            return {"decision": "BLOCKED", "reason": "PROTECTED_FILES_CHANGED", "touched": touched}
+            return finish("BLOCKED", "PROTECTED_FILES_CHANGED", touched=touched)
         if len(set(changed)) > int(config["max_patch_files"]):
-            return {"decision": "BLOCKED", "reason": "PATCH_FILE_LIMIT", "changed_file_count": len(set(changed))}
+            return finish("BLOCKED", "PATCH_FILE_LIMIT", extra={"changed_file_count": len(set(changed))})
 
         patch = artifact_dir / "candidate.patch"
         cp = _run(["git", "diff", "--binary", "--full-index", submission["base_sha"], submission["source_sha"]], repo, text=False, timeout=120)
@@ -148,28 +235,29 @@ def evaluate_submission(submission: dict, *, config: dict, artifact_dir: Path, e
             raise RuntimeError(cp.stderr.decode(errors="replace")[-1000:])
         patch.write_bytes(cp.stdout)
         if patch.stat().st_size == 0:
-            return {"decision": "BLOCKED", "reason": "NO_PATCH"}
+            return finish("BLOCKED", "NO_PATCH")
         if patch.stat().st_size > int(config["max_patch_bytes"]):
-            return {"decision": "BLOCKED", "reason": "PATCH_SIZE_LIMIT", "patch_bytes": patch.stat().st_size}
+            return finish("BLOCKED", "PATCH_SIZE_LIMIT", extra={"patch_bytes": patch.stat().st_size})
 
         _git(repo, "worktree", "add", "--detach", str(workspace), submission["base_sha"])
         apply = _run(["git", "apply", "--index", "--whitespace=nowarn", str(patch)], workspace, timeout=120)
         if apply.returncode != 0:
-            return {"decision": "BLOCKED", "reason": "PATCH_APPLY_FAILED", "stderr_tail": apply.stderr[-1000:]}
+            return finish("BLOCKED", "PATCH_APPLY_FAILED", extra={"stderr_tail": apply.stderr[-1000:]})
         expected_tree = _git(workspace, "write-tree").strip()
 
         verification = airlock_config.get("verification", {})
-        checks = []
         for kind, commands in (
             ("target", verification.get("target_commands", [])),
             ("static", verification.get("static_commands", [])),
             ("regression", verification.get("test_commands", [])),
         ):
+            if commands:
+                execution_attempted = True
             group = _run_group(workspace, config["container_image"], commands, config, kind=kind)
             checks.append(group)
             if group["status"] != "PASS":
                 reason = group.get("reason") or ("TARGET_FAILED" if kind == "target" else "LINT_OR_TYPECHECK" if kind == "static" else "TESTS_FAILED")
-                return {"decision": "BLOCKED", "reason": reason, "checks": checks}
+                return finish("BLOCKED", reason)
 
         test_patterns = [p for p in protected if p.startswith(("tests/", "test/", "spec/", "__tests__/"))]
         test_files = [p for p in _tracked(repo, submission["base_sha"]) if matches_any(p, test_patterns)]
@@ -193,22 +281,27 @@ def evaluate_submission(submission: dict, *, config: dict, artifact_dir: Path, e
             "changed_paths": sorted(set(changed)),
             "protected_paths": protected,
             "protected_touches": [],
-            "airlock_config_sha256": sha256_bytes(json.dumps(airlock_config, sort_keys=True, separators=(",", ":")).encode()),
+            "airlock_config_sha256": airlock_config_digest,
             "container_image": config["container_image"],
             "checks": checks,
             "expected_tree": expected_tree,
+            "execution_attempted": execution_attempted,
         }
         evaluation_path = artifact_dir / "evaluation.json"
         write_json(evaluation_path, evaluation)
+
+        outcome = finish(decision, reason)
+        outcome_path = artifact_dir / "outcome.json"
         bundle_payload = {
             "schema": "airlock.submit.bundle.v1",
             "submission_id": submission["id"],
             "evaluation": file_binding(evaluation_path),
+            "outcome": file_binding(outcome_path),
             "patch": file_binding(patch),
             "expected_tree": expected_tree,
         }
         write_json(artifact_dir / "bundle.json", seal(bundle_payload, evaluation_key))
-        return evaluation
+        return outcome
     finally:
         try:
             if workspace.exists():
@@ -232,7 +325,7 @@ def process_one(*, config_path: Path, db_path: Path, data_dir: Path) -> dict | N
                                          evaluation_key=os.environ.get("AIRLOCK_EVALUATION_KEY", ""))
             decision = result["decision"]
             state = decision if decision in {"BLOCKED", "NEEDS_EVIDENCE", "SURVIVED"} else "ERROR"
-            return store.transition(row["id"], state, artifact_dir=str(artifact_dir), detail={"evaluation": result})
+            return store.transition(row["id"], state, artifact_dir=str(artifact_dir), detail={"outcome": result})
         except Exception as exc:
             return store.transition(row["id"], "ERROR", detail={"worker_error": str(exc)})
     finally:

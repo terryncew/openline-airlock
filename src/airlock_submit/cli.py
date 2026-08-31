@@ -13,7 +13,7 @@ from .worker import process_one
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="airlock-submit", description="Pre-PR gate for public coding-agent contributions")
-    p.add_argument("--version", action="version", version="airlock-submit 0.1.0")
+    p.add_argument("--version", action="version", version="airlock-submit 0.1.1")
     sub = p.add_subparsers(dest="command", required=True)
 
     serve = sub.add_parser("serve", help="receive authenticated GitHub issue-comment submissions")
