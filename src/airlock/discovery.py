@@ -28,15 +28,28 @@ def _package_scripts(repo: Path) -> dict:
         return {}
 
 
+def _looks_like_pytest_repo(repo: Path) -> bool:
+    if (repo / "pytest.ini").exists():
+        return True
+    pyproject = repo / "pyproject.toml"
+    if pyproject.exists() and "pytest" in pyproject.read_text(errors="ignore"):
+        return True
+    for root_name in ("tests", "test"):
+        root = repo / root_name
+        if not root.exists():
+            continue
+        for path in root.rglob("*.py"):
+            if path.name.startswith("test_") or path.name.endswith("_test.py"):
+                return True
+    return False
+
+
 def discover_commands(repo: Path) -> dict[str, list[list[str]]]:
     static: list[list[str]] = []
     tests: list[list[str]] = []
 
     has_python = (repo / "pyproject.toml").exists() or (repo / "pytest.ini").exists() or (repo / "tests").exists()
-    pyproject_mentions_pytest = False
-    if (repo / "pyproject.toml").exists():
-        pyproject_mentions_pytest = "pytest" in (repo / "pyproject.toml").read_text(errors="ignore")
-    if has_python and (shutil.which("pytest") or pyproject_mentions_pytest):
+    if has_python and (shutil.which("pytest") or _looks_like_pytest_repo(repo)):
         tests.append(["pytest", "-q"])
     if shutil.which("ruff") and ((repo / "ruff.toml").exists() or (repo / "pyproject.toml").exists()):
         static.append(["ruff", "check", "."])
