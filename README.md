@@ -1,49 +1,39 @@
 # OpenLine Airlock
 
-**Keep your repo open to coding agents without reviewing raw agent PRs.**
+**Run more coding agents without creating more review work.**
 
-Coding agents made writing a patch cheap. Reviewing one is still human work.
+Coding agents made producing another patch cheap. Reviewing another patch is still human work.
 
-Airlock sits before the PR queue. Give a task to Claude Code, Codex, Aider, OpenCode, a local model, or your own agent. Airlock checks the resulting patch against the repository's rules and only sends a survivor forward.
+Airlock lets you be much more aggressive about generation without being equally aggressive about your own attention. Give the same task to Claude Code, Codex, Aider, OpenCode, a local model, or several of them at once. Each attempt is isolated. Your repository's checks stay authoritative. Failed attempts stop before they become somebody's review problem.
 
-A patch that changes protected files is stopped before candidate code runs. A patch that breaks configured checks is blocked. If the repo does not have enough evidence to justify the change, Airlock says `NEEDS_EVIDENCE` instead of pretending green CI means more than it does.
+Locally, Airlock can run several agent attempts against one task and leave only a survivor ready for review. In the GitHub contribution path, an outside contributor submits a commit from a fork; only a patch that survives the repo's frozen rules can earn a PR.
 
 **Use whatever coding agent you want. The repo decides what passes.**
 
-> GitHub has an API for submitting code. Airlock is the gate that decides which machine patches earn review.
+The point is simple: you should be able to increase machine attempts without increasing human review at the same rate.
 
-## Try Airlock on this repo
-
-AI-assisted contributions are welcome here. Raw AI-generated PRs are not.
-
-1. Pick an open issue and fork `terryncew/openline-airlock`.
-2. Start from current `main`, let any coding agent make the change, and push the commit to your public fork.
-3. Copy the full commit SHA with `git rev-parse HEAD`.
-4. Comment on the issue:
-
-```text
-/airlock submit YOUR_GITHUB_USERNAME/openline-airlock@FULL_40_CHARACTER_COMMIT_SHA
-```
-
-Do **not** open a pull request yourself. That issue comment is the submission.
-
-Airlock replies on the issue. `BLOCKED` means the patch failed a repo rule. `NEEDS_EVIDENCE` means the available checks do not justify sending it to a maintainer. `REOPEN` means `main` moved and the patch needs a fresh run. `SURVIVED` means Airlock earned the patch a normal PR for human review.
-
-No agent gets push access. No candidate gets a GitHub token. No agent decides what "passing" means.
-
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the exact contribution rule.
-
-## Install Airlock in your repo
-
-Airlock does not require a hosted service or webhook server. The public contribution path runs entirely in GitHub Actions.
-
-Install from the repository:
+## Run several agents on one task
 
 ```bash
 python -m pip install "git+https://github.com/terryncew/openline-airlock.git"
+airlock init
+airlock run <issue-or-prompt> -n 12 --models claude-code,codex,aider --budget 2.00
+airlock verify .airlock/records/<run>.json
 ```
 
-Then, from your own repository:
+Each agent gets a separate Git worktree. Airlock evaluates the resulting patches after generation finishes.
+
+Exactly one survivor becomes ready for review. Zero survivors means zero candidates to review. If several patches survive, Airlock refuses to invent a winner; a human can decide whether any deserves attention.
+
+That changes the practical question from "Which model should I trust enough to try?" to "How many cheap attempts can I afford to let the repo filter first?"
+
+The `--budget` value is passed to agents as a budget hint and recorded with the run. Airlock does not claim provider-level spend enforcement unless the provider itself honors that limit. Missing cost telemetry stays unknown.
+
+## Install the GitHub gate in your repo
+
+Airlock does not require a hosted service or webhook server. The public contribution path runs entirely in GitHub Actions.
+
+From your repository:
 
 ```bash
 airlock init
@@ -52,13 +42,19 @@ git add .airlock .github/workflows/airlock.yml CONTRIBUTING.md
 git commit -m "chore: install OpenLine Airlock"
 ```
 
-After that commit reaches your default branch, contributors can submit a commit from a public fork by commenting on the relevant issue:
+After that commit reaches your default branch, a contributor can use any coding agent, push the result to a public fork, and submit only the commit SHA on the relevant issue:
 
 ```text
 /airlock submit alice/widget@0123456789abcdef0123456789abcdef01234567
 ```
 
-The installer adds the repo-owned workflow, maintainer-owned evaluator image definition, protected runtime, submission limits, and contribution instructions. Nothing needs to stay running between submissions.
+That comment is not a PR.
+
+Airlock checks the patch first. A patch that changes protected files is stopped before candidate code runs. A patch that breaks configured checks is `BLOCKED`. If the repo does not have enough evidence to justify sending the change forward, Airlock returns `NEEDS_EVIDENCE`. If `main` moves after evaluation, the result is `REOPEN`.
+
+A patch that survives can earn a normal PR for human review.
+
+No agent gets push access. No candidate gets a GitHub token. No agent decides what "passing" means.
 
 ## What happens to a public submission
 
@@ -73,22 +69,6 @@ Airlock splits the path into three jobs with different authority.
 Every submission leaves an outcome. A survivor gets a PR with the base SHA, patch hash, config hash, exact commands, exit codes, and verification-record digest attached.
 
 The default public gate is conservative: one evaluation at a time per repository, one unresolved candidate per submitter per issue, a seven-day GitHub-account floor, five submissions per user per rolling day, and patch size/file-count ceilings.
-
-## Run several agents locally
-
-The other half of Airlock is local best-of-N without handing the agents merge authority.
-
-```bash
-airlock init
-airlock run <issue-or-prompt> -n 12 --models claude-code,codex,aider --budget 2.00
-airlock verify .airlock/records/<run>.json
-```
-
-Each agent gets a separate Git worktree. Airlock evaluates the resulting patches after generation finishes.
-
-Exactly one survivor becomes ready for review. Zero survivors means zero PRs. If several patches survive, Airlock refuses to invent a winner; a human can decide whether any deserves attention.
-
-The `--budget` value is passed to agents as a budget hint and recorded with the run. Airlock does not claim provider-level spend enforcement unless the provider itself honors that limit. Missing cost telemetry stays unknown.
 
 ## What Airlock checks
 
@@ -115,6 +95,16 @@ Airlock is not a coding model or orchestrator. It shells out to agent commands y
 Built-in adapters cover common installed CLIs including Claude Code, Codex, Aider, and OpenCode. Custom commands can be added in `.airlock/config.json`.
 
 Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's normal Git credential configuration unless explicitly allowed as provider credentials. If you treat an agent command as hostile native code, run generation inside a container or VM.
+
+## Try the gate from the outside
+
+There is a deliberately small public Airlock challenge in this repository:
+
+https://github.com/terryncew/openline-airlock/issues/8
+
+The bug is intentionally small. The interesting part is the boundary: an outside agent works in a repo it does not control, cannot change the protected tests or Airlock rules, and cannot open its own PR. A surviving patch earns one through the repository.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the exact contribution rule.
 
 ## Tested boundary
 
