@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from .util import compact_result, matches_any, run
+from .util import compact_result, matches_any, run, worktree_env
 
 
 def protected_files_check(changed_paths: list[str], protected: list[str]) -> dict:
@@ -18,7 +18,7 @@ def protected_files_check(changed_paths: list[str], protected: list[str]) -> dic
 def run_checks(worktree: Path, commands: list[list[str]], *, timeout: int, kind: str) -> dict:
     records = []
     for argv in commands:
-        result = run(argv, worktree, timeout=timeout)
+        result = run(argv, worktree, env=worktree_env(worktree), timeout=timeout)
         compact = compact_result(result)
         compact["kind"] = kind
         records.append(compact)

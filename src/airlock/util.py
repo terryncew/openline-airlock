@@ -8,7 +8,7 @@ import shlex
 import subprocess
 import time
 from pathlib import Path
-from typing import Iterable
+from typing import Iterable, Mapping
 
 
 def canonical_json_bytes(obj: object) -> bytes:
@@ -26,6 +26,15 @@ def sha256_file(path: Path) -> str:
 def write_json(path: Path, obj: object) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj, indent=2, sort_keys=True) + "\n")
+
+
+def worktree_env(worktree: Path, base: Mapping[str, str] | None = None) -> dict[str, str]:
+    """Put Python code from this worktree ahead of an editable base install."""
+    env = dict(os.environ if base is None else base)
+    roots = [str((worktree / "src").resolve()), str(worktree.resolve())]
+    inherited = [part for part in env.get("PYTHONPATH", "").split(os.pathsep) if part]
+    env["PYTHONPATH"] = os.pathsep.join(dict.fromkeys([*roots, *inherited]))
+    return env
 
 
 def run(argv: list[str], cwd: Path, *, env: dict[str, str] | None = None, timeout: int | None = None) -> dict:

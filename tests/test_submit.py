@@ -156,6 +156,7 @@ class SubmitTests(unittest.TestCase):
             self.assertIn("no-new-privileges", argv)
             self.assertIn("--cap-drop", argv)
             self.assertIn("--read-only", argv)
+            self.assertIn("PYTHONPATH=/workspace/src:/workspace", argv)
             self.assertNotIn("GITHUB_TOKEN", env)
             self.assertEqual(result["exit_code"], 0)
 

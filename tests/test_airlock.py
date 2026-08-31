@@ -227,6 +227,46 @@ class AirlockTests(unittest.TestCase):
         action = next(a for a in parser._actions if isinstance(a, __import__('argparse')._SubParsersAction))
         self.assertEqual(set(action.choices), {"init", "swarm", "run", "verify", "install-github"})
 
+    def test_13_candidate_checks_do_not_import_the_editable_base_checkout(self):
+        package = self.fx.repo / "src" / "candidate_binding_fixture"
+        package.mkdir()
+        (package / "__init__.py").write_text("")
+        (package / "state.py").write_text("def state():\n    return 'base'\n")
+        check = self.fx.repo / "tests" / "candidate_binding_check.py"
+        check.write_text(
+            "from candidate_binding_fixture.state import state\n"
+            "raise SystemExit(0 if state() == 'base' else 1)\n"
+        )
+        sh("git", "-C", str(self.fx.repo), "add", ".")
+        sh("git", "-C", str(self.fx.repo), "commit", "-qm", "add src-layout fixture")
+
+        agent = self.fx.script(
+            "from pathlib import Path\n"
+            "Path('src/candidate_binding_fixture/state.py').write_text("
+            "\"def state():\\n    return 'candidate'\\n\")\n"
+        )
+        config = self.fx.config(agent, target=False, tests=False)
+        data = json.loads(config.read_text())
+        data["verification"]["test_commands"] = [[PY, "tests/candidate_binding_check.py"]]
+        config.write_text(json.dumps(data, indent=2))
+
+        # Reproduce a normal editable install whose .pth file names the starting
+        # checkout. Airlock must put each evaluation worktree ahead of it.
+        with mock.patch.dict(os.environ, {"PYTHONPATH": str(self.fx.repo / "src")}, clear=False):
+            report = run_tournament(
+                self.fx.repo,
+                "break the imported package",
+                agents=1,
+                models=["fake"],
+                budget=None,
+                open_pr=False,
+                config_path=config,
+            )
+
+        row = report["candidates"][0]
+        self.assertEqual(row["disposition"], "BLOCKED")
+        self.assertEqual(row["reason"], "TESTS_FAILED")
+
 
 if __name__ == "__main__":
     unittest.main()

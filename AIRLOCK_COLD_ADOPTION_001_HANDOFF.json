@@ -1,0 +1,138 @@
+{
+  "handoff": "AIRLOCK-COLD-ADOPTION-001",
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "d3ca3dac6e5543152b3b004b3ca9d2d7e8535026",
+  "branch": "feat/airlock-cold-adoption-001",
+  "version": "0.2.2",
+  "capability": "candidate-bound Python checks proven against an untouched non-Airlock repository after a v0.2.1 false-survivor falsifier",
+  "changed_files": [
+    "AIRLOCK_COLD_ADOPTION_001_HANDOFF.json",
+    "CHANGELOG.md",
+    "README.md",
+    "docs/AIRLOCK_COLD_ADOPTION_001.md",
+    "docs/receipts/airlock-cold-adoption-001-sentinel.patch",
+    "docs/receipts/airlock-cold-adoption-001-v0.2.1-run.json",
+    "docs/receipts/airlock-cold-adoption-001-v0.2.1-verification.json",
+    "docs/receipts/airlock-cold-adoption-001-v0.2.2-run.json",
+    "pyproject.toml",
+    "src/airlock/__init__.py",
+    "src/airlock/discovery.py",
+    "src/airlock/runner.py",
+    "src/airlock/sieve.py",
+    "src/airlock/util.py",
+    "src/airlock_submit/worker.py",
+    "tests/test_airlock.py",
+    "tests/test_starter_rules.py",
+    "tests/test_submit.py"
+  ],
+  "cold_adoption": {
+    "target_repo": "terryncew/terrynce-curve-emergence-tuner",
+    "target_sha": "fbb43d7667b2f47f906ebeb76613b87928c592be",
+    "target_tracked_diff_after_runs": "CLEAN",
+    "native_ci": {
+      "runtime": "Python 3.12",
+      "install": "pip install -e '.[dev]'",
+      "pytest": "21 tests and 10 subtests passed",
+      "synthetic": "PASS",
+      "validate": "PASS",
+      "replay": "PASS"
+    },
+    "starter_rules": {
+      "init": "PASS",
+      "test_commands": [
+        [
+          "pytest",
+          "-q"
+        ]
+      ],
+      "protected_paths": [
+        "tests/**",
+        ".github/**",
+        ".airlock/**",
+        "pyproject.toml"
+      ],
+      "boundary_sha256": "29e02b9570fd5fbfdf43221a9ab255d4031266d96f068e98430a8537b2f8f507"
+    },
+    "falsifier": {
+      "mutation": "src/terrynce_kilauea/protocol.py makes load_protocol raise AIRLOCK_CANDIDATE_BINDING_SENTINEL",
+      "patch_sha256": "48bc0a4493ad177d6547bb75c25ffc61902f0222b8526ba70b24952fb300c4e8",
+      "candidate_tree": "1bf536655fb3594d385bd0ce5f97f824a772ff2d",
+      "v0_2_1": {
+        "status": "FAIL_FALSE_SURVIVOR",
+        "run_id": "20260901-075818-4fdbd7",
+        "run_sha256": "1e903b83a802db70e3c73b4d57a58ef4e461c88b6fbf95d3c5b715ebdd82b58a",
+        "signed_record_sha256": "13478d10be734c28036d4b0fd97e7f9bb88cc6b47bd55390f1772a5af51c978c",
+        "observed": "READY / SURVIVED / READY_FOR_REVIEW"
+      },
+      "v0_2_2": {
+        "status": "PASS",
+        "run_id": "20260901-080309-b86fba",
+        "run_sha256": "dfe9f9a8a161b416b1bd09760208213b7612885f8b9e0c93c3742c2cfa85af4c",
+        "observed": "NO_PATCH_READY / BLOCKED / TESTS_FAILED",
+        "test_exit_code": 1,
+        "signed_survivor_record": false
+      }
+    },
+    "fixed_three_arm_gate": [
+      {
+        "arm": "behavior-preserving source refactor",
+        "expected": "SURVIVED",
+        "observed": "READY / SURVIVED",
+        "run_sha256": "c5ea3efac14b70b4a8873aa2a2daf11734419e31841096770508a5ebd4911162"
+      },
+      {
+        "arm": "protected test edit",
+        "expected": "BLOCKED before commands",
+        "observed": "BLOCKED / PROTECTED_FILES_CHANGED / zero commands",
+        "run_sha256": "3f1371a6332eb3e53bea6118f54ffe4acdd9d29dff5b32b6d168ad878007cc62"
+      },
+      {
+        "arm": "unreferenced tool",
+        "expected": "NEEDS_EVIDENCE",
+        "observed": "NEEDS_EVIDENCE / no_baseline_test_references_changed_module",
+        "run_sha256": "645b6466126b3acc4ff68e124193ca769c4fd5e8406ca60ad2993672f5565f0d"
+      }
+    ],
+    "public_github_submission": {
+      "status": "NOT_RUN",
+      "used_as_evidence": false
+    }
+  },
+  "validation": {
+    "candidate_binding_regression": "PASS",
+    "complete_suite": "61/61 pass",
+    "compileall": "PASS",
+    "diff_check": "PASS",
+    "wheel_build": "PASS",
+    "fresh_wheel_install": "PASS",
+    "installed_cli_version": "0.2.2",
+    "installed_submit_version": "0.1.3",
+    "wheel_sha256": "cfa4d719f9622883c4ee32e9839858576d3d383668a1123b3aeaf4bbc792a912"
+  },
+  "backwards_compatibility": [
+    "The configuration schema remains airlock.config.v1.",
+    "Configured command argv values and protected paths are unchanged.",
+    "Node, Rust, and Go check execution is unchanged.",
+    "airlock init, run, swarm, verify, and GitHub contribution command surfaces are unchanged."
+  ],
+  "claim_boundary": "The cold-adoption receipt proves candidate binding for the listed Python repository and frozen arms. It does not prove every custom build system or command, and no public GitHub submission is claimed.",
+  "files": {
+    "CHANGELOG.md": "38be45075b00489aa2df4acd091ceda1af4b6d7c3e87bcd0a09e095d5df8d0b1",
+    "README.md": "7fc29014bc5827166b933a07161f9be70e426200cf50b1f08cebef8283712c6e",
+    "docs/AIRLOCK_COLD_ADOPTION_001.md": "9f1581ad01956aff2701539035d6ffddbd26ad825c8eb3433f1a4824cb3b6f7d",
+    "docs/receipts/airlock-cold-adoption-001-sentinel.patch": "48bc0a4493ad177d6547bb75c25ffc61902f0222b8526ba70b24952fb300c4e8",
+    "docs/receipts/airlock-cold-adoption-001-v0.2.1-run.json": "1e903b83a802db70e3c73b4d57a58ef4e461c88b6fbf95d3c5b715ebdd82b58a",
+    "docs/receipts/airlock-cold-adoption-001-v0.2.1-verification.json": "13478d10be734c28036d4b0fd97e7f9bb88cc6b47bd55390f1772a5af51c978c",
+    "docs/receipts/airlock-cold-adoption-001-v0.2.2-run.json": "dfe9f9a8a161b416b1bd09760208213b7612885f8b9e0c93c3742c2cfa85af4c",
+    "pyproject.toml": "4ebb3ae35f01c825bb938efd8795ff022e4d89349bff314916f16b4bb2749511",
+    "src/airlock/__init__.py": "9ba93268da7005c3f55d872aade957da84b73c9b8e9c494e7117416bda446fc7",
+    "src/airlock/discovery.py": "288715e76d6e55c36e36b8db231e207f4984ac88ac43c7e7177dc66270831e45",
+    "src/airlock/runner.py": "bc161e471d9d151693100d73f867b89913c2adc5c3561cc4fe879352a0d06169",
+    "src/airlock/sieve.py": "704e80bd41260963668ae6c453b191f02a5493b3dfa9b72da231faf95bac1228",
+    "src/airlock/util.py": "67247343093c6b666c7a6cd18685b7deb32346ebb08234586d2d03df972c8617",
+    "src/airlock_submit/worker.py": "b2cfebe26bcf037863c4b69eb7d50f5b6448887dfc72a83761fe4c276c3e908b",
+    "tests/test_airlock.py": "328c577c0c4b6884e54259c390be981c21715e5eb8460a6699775c156e044cc1",
+    "tests/test_starter_rules.py": "3bde7e4ee4341b93a3f282b93550c03b7d7f0e07ff982918a621e20b3f27a07f",
+    "tests/test_submit.py": "aba1f0065e786f6df7cdba1097cbc153608935922ed135a89ee4395d344431ca"
+  }
+}

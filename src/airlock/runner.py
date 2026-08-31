@@ -29,7 +29,17 @@ from .providers import resolve_provider
 from .verification import ensure_key, sign
 from .sandbox import WorktreeSandbox
 from .sieve import protected_files_check, run_checks, sufficiency_check
-from .util import compact_result, expand, matches_any, run, scrub_agent_env, sha256_bytes, sha256_file, write_json
+from .util import (
+    compact_result,
+    expand,
+    matches_any,
+    run,
+    scrub_agent_env,
+    sha256_bytes,
+    sha256_file,
+    worktree_env,
+    write_json,
+)
 
 
 def _resolve_prompt(repo: Path, issue_or_prompt: str) -> str:
@@ -219,17 +229,20 @@ def run_tournament(
             "budget": "" if per_agent_budget is None else f"{per_agent_budget:.6f}",
         }
         argv = expand(provider["command"], values)
-        env = scrub_agent_env(
-            provider.get("pass_env", []),
-            home=temp_root / f"{candidate_id}-home",
-            extra={
-                "AIRLOCK_CANDIDATE_ID": candidate_id,
-                "AIRLOCK_PROMPT_FILE": str(candidate_prompt_path),
-                "AIRLOCK_AGENT_REPORT": str(report_path),
-                "AIRLOCK_BUDGET_USD": values["budget"],
-                "AIRLOCK_SWARM_ROLE": role or "",
-                "AIRLOCK_SWARM_ROUND": "" if coordination is None else str(coordination.get("round", "")),
-            },
+        env = worktree_env(
+            worktree,
+            scrub_agent_env(
+                provider.get("pass_env", []),
+                home=temp_root / f"{candidate_id}-home",
+                extra={
+                    "AIRLOCK_CANDIDATE_ID": candidate_id,
+                    "AIRLOCK_PROMPT_FILE": str(candidate_prompt_path),
+                    "AIRLOCK_AGENT_REPORT": str(report_path),
+                    "AIRLOCK_BUDGET_USD": values["budget"],
+                    "AIRLOCK_SWARM_ROLE": role or "",
+                    "AIRLOCK_SWARM_ROUND": "" if coordination is None else str(coordination.get("round", "")),
+                },
+            ),
         )
         result = run(argv, worktree, env=env, timeout=int(provider.get("timeout_seconds", 3600)))
         current_branch = run(["git", "branch", "--show-current"], worktree)

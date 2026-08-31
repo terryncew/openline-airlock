@@ -89,7 +89,9 @@ def _docker_result(workspace: Path, image: str, argv: list[str], config: dict, t
         "--memory", str(config["memory"]), "--cpus", str(config["cpus"]),
         "--user", f"{uid}:{gid}", "--workdir", "/workspace",
         "--tmpfs", "/tmp:rw,nosuid,nodev,size=512m",
-        "-e", "HOME=/tmp/airlock-home", "-e", "CI=1",
+        "-e", "HOME=/tmp/airlock-home",
+        "-e", "CI=1",
+        "-e", "PYTHONPATH=/workspace/src:/workspace",
         "-v", f"{workspace}:/workspace:rw", "--entrypoint", "", image,
         *[str(x) for x in argv],
     ]
