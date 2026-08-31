@@ -53,3 +53,10 @@ First standalone OpenLine Airlock release.
 - Require public evaluation to run in Docker with no network, no repository credentials, dropped capabilities, a read-only root filesystem, and resource ceilings.
 - Keep the GitHub write credential in a separate PR-opener process that consumes only a sealed static patch and evaluation record after the sandbox is gone.
 - Attach base/patch/config hashes and exact check results to the resulting PR.
+
+## AIRLOCK-CHALLENGE-001
+
+- freezes the first real outside-contributor acceptance check in the repo-owned Airlock config
+- makes protected contribution surfaces explicit in `CONTRIBUTING.md`
+- refreshes the GitHub install manifest after the 0.1.3 runtime fixes
+- replaces the synthetic Show HN fixture with launch copy that makes no run-count claims

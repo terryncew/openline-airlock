@@ -16,6 +16,8 @@ If an agent generated the patch, send the commit through Airlock before opening 
 
 Do **not** open a pull request yourself. Airlock will reply on the issue.
 
+The acceptance checks are frozen by the maintainer. Do not modify `tests/**`, `.github/**`, `.airlock/**`, or `pyproject.toml`; those are protected surfaces and Airlock will reject the submission before candidate code runs.
+
 - `BLOCKED` — the patch failed a repository rule. No PR is opened.
 - `NEEDS_EVIDENCE` — the repository does not have enough evidence to justify review yet. No PR is opened.
 - `REOPEN` — the base branch moved after evaluation. Refresh the patch against current `main` and submit again.

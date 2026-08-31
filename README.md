@@ -10,7 +10,7 @@ A patch that changes protected files is stopped before candidate code runs. A pa
 
 **Use whatever coding agent you want. The repo decides what passes.**
 
-> GitHub accepts code. Airlock decides which machine patches earn review.
+> GitHub has an API for submitting code. Airlock is the gate that decides which machine patches earn review.
 
 ## Try Airlock on this repo
 
