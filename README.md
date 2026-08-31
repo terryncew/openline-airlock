@@ -12,11 +12,19 @@ At the end, you review only what survived.
 
 ## Autonomous software search
 
+Install Airlock, then let it inspect the repository:
+
 ```bash
 python -m pip install "git+https://github.com/terryncew/openline-airlock.git"
-
 airlock init
-airlock swarm <issue-or-prompt> \
+```
+
+`airlock init` prints the project checks and files it found, confirms that the starting commit passes, and saves editable **Starter Rules** in `.airlock/config.json`. Read that output and change anything your project needs.
+
+Then start the search:
+
+```bash
+airlock swarm "fix issue #417" \
   --agents 8 \
   --rounds 3 \
   --models claude-code,codex,aider \
@@ -27,7 +35,7 @@ airlock swarm <issue-or-prompt> \
 
 Each attempt runs in its own Git worktree. Across rounds, agents can share typed search notes such as root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings. Later agents can inspect prior candidate commits and Airlock outcomes instead of rediscovering every dead end from scratch.
 
-The shared blackboard is deliberately **not** part of the admission authority. It cannot rewrite protected files, tests, Airlock config, verification commands, or the evidence sufficiency rule. Search can coordinate. Passing cannot.
+The shared blackboard cannot rewrite protected files, tests, Airlock config, verification commands, or the evidence sufficiency rule. Search can coordinate. Passing cannot.
 
 A swarm run can therefore end with:
 
@@ -87,13 +95,13 @@ No agent gets push access. No candidate gets a GitHub token. No agent decides wh
 
 ## What happens before a public PR exists
 
-Airlock splits the public path into three jobs with different authority.
+Airlock splits the public path into three jobs with different permissions.
 
-**1. Static admission.** Airlock checks the submitter, fork relationship, submission limits, base commit, patch size, and changed paths. Tests, `.github/**`, `.airlock/**`, and other configured protected files cannot be changed by the candidate. A protected-path change is rejected before Docker starts.
+**1. Check the submission.** Airlock checks the submitter, fork relationship, submission limits, base commit, patch size, and changed paths. Any candidate that changes tests, `.github/**`, `.airlock/**`, or another configured protected file is rejected before Docker starts.
 
-**2. Evaluation.** A GitHub-hosted runner builds the evaluator image from the frozen base commit, then runs the candidate with no network and no GitHub token. The repository's configured tests, lint, type checks, and issue-specific commands are authoritative. The evaluator also rejects new tracked-file mutations made by the checks themselves.
+**2. Run the checks.** A GitHub-hosted runner builds the check image from the frozen base commit, then runs the candidate with no network and no GitHub token. The repository's configured tests, lint, type checks, and issue-specific commands decide whether the patch passes. The runner also rejects new tracked-file mutations made by the checks themselves.
 
-**3. Publication.** A separate trusted job gets the permission required to open a PR, but it never executes candidate code. It rechecks the exact patch, config, protected-file boundary, and base SHA. If the default branch moved after evaluation, the result becomes `REOPEN` instead of silently carrying the old result forward.
+**3. Open the PR.** A separate trusted job gets the permission required to open a PR, but it never executes candidate code. It rechecks the exact patch, config, protected-file boundary, and base SHA. If the default branch moved after the checks ran, the result becomes `REOPEN` instead of silently carrying the old result forward.
 
 Every submission leaves an outcome. A survivor gets a PR with the base SHA, patch hash, config hash, exact commands, exit codes, and verification-record digest attached.
 
@@ -107,11 +115,13 @@ airlock run <issue-or-prompt> -n 12 --models claude-code,codex,aider --budget 2.
 
 Exactly one survivor becomes ready for review. Zero survivors means zero candidates to review. Several survivors remain several survivors.
 
-## What Airlock checks
+## Starter Rules
 
-`airlock init` discovers common repository checks and freezes the starting configuration. Current automatic discovery includes Python (`pytest`, `ruff`, `mypy`), Node (`npm test`, `lint`, `typecheck`), Rust (`cargo test --all-targets`), and Go (`go test ./...`).
+`airlock init` discovers common repository checks, runs them against the starting commit, and writes the result to `.airlock/config.json`. Current automatic discovery includes Python (`pytest`, `ruff`, `mypy`), Node (`npm test`, `lint`, `typecheck`), Rust (`cargo test --all-targets`), and Go (`go test ./...`).
 
-Airlock protects test directories, workflow/config files, and detected build/test configuration so a candidate cannot make itself look green by rewriting the referee.
+The generated Starter Rules list the test directories, workflow files, Airlock files, and detected project configuration that accepted patches cannot change. They also list every command a patch must pass. These rules are a starting point; edit them for the repository you actually have.
+
+If Airlock finds no runnable test, lint, or type-check command—or if the starting commit already fails one—it writes the draft configuration and stops before autonomous search begins.
 
 When the available tests do not meaningfully touch the changed module and there is no issue-specific target check, the result is `NEEDS_EVIDENCE`.
 
