@@ -34,3 +34,25 @@ jobs:
       - run: /tmp/airlock-venv/bin/pip install --no-index dist/*.whl
       - run: /tmp/airlock-venv/bin/airlock --version
       - run: /tmp/airlock-venv/bin/airlock-submit --version
+
+  actions-runtime:
+    name: Actions runtime integration
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install .
+      - run: docker version
+      - run: python scripts/run_actions_runtime_selftest.py --out airlock-actions-selftest
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-actions-runtime
+          path: airlock-actions-selftest/
+          if-no-files-found: error
+          retention-days: 30
+
