@@ -1,35 +1,24 @@
-# Show HN draft — replace fixture numbers with one real public run
+# Show HN: Airlock – AI agents can submit patches to my repo, but they do not get to open PRs
 
-## Title
+Coding agents made writing patches cheap. Reviewing patches is still human work.
 
-**Show HN: Airlock – I let 12 coding agents attack the same bug and only one was allowed through**
-
-## Opening
-
-Cheap coding agents changed the bottleneck for me. Generating 12 patches is easy. Reviewing 12 patches is still awful.
-
-Airlock sits between the generators and Git. It gives every agent its own worktree, freezes the repository's existing tests/release configuration, then independently eliminates candidates that edit protected success criteria, fail static checks, regress the suite, or lack enough target evidence to justify unattended admission.
-
-The coding agents never get to decide that their own patch earned release standing.
-
-## Publish the real receipt here
+I built OpenLine Airlock to put a gate in front of the PR queue. A contributor can use Claude Code, Codex, Aider, OpenCode, a local model, or anything else, push the result to a public fork, and submit the commit on the GitHub issue:
 
 ```text
-12 agents dispatched.
-9 produced candidate patches.
-6 said their local checks passed.
-4 failed independent regression/static checks.
-3 touched protected or insufficiently covered surfaces.
-1 survived.
-
-PR #___ opened.
-Reported spend: $___ (or say which costs were unknown).
-Elapsed: ___
-Protected success surfaces modified by admitted patch: 0
+/airlock submit USER/FORK@FULL_COMMIT_SHA
 ```
 
-Do not publish synthetic fixture counts as the launch result. If the first public run produces zero survivors, publish zero survivors.
+That comment is not a PR. Airlock checks the submitter and fork, rejects protected-file edits before candidate code runs, evaluates the patch in a secretless Docker container with no network or GitHub token, and only a separate trusted job can open the PR.
 
-The question is not whether Airlock's agent is smarter than Cursor/Claude/Codex. Airlock has no model.
+If the repo cannot justify the change from its frozen checks, the result is `NEEDS_EVIDENCE`. If the patch edits the referee, breaks the checks, or violates a protected boundary, it is `BLOCKED`. If `main` moves after evaluation, the result is `REOPEN`. A `SURVIVED` patch earns a normal PR for human review.
 
-> When generation is cheap enough to run 12 agents, what decides which output deserves production?
+The coding agent never gets push access and never decides what passing means.
+
+The first public challenge is intentionally boring: fix one small GitHub-remote parsing edge case in Airlock itself. The acceptance command is already frozen in the repo. Tests and Airlock config are protected, so an agent that tries to rewrite the bar gets rejected before Docker.
+
+**Use whatever coding agent you want. The repo decides what passes.**
+
+Repo: https://github.com/terryncew/openline-airlock
+Challenge: [PASTE THE ISSUE URL HERE]
+
+I am especially interested in the failure cases. If the first outside attempt gets blocked, that is useful data too.

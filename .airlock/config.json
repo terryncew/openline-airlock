@@ -10,9 +10,23 @@
   "verification": {
     "static_commands": [],
     "test_commands": [
-      ["python", "-m", "unittest", "discover", "-s", "tests", "-v"]
+      [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ]
     ],
-    "target_commands": [],
+    "target_commands": [
+      [
+        "python",
+        "-c",
+        "import airlock.adoption as a; from pathlib import Path; R=type('R',(),{'returncode':0,'stdout':'https://github.com/acme/widget/\\n'}); a._run=lambda argv,cwd:R(); assert a._repo_slug(Path('.')) == 'acme/widget'"
+      ]
+    ],
     "timeout_seconds": 1200,
     "coverage_mode": "changed-module-reference"
   },
