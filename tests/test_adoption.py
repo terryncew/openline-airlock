@@ -211,7 +211,7 @@ class AdoptionTests(unittest.TestCase):
         parser = build_parser()
         import argparse
         action = next(a for a in parser._actions if isinstance(a, argparse._SubParsersAction))
-        self.assertEqual(set(action.choices), {"init", "run", "verify", "install-github"})
+        self.assertEqual(set(action.choices), {"init", "swarm", "run", "verify", "install-github"})
 
 
 if __name__ == "__main__":

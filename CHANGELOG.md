@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 — Autonomous software search
+
+- Adds `airlock swarm`: give one issue or prompt to repeated rounds of heterogeneous coding-agent attempts while Airlock keeps the repository's existing admission checks authoritative.
+- Adds an ephemeral, typed blackboard for bounded search coordination across rounds. Agents can share root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings.
+- Blackboard content is explicitly untrusted and cannot change protected paths, verification commands, sufficiency rules, or admission decisions.
+- Later-round agents can inspect prior candidate commits and Airlock outcomes, allowing failed approaches to become search information instead of human review work.
+- Keeps zero survivors as a valid outcome and refuses to invent a winner when several candidates survive.
+- Adds screenshot-friendly run summaries for attempts, findings, generated patches, blocked attempts, evidence gaps, survivors, and reported provider cost.
+- Keeps `--budget` honest: it is divided across planned attempts as a provider hint and recorded, but Airlock does not claim provider-level spend enforcement unless the provider honors it.
+
 ## Launch-ready public contribution copy
 
 - Makes the repository itself directly usable as an Airlock target with a four-step fork/commit/issue-comment flow.
