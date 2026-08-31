@@ -1,10 +1,12 @@
 # OpenLine Airlock
 
-**Let coding agents work your backlog without turning every attempt into a PR you have to review.**
+**Keep your repo open to coding agents without reviewing raw agent PRs.**
 
-Coding agents made patches cheap. Review is still expensive.
+Coding agents made patches cheap. Maintainer attention is still expensive.
 
-If you give 20 agents a bug, you can get 20 different attempts back. That is useful until somebody has to read all 20 diffs. Airlock moves that filtering step before the PR queue.
+Airlock sits before the PR queue. Agents can try a bug, upgrade, or maintenance task as many ways as they want. Bad attempts stop before they become somebody else's review work.
+
+If you give 20 agents a bug, you can get 20 different attempts back. Airlock checks those attempts against the repo's own rules and only sends a survivor forward.
 
 Give the same issue to Claude Code, Codex, Aider, OpenCode, local models, or your own agent. Airlock runs each attempt separately, then checks the resulting patch against the repo's tests, lint, type checks, and protected files.
 
@@ -30,9 +32,41 @@ You can use a simple rule instead:
 >
 > Use whatever coding agent you want. Run the patch through Airlock before opening a PR. If it passes this repo's checks, it can enter the normal review queue. If it fails, you find out before a maintainer has to.
 
-That is the product: **agents get unlimited attempts; human attention stays scarce.**
+That is the product: **agents get lots of attempts; human attention stays scarce.**
 
-## What a run looks like
+## Public contributions: AI PRs welcome — Airlock first
+
+AIRLOCK-SUBMIT-001 adds an experimental pre-PR path for open-source repositories. A contributor does not open a raw agent PR. They comment on an issue with a commit from their public fork:
+
+```text
+/airlock submit alice/widget@0123456789abcdef0123456789abcdef01234567
+```
+
+The GitHub webhook authenticates who submitted it. Airlock enforces per-user and per-issue limits, checks that the source is actually that user's fork, freezes the current base commit, and queues the patch.
+
+A separate worker fetches the public commits, rejects protected-file changes before execution, and runs the repo's frozen checks in Docker with no network and no GitHub credentials. The worker can return `BLOCKED`, `NEEDS_EVIDENCE`, or `SURVIVED`.
+
+A different trusted process holds GitHub write access. It never runs the submitted code. It only accepts the sealed patch artifact, reapplies it to the exact evaluated base, verifies the resulting Git tree, and then opens the PR.
+
+The PR carries the receipt: the base commit, patch hash, Airlock config hash, protected-file result, and the exact commands and exit codes that earned review.
+
+**Use whatever coding agent you want. The repo decides what passes.**
+
+### Maintainer setup
+
+Run `airlock init`, commit the resulting `.airlock/config.json`, create and commit `.airlock/submit.json` from `examples/submit.json`, point a GitHub App webhook at `/github/webhook`, and keep the three roles separate:
+
+```bash
+AIRLOCK_GITHUB_WEBHOOK_SECRET=... airlock-submit serve
+AIRLOCK_EVALUATION_KEY=... airlock-submit worker
+AIRLOCK_EVALUATION_KEY=... airlock-submit open-pr sub_...
+```
+
+The receiver needs only the webhook secret and optional read-only GitHub API access. The worker needs Docker and the evaluation key, but no GitHub credentials. The PR opener needs the evaluation key plus GitHub write access, and executes no candidate code.
+
+The container image is maintainer-owned and must already exist on the worker; Airlock never builds a Dockerfile supplied by the candidate. The default policy allows one open candidate per submitter per issue, applies a daily submission cap and account-age floor, limits total active work, and caps patch files/bytes before compute is spent.
+
+## What a local run looks like
 
 ```text
 $ airlock run 417 -n 12 --models claude-code,codex,aider --budget 1
