@@ -88,7 +88,7 @@ def matches_any(path: str, patterns: Iterable[str]) -> bool:
 
 
 def scrub_agent_env(pass_env: Iterable[str], *, home: Path, extra: dict[str, str]) -> dict[str, str]:
-    forbidden_exact = {"GITHUB_TOKEN", "GH_TOKEN", "SSH_AUTH_SOCK", "AIRLOCK_RECEIPT_KEY", "OPENLINE_RELEASE_KEY"}
+    forbidden_exact = {"GITHUB_TOKEN", "GH_TOKEN", "SSH_AUTH_SOCK", "AIRLOCK_VERIFICATION_KEY", "OPENLINE_RELEASE_KEY"}
     forbidden_markers = ("RELEASE_KEY", "DEPLOY_KEY", "SIGNING_KEY")
     env: dict[str, str] = {}
     for key in ("PATH", "LANG", "LC_ALL", "TZ", "SYSTEMROOT", "WINDIR", "PATHEXT"):

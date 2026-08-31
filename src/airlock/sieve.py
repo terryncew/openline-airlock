@@ -6,10 +6,10 @@ from pathlib import Path
 from .util import compact_result, matches_any, run
 
 
-def protected_surface_check(changed_paths: list[str], protected: list[str]) -> dict:
+def protected_files_check(changed_paths: list[str], protected: list[str]) -> dict:
     touched = [path for path in changed_paths if matches_any(path, protected)]
     return {
-        "rule": "protected_surface",
+        "rule": "protected_files",
         "status": "FAIL" if touched else "PASS",
         "touched": touched,
     }
@@ -83,5 +83,5 @@ def sufficiency_check(repo: Path, base_commit: str, changed_paths: list[str], te
         "basis": "baseline_test_reference_heuristic",
         "changed_modules": sorted(modules),
         "matched_tests": matched,
-        "warning": "Reference coverage is a conservative v0.1 heuristic, not proof of semantic completeness.",
+        "warning": "Reference coverage is a conservative v0.1 heuristic and does not establish complete coverage.",
     }

@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "OpenLine Airlock verification file v1",
+  "type": "object",
+  "required": ["alg", "payload", "signature"],
+  "properties": {
+    "alg": {"const": "HMAC-SHA256"},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "decision",
+        "run_id",
+        "base_commit",
+        "candidate_commit",
+        "changed_paths",
+        "protected_patterns",
+        "baseline",
+        "evidence",
+        "what_this_record_means"
+      ],
+      "properties": {
+        "schema": {"const": "airlock.verification.v1"},
+        "decision": {"const": "READY_FOR_REVIEW"},
+        "base_commit": {"type": "string"},
+        "candidate_commit": {"type": "string"},
+        "changed_paths": {"type": "array", "items": {"type": "string"}},
+        "protected_patterns": {"type": "array", "items": {"type": "string"}},
+        "what_this_record_means": {"type": "string"}
+      }
+    }
+  }
+}

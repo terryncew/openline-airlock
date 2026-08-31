@@ -2,10 +2,10 @@
 
 ## 0.1.0
 
-Initial standalone OpenLine Airlock MVP.
+First standalone OpenLine Airlock release.
 
-- `airlock init`: repository discovery, protected surfaces, green baseline check.
-- `airlock run`: N isolated candidate worktrees, BYOA command adapters, protected-surface elimination, static checks, frozen regression checks, evidence-sufficiency hold, single-survivor fail-closed admission, optional GitHub PR creation.
-- `airlock verify`: offline deterministic receipt validation without re-running generation.
-- receiver-local signed proof receipts and flat reverse evidence index.
-- explicit claim boundary: receipts describe verified evidence and do not claim correctness outside it.
+- `airlock init` finds the repo’s existing test, lint, and typecheck commands and confirms the starting branch is green.
+- `airlock run` fans one task out to isolated agent worktrees and blocks patches that touch protected files, fail static checks, break existing tests, or lack enough evidence for unattended review.
+- `airlock verify` validates a saved verification record against the exact base commit, candidate commit, changed-file boundary, and recorded check results.
+- Built-in adapters support common installed coding-agent CLIs, with custom commands available in `.airlock/config.json`.
+- Cost output preserves missing provider economics as unknown instead of estimating them.

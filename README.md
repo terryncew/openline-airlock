@@ -1,80 +1,117 @@
 # OpenLine Airlock
 
-**Run more coding agents than you could ever review. Only verified patches get through.**
+**Run 12 coding agents. Review the one that survives.**
 
-Airlock is an adversarial release membrane for autonomous coding agents. Give the same issue to Claude Code, Codex, Aider, OpenCode, local models, or your own runner. Airlock isolates the attempts, freezes your repository's existing release checks, kills candidates that touch protected success criteria or break regression/static invariants, and surfaces a survivor only when the repository has enough evidence to justify one.
+Use Claude Code, Codex, Aider, OpenCode, local models, or your own command. Airlock gives them the same task on separate Git worktrees, then independently checks every patch against the repo you already have.
 
-It is not another coding agent. It is the gate between untrusted generation and a Git repository.
+It blocks patches that change tests or release config, fail lint/type checks, break existing tests, or are not covered well enough to justify an unattended PR.
+
+If one patch survives, Airlock opens a PR and saves exactly what it checked. If none survive, you get zero PRs.
 
 ```text
-$ airlock run https://github.com/acme/widget/issues/417 --agents 12 --models claude-code,codex,aider --budget 1
+$ airlock run 417 -n 12 --models claude-code,codex,aider --budget 1
 
-[outer chamber]  12 agents dispatched
-[decontaminate]  8 candidates purged
-[decontaminate]  3 candidates held for insufficient evidence
-[inner chamber]  1 candidate cleared declared invariants
-[inner chamber]  admitted candidate-07 -> airlock/admitted/...
-Proof: .airlock/proofs/....json
+Agents started: 12
+Patches produced: 9
+
+Blocked: 6
+  2 changed protected tests/config
+  3 broke existing tests
+  1 failed lint/type checks
+Needs evidence: 2
+Survived: 1
+
+Ready for review: candidate-07 -> airlock/ready/...
+PR: https://github.com/acme/widget/pull/418
+Verification file: .airlock/records/....json
 Reported spend: $0.94
+Elapsed: 4h 17m
 ```
 
-The important line is not the agent count. It is this:
-
-> **The process that generated the patch never gets to define whether the patch earned admission.**
+That is the whole idea: **run more agents than you could ever review, then review only the patches that survive your own repo checks.**
 
 ## Three commands
 
 ```bash
 pip install .
 airlock init
-airlock run <issue-or-prompt> --agents 12 --models claude-code,codex,aider --budget 2.00
-airlock verify .airlock/proofs/<run>.json
+airlock run <issue-or-prompt> -n 12 --models claude-code,codex,aider --budget 2.00
+airlock verify .airlock/records/<run>.json
 ```
 
-`airlock init` scans the local repository, auto-discovers common test/static commands, protects tests and release/configuration surfaces, and executes the discovered suite once. Airlock refuses unattended admission from a red baseline.
+### `airlock init`
 
-Auto-discovery currently understands common Python (`pytest`, `ruff`, `mypy`), Node (`npm test`, `lint`, `typecheck` scripts), Rust (`cargo test --all-targets`), and Go (`go test ./...`) repositories.
+Airlock looks at the repo and finds the checks developers already use.
 
-`airlock run` fans one task across isolated Git worktrees. Each agent sees its own branch and an environment with release/signing/GitHub credentials stripped. Every candidate is evaluated after generation by Airlock, not by the candidate's self-report.
+Current auto-detection includes:
 
-`airlock verify` validates a proof receipt deterministically without running the swarm again. It checks the receipt signature, exact base/candidate diff boundary, protected-path boundary, frozen protected-file fingerprint, and the integrity of the recorded command artifacts.
+- Python: `pytest`, `ruff`, `mypy`
+- Node: `npm test`, `lint`, `typecheck`
+- Rust: `cargo test --all-targets`
+- Go: `go test ./...`
 
-## The elimination sieve
+It also protects files agents should not be able to rewrite to make themselves look green, including common test directories, GitHub workflows, Airlock config, and detected build/test configuration.
 
-Airlock v0.1 applies four rules in order.
+Then it runs the discovered checks once. If the starting repo is already red, Airlock stops there.
 
-**1. Protected surface.** Tests, GitHub workflows, Airlock configuration, and detected build/test configuration files are protected by default. A candidate that changes one is purged before its tests count as evidence.
+Typical output:
 
-**2. Static invariants.** Detected lint/typecheck commands run in a fresh detached worktree at the exact candidate commit.
+```text
+OpenLine Airlock
 
-**3. Frozen regression suite.** Detected repository tests run against the candidate while the protected evaluator/test surfaces remain unchanged from the frozen base.
+Found checks:
+  ✓ pytest -q
+  ✓ ruff check .
+  ✓ mypy src
 
-**4. Evidence sufficiency.** A green suite is not automatically treated as reality. When no explicit target check is configured, v0.1 performs a conservative heuristic: at least one frozen baseline test must reference a changed source module. If Airlock cannot find even that connection, the candidate becomes `INSUFFICIENT_EVIDENCE`, not admitted.
+Protected automatically:
+  • tests/**
+  • .github/**
+  • pyproject.toml
+  • .airlock/**
 
-That last rule is intentionally modest. Referencing a module does not prove full semantic coverage. The proof receipt states the exact evidence Airlock observed and explicitly does **not** claim the patch “broke nothing.”
+Baseline: GREEN
+Config: .airlock/config.json
+Agent adapters found: claude-code, codex
 
-For stronger use, add target-specific commands to `.airlock/config.json` before the run:
-
-```json
-{
-  "verification": {
-    "target_commands": [["pytest", "-q", "tests/test_issue_417.py"]]
-  }
-}
+Ready: airlock run <issue> -n 12
 ```
+
+### `airlock run`
+
+Airlock gives the same issue or prompt to N agents on separate Git worktrees.
+
+Each agent can edit code and run whatever local checks it wants. Its own “done” message does not count. After generation finishes, Airlock checks the exact patch itself.
+
+The default sequence is straightforward:
+
+1. **Did it change tests or protected config?** Block it.
+2. **Does lint/typecheck still pass?** If not, block it.
+3. **Do the repo's existing tests still pass?** If not, block it.
+4. **Can the repo actually tell whether this change was exercised?** If not, mark it `NEEDS_EVIDENCE` instead of pretending green CI proves enough.
+
+Exactly one survivor becomes ready for review. More than one survivor means Airlock refuses to guess which one is best. Zero survivors means zero PRs.
+
+### `airlock verify`
+
+The surviving patch gets a JSON verification file in `.airlock/records/`.
+
+`airlock verify` checks that file offline against the exact base commit and candidate commit. It verifies the signature, changed-file list, protected-file boundary, clean baseline fingerprint, and hashes of the recorded command results.
+
+It does **not** rerun the agents.
 
 ## Bring your own agents
 
-Airlock contains thin command adapters, not an agent framework. `airlock init` auto-registers common installed CLIs when their binaries are present:
+Airlock is not a coding agent and does not care which coding agent wins.
 
-- `claude-code` → `claude -p {prompt}`
-- `codex` → `codex exec {prompt}`
-- `aider` → `aider --message {prompt}`
-- `opencode` → `opencode run {prompt}`
+Built-in command adapters cover common installed CLIs:
 
-Every command is overrideable in `.airlock/config.json`, which is the source of truth for the local installation.
+- Claude Code
+- Codex
+- Aider
+- OpenCode
 
-A provider definition is deliberately boring:
+Add anything else in `.airlock/config.json`:
 
 ```json
 {
@@ -88,9 +125,15 @@ A provider definition is deliberately boring:
 }
 ```
 
-Placeholders: `{prompt}`, `{prompt_file}`, `{candidate_id}`, `{worktree}`, `{branch}`, `{budget}`.
+Available placeholders: `{prompt}`, `{prompt_file}`, `{candidate_id}`, `{worktree}`, `{branch}`, `{budget}`.
 
-Agents may write optional telemetry to the path in `AIRLOCK_AGENT_REPORT`:
+Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's normal Git credential configuration. Provider credentials must be explicitly allowed.
+
+This is application-level separation. If you treat the agent command as hostile native code, put generation in a container or VM.
+
+## Cost reporting that does not lie
+
+Agents can optionally report provider/model/cost telemetry to `AIRLOCK_AGENT_REPORT`:
 
 ```json
 {
@@ -101,48 +144,58 @@ Agents may write optional telemetry to the path in `AIRLOCK_AGENT_REPORT`:
 }
 ```
 
-Airlock never treats `local_checks_passed` as release evidence. Missing costs remain missing; they are never replaced with token estimates and presented as measured spend.
+`local_checks_passed` is informational only.
 
-`--budget` is recorded and passed to generic adapters as `AIRLOCK_BUDGET_USD` per agent. Airlock cannot promise a hard provider-side spend cap unless the configured adapter itself enforces one.
+If every agent reports cost, Airlock can show a total. If one does not, Airlock says the known total and how many costs are missing. It does not turn missing numbers into an estimate and call the estimate measured spend.
 
-## Admission is fail-closed
+## Weak tests stay weak
 
-Candidate outcomes are intentionally asymmetric:
+Airlock cannot invent tests your repo does not have.
 
-- `PURGED` — known boundary failure: protected surface, static invariant, regression, target check, branch integrity, or no patch.
-- `INSUFFICIENT_EVIDENCE` — the available repo evidence cannot justify unattended admission.
-- `SURVIVED` — the candidate passed all declared checks and the v0.1 sufficiency requirement.
+When no issue-specific check is configured, v0.1 uses a deliberately conservative fallback: a changed source module must at least be referenced by a frozen baseline test. If Airlock cannot establish even that, the patch is `NEEDS_EVIDENCE` and no unattended PR is opened for it.
 
-Exactly one survivor becomes `ADMITTED`. If several survive, Airlock does not invent a winner; the run ends `MULTIPLE_SURVIVORS` and leaves the choice to a human or a future independent selector.
+For a stronger check, add an issue-specific command before the run:
 
-If zero survive, zero PRs are produced. That is a successful safety outcome, not a failed demo.
+```json
+{
+  "verification": {
+    "target_commands": [["pytest", "-q", "tests/test_issue_417.py"]]
+  }
+}
+```
 
-## PRs
+The verification file says exactly what passed. It never says the patch “broke nothing.”
 
-A successful run always creates a local `airlock/admitted/<run-id>` branch and a signed proof in `.airlock/proofs/`. When the repository has a GitHub `origin` and the `gh` CLI is available, Airlock then attempts to push that already-admitted branch and open a PR. Agent subprocesses do not receive GitHub/release credentials. The PR body points back to the proof receipt.
+## What gets saved
 
-Use `--no-pr` for a local-only tournament.
+Every run keeps:
 
-For stronger production separation, run generation, evaluation, and PR/promotion in separate CI jobs/containers with separate credentials. v0.1's local worktree isolation is application-level isolation, not a hostile same-kernel sandbox.
+- base commit
+- candidate commits and changed files
+- agent/model telemetry when reported
+- each independent check and exit code
+- hashes of stdout/stderr artifacts
+- reported cost with unknowns preserved
+- elapsed time
+- the surviving branch, if there is one
+- the verification file for the survivor
 
-## Proofs and the evidence index
+`.airlock/index.json` maps those recorded hashes back to the patch that used them. That gives future tooling a cheap way to answer a practical question: **which patches should we re-check if one of these inputs changes?**
 
-Receipts are content-addressed JSON bundles signed with a local HMAC key generated by `airlock init`. The local key makes accidental/tampered receipt edits detectable and supports deterministic offline verification. It is not marketed as a portable public-key identity system or a replacement for KMS-backed signing.
+## What Airlock does not promise
 
-`.airlock/index.json` is a flat reverse evidence index. Each admitted proof is indexed by the hashes of the frozen evaluator surface, config, prompt, and observed command outputs. That gives later OpenLine standing/reconsideration machinery a cheap way to answer: “which admitted changes depended on this evidence?” without turning v0.1 into a graph database.
+Airlock does not make weak tests strong. It does not prove unknown edge cases, perfect correctness, or that one surviving patch is globally the best implementation.
 
-## What Airlock does not do
+What it does give you is simpler:
 
-Airlock does not make weak tests strong. It does not prove unasserted edge cases, semantic optimality, arbitrary-repository correctness, complete dynamic-language reachability, or general coding-agent safety.
+**the agent that wrote the patch does not get to rewrite the checks, grade itself, or hold the credentials that ship it.**
 
-Its narrower promise is useful precisely because it is enforceable:
+## Why use it?
 
-**an untrusted coding agent can propose a patch, but it cannot confer release standing on itself.**
+Because cheap coding agents create a new bottleneck: review.
 
-## Why this exists
+Running 50 agents is easy. Reading 50 diffs is terrible.
 
-Cheap agent generation changes the bottleneck. If 50 agents can produce 50 patches while you sleep, reviewing 50 patches is still a terrible product.
+Airlock lets you use more autonomous coding without turning your GitHub inbox into agent spam.
 
-Airlock turns the repository checks you already invested in into an elimination boundary for far more autonomous attempts than a human team could review manually.
-
-**Bring any agent. Keep the keys.**
+**Give them the work. Keep the keys. Review the survivor.**

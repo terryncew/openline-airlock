@@ -25,9 +25,9 @@ from .gitops import (
 )
 from .index import add as index_add
 from .providers import resolve_provider
-from .receipt import ensure_key, sign
+from .verification import ensure_key, sign
 from .sandbox import WorktreeSandbox
-from .sieve import protected_surface_check, run_checks, sufficiency_check
+from .sieve import protected_files_check, run_checks, sufficiency_check
 from .util import compact_result, expand, matches_any, run, scrub_agent_env, sha256_bytes, sha256_file, write_json
 
 
@@ -99,7 +99,7 @@ def _test_files(repo: Path, base: str, protected: list[str]) -> list[str]:
     return [path for path in tracked_files(repo, base) if matches_any(path, test_patterns)]
 
 
-def _create_pr(repo: Path, branch: str, run_id: str, proof_path: Path) -> dict:
+def _create_pr(repo: Path, branch: str, run_id: str, verification_path: Path) -> dict:
     if not shutil.which("gh"):
         return {"status": "NOT_CREATED", "reason": "gh_cli_unavailable"}
     remote = run(["git", "remote", "get-url", "origin"], repo)
@@ -113,15 +113,15 @@ def _create_pr(repo: Path, branch: str, run_id: str, proof_path: Path) -> dict:
     if base_branch["exit_code"] == 0 and "/" in base_branch["stdout"]:
         base = base_branch["stdout"].strip().split("/")[-1]
     body = (
-        "Admitted by OpenLine Airlock.\n\n"
+        "Verified by OpenLine Airlock and ready for review.\n\n"
         f"Run: `{run_id}`\n"
-        f"Proof: `{proof_path.as_posix()}`\n\n"
-        "The proof records the exact repository checks Airlock observed. "
-        "It does not claim semantic correctness outside those checks."
+        f"Verification: `{verification_path.as_posix()}`\n\n"
+        "The verification file records the exact repository checks Airlock observed. "
+        "It only covers the checks listed here."
     )
     pr = run([
         "gh", "pr", "create", "--head", branch, "--base", base,
-        "--title", f"Airlock survivor: {run_id}", "--body", body,
+        "--title", f"Airlock ready: {run_id}", "--body", body,
     ], repo, env=os.environ.copy(), timeout=120)
     if pr["exit_code"] != 0:
         return {"status": "NOT_CREATED", "reason": "gh_pr_create_failed", "stderr_tail": pr["stderr"][-1000:]}
@@ -171,7 +171,7 @@ def run_tournament(
     baseline["config_sha256"] = sha256_file(config_path)
     started = time.monotonic()
 
-    print(f"[outer chamber]  {agents} agents dispatched")
+    print(f"Agents started: {agents}")
     temp_root = Path(tempfile.mkdtemp(prefix=f"airlock-{run_id}-"))
     entries = []
     for i in range(agents):
@@ -248,16 +248,16 @@ def run_tournament(
         item = dict(row)
         item["checks"] = []
         if not row["branch_integrity"]:
-            item.update({"disposition": "PURGED", "reason": "BRANCH_INTEGRITY"})
+            item.update({"disposition": "BLOCKED", "reason": "BRANCH_INTEGRITY"})
             evaluated.append(item); continue
         if row["commit"] == base:
-            item.update({"disposition": "PURGED", "reason": "NO_PATCH"})
+            item.update({"disposition": "BLOCKED", "reason": "NO_PATCH"})
             evaluated.append(item); continue
 
-        protected_check = protected_surface_check(row["changed_paths"], protected)
+        protected_check = protected_files_check(row["changed_paths"], protected)
         item["checks"].append(protected_check)
         if protected_check["status"] != "PASS":
-            item.update({"disposition": "PURGED", "reason": "PROTECTED_SURFACE"})
+            item.update({"disposition": "BLOCKED", "reason": "PROTECTED_FILES_CHANGED"})
             evaluated.append(item); continue
 
         with WorktreeSandbox(repo, row["commit"], prefix=f"airlock-eval-{row['candidate_id']}-") as wt:
@@ -265,37 +265,37 @@ def run_tournament(
                 target = run_checks(wt, target_commands, timeout=timeout, kind="target")
                 item["checks"].append(target)
                 if target["status"] != "PASS":
-                    item.update({"disposition": "PURGED", "reason": "TARGET_FAILED"})
+                    item.update({"disposition": "BLOCKED", "reason": "TARGET_FAILED"})
                     evaluated.append(item); continue
 
             static = run_checks(wt, static_commands, timeout=timeout, kind="static")
             item["checks"].append(static)
             if static["status"] != "PASS":
-                item.update({"disposition": "PURGED", "reason": "STATIC_INVARIANT"})
+                item.update({"disposition": "BLOCKED", "reason": "LINT_OR_TYPECHECK"})
                 evaluated.append(item); continue
 
             regression = run_checks(wt, test_commands, timeout=timeout, kind="regression")
             item["checks"].append(regression)
             if regression["status"] != "PASS":
-                item.update({"disposition": "PURGED", "reason": "REGRESSION"})
+                item.update({"disposition": "BLOCKED", "reason": "TESTS_FAILED"})
                 evaluated.append(item); continue
 
         sufficiency = sufficiency_check(repo, base, row["changed_paths"], test_files, target_commands)
         item["checks"].append(sufficiency)
         if sufficiency["status"] != "PASS":
-            item.update({"disposition": "INSUFFICIENT_EVIDENCE", "reason": sufficiency["basis"]})
+            item.update({"disposition": "NEEDS_EVIDENCE", "reason": sufficiency["basis"]})
         else:
-            item.update({"disposition": "SURVIVED", "reason": "ALL_DECLARED_INVARIANTS_PASSED"})
+            item.update({"disposition": "SURVIVED", "reason": "ALL_CONFIGURED_CHECKS_PASSED"})
         evaluated.append(item)
 
     survivors = [row for row in evaluated if row["disposition"] == "SURVIVED"]
-    admitted = survivors[0] if len(survivors) == 1 else None
+    ready = survivors[0] if len(survivors) == 1 else None
     if len(survivors) > 1:
         final_status = "MULTIPLE_SURVIVORS"
     elif len(survivors) == 1:
-        final_status = "ADMITTED"
+        final_status = "READY"
     else:
-        final_status = "NO_PATCH_ADMITTED"
+        final_status = "NO_PATCH_READY"
 
     cost = _cost_summary(generated)
     report = {
@@ -311,74 +311,74 @@ def run_tournament(
         "protected_paths": protected,
         "candidates": evaluated,
         "survivor_count": len(survivors),
-        "admitted_candidate_id": admitted["candidate_id"] if admitted else None,
+        "ready_candidate_id": ready["candidate_id"] if ready else None,
         "cost": cost,
         "elapsed_seconds": round(time.monotonic() - started, 3),
     }
 
-    proof_path = None
+    verification_path = None
     pr = None
-    if admitted:
-        admitted_branch = sanitize_branch(f"airlock/admitted/{run_id}")
-        git(repo, "branch", "-f", admitted_branch, admitted["commit"])
+    if ready:
+        ready_branch = sanitize_branch(f"airlock/ready/{run_id}")
+        git(repo, "branch", "-f", ready_branch, ready["commit"])
         commands = []
-        for check in admitted["checks"]:
+        for check in ready["checks"]:
             commands.extend(check.get("commands", []))
         payload = {
-            "schema": "airlock.proof.v1",
-            "decision": "ADMITTED",
+            "schema": "airlock.verification.v1",
+            "decision": "READY_FOR_REVIEW",
             "run_id": run_id,
             "base_commit": base,
-            "candidate_commit": admitted["commit"],
-            "candidate_branch": admitted_branch,
-            "source_candidate_id": admitted["candidate_id"],
-            "model": admitted["model"],
-            "changed_paths": admitted["changed_paths"],
+            "candidate_commit": ready["commit"],
+            "candidate_branch": ready_branch,
+            "source_candidate_id": ready["candidate_id"],
+            "model": ready["model"],
+            "changed_paths": ready["changed_paths"],
             "protected_patterns": protected,
             "baseline": baseline,
             "evidence": {
                 "commands": commands,
-                "sufficiency": next((c for c in admitted["checks"] if c.get("rule") == "evidence_sufficiency"), None),
+                "coverage_check": next((c for c in ready["checks"] if c.get("rule") == "evidence_sufficiency"), None),
             },
             "config_sha256": sha256_file(config_path),
             "prompt_sha256": sha256_bytes(prompt.encode()),
-            "reported_cost": admitted.get("agent_report", {}).get("reported_cost_usd"),
-            "claim_boundary": (
-                "This receipt proves the exact candidate passed the recorded frozen checks and protected-path boundary. "
-                "It does not prove behavior outside those checks."
+            "reported_cost": ready.get("agent_report", {}).get("reported_cost_usd"),
+            "what_this_record_means": (
+                "This record confirms the exact candidate passed the checks listed here and did not change protected paths. "
+                "It only covers the checks listed here."
             ),
         }
-        key_path = repo / ".airlock" / "receipt.key"
+        key_path = repo / ".airlock" / "verification.key"
         signed = sign(payload, ensure_key(key_path))
-        proof_path = repo / ".airlock" / "proofs" / f"{run_id}.json"
-        write_json(proof_path, signed)
+        verification_path = repo / ".airlock" / "records" / f"{run_id}.json"
+        write_json(verification_path, signed)
         evidence_hashes = [
             baseline["protected_fingerprint"]["root_sha256"],
             sha256_file(config_path),
             sha256_bytes(prompt.encode()),
         ] + [r["stdout_sha256"] for r in commands] + [r["stderr_sha256"] for r in commands]
-        index_add(repo / ".airlock" / "index.json", str(proof_path.relative_to(repo)), evidence_hashes)
-        report["proof"] = str(proof_path.relative_to(repo))
-        report["admitted_branch"] = admitted_branch
+        index_add(repo / ".airlock" / "index.json", str(verification_path.relative_to(repo)), evidence_hashes)
+        report["verification_file"] = str(verification_path.relative_to(repo))
+        report["ready_branch"] = ready_branch
         if open_pr:
-            pr = _create_pr(repo, admitted_branch, run_id, proof_path.relative_to(repo))
+            pr = _create_pr(repo, ready_branch, run_id, verification_path.relative_to(repo))
             report["pull_request"] = pr
 
     write_json(run_dir / "run.json", report)
     (run_dir / "run.sha256").write_text(sha256_file(run_dir / "run.json") + "\n")
 
-    print(f"[decontaminate]  {sum(r['disposition']=='PURGED' for r in evaluated)} candidates purged")
-    print(f"[decontaminate]  {sum(r['disposition']=='INSUFFICIENT_EVIDENCE' for r in evaluated)} candidates held for insufficient evidence")
-    print(f"[inner chamber]  {len(survivors)} candidate(s) cleared declared invariants")
-    if admitted:
-        print(f"[inner chamber]  admitted {admitted['candidate_id']} -> {report['admitted_branch']}")
-        print(f"Proof: {report['proof']}")
+    print(f"Blocked: {sum(r['disposition']=='BLOCKED' for r in evaluated)}")
+    print(f"Needs evidence: {sum(r['disposition']=='NEEDS_EVIDENCE' for r in evaluated)}")
+    print(f"Survived: {len(survivors)}")
+    if ready:
+        print(f"Ready for review: {ready['candidate_id']} -> {report['ready_branch']}")
+        print(f"Verification record: {report['verification_file']}")
         if pr and pr.get("status") == "CREATED":
             print(f"PR: {pr['url']}")
     elif len(survivors) > 1:
-        print("[inner chamber]  no automatic admission: multiple survivors require human choice")
+        print("Multiple patches survived. No automatic choice was made.")
     else:
-        print("[inner chamber]  0 patches admitted")
+        print("Ready for review: 0")
 
     if cost["complete"]:
         print(f"Reported spend: ${cost['reported_cost_usd_total']}")
