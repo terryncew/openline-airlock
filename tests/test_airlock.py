@@ -214,7 +214,8 @@ class AirlockTests(unittest.TestCase):
         (self.fx.repo / "tests" / "test_smoke.py").write_text("def test_smoke():\n    assert True\n")
         sh("git", "-C", str(self.fx.repo), "add", ".")
         sh("git", "-C", str(self.fx.repo), "commit", "-qm", "add pytest smoke")
-        commands = discover_commands(self.fx.repo)
+        with mock.patch("airlock.discovery.shutil.which", return_value=None):
+            commands = discover_commands(self.fx.repo)
         protected = protected_patterns(self.fx.repo)
         self.assertTrue(any(cmd[:1] == ["pytest"] for cmd in commands["tests"]))
         self.assertIn("tests/**", protected)

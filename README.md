@@ -1,12 +1,38 @@
 # OpenLine Airlock
 
-**Run 12 coding agents. Review the one that survives.**
+**Let coding agents work your backlog without turning every attempt into a PR you have to review.**
 
-Use Claude Code, Codex, Aider, OpenCode, local models, or your own command. Airlock gives them the same task on separate Git worktrees, then independently checks every patch against the repo you already have.
+Coding agents made patches cheap. Review is still expensive.
 
-It blocks patches that change tests or release config, fail lint/type checks, break existing tests, or are not covered well enough to justify an unattended PR.
+If you give 20 agents a bug, you can get 20 different attempts back. That is useful until somebody has to read all 20 diffs. Airlock moves that filtering step before the PR queue.
 
-If one patch survives, Airlock opens a PR and saves exactly what it checked. If none survive, you get zero PRs.
+Give the same issue to Claude Code, Codex, Aider, OpenCode, local models, or your own agent. Airlock runs each attempt separately, then checks the resulting patch against the repo's tests, lint, type checks, and protected files.
+
+Bad patch? It stops there.
+
+The repo does not have enough tests to tell whether the change works? Airlock says `NEEDS_EVIDENCE` instead of pretending a green run proves enough.
+
+One patch survives? That is the one a maintainer sees.
+
+**Use whatever coding agent you want. The repo decides what passes.**
+
+## What this lets you do
+
+Airlock makes high-volume autonomous coding practical without scaling human review at the same rate.
+
+Use it to let agents attack stale bugs, dependency upgrades, security fixes, compatibility work, repetitive maintenance, and open issues while you spend human attention only on the attempts that survive your repo's checks.
+
+For an open-source maintainer, that means you no longer have to choose between banning AI-generated contributions and letting raw agent PRs pile up in the queue.
+
+You can use a simple rule instead:
+
+> **AI PRs welcome — Airlock first.**
+>
+> Use whatever coding agent you want. Run the patch through Airlock before opening a PR. If it passes this repo's checks, it can enter the normal review queue. If it fails, you find out before a maintainer has to.
+
+That is the product: **agents get unlimited attempts; human attention stays scarce.**
+
+## What a run looks like
 
 ```text
 $ airlock run 417 -n 12 --models claude-code,codex,aider --budget 1
@@ -24,11 +50,9 @@ Survived: 1
 Ready for review: candidate-07 -> airlock/ready/...
 PR: https://github.com/acme/widget/pull/418
 Verification file: .airlock/records/....json
-Reported spend: $0.94
-Elapsed: 4h 17m
 ```
 
-That is the whole idea: **run more agents than you could ever review, then review only the patches that survive your own repo checks.**
+The numbers above are an example of the output format. Airlock reports measured run results and preserves unknown costs as unknown.
 
 ## Three commands
 
@@ -54,51 +78,41 @@ It also protects files agents should not be able to rewrite to make themselves l
 
 Then it runs the discovered checks once. If the starting repo is already red, Airlock stops there.
 
-Typical output:
-
 ```text
-OpenLine Airlock
+$ airlock init
 
 Found checks:
-  ✓ pytest -q
-  ✓ ruff check .
-  ✓ mypy src
+  pytest -q
+  ruff check .
+  mypy src
 
-Protected automatically:
-  • tests/**
-  • .github/**
-  • pyproject.toml
-  • .airlock/**
+Protected:
+  tests/**
+  .github/**
+  pyproject.toml
+  .airlock/**
 
 Baseline: GREEN
 Config: .airlock/config.json
-Agent adapters found: claude-code, codex
-
-Ready: airlock run <issue> -n 12
 ```
 
 ### `airlock run`
 
 Airlock gives the same issue or prompt to N agents on separate Git worktrees.
 
-Each agent can edit code and run whatever local checks it wants. Its own “done” message does not count. After generation finishes, Airlock checks the exact patch itself.
+Each agent can edit code and run whatever local checks it wants. Its own "done" message does not count. After generation finishes, Airlock checks the exact patch itself.
 
-The default sequence is straightforward:
+Airlock blocks a patch when it changes protected tests/config, fails lint or type checks, or breaks the repo's existing tests. If the available tests do not exercise the changed code well enough, the patch becomes `NEEDS_EVIDENCE` instead of being sent through automatically.
 
-1. **Did it change tests or protected config?** Block it.
-2. **Does lint/typecheck still pass?** If not, block it.
-3. **Do the repo's existing tests still pass?** If not, block it.
-4. **Can the repo actually tell whether this change was exercised?** If not, mark it `NEEDS_EVIDENCE` instead of pretending green CI proves enough.
-
-Exactly one survivor becomes ready for review. More than one survivor means Airlock refuses to guess which one is best. Zero survivors means zero PRs.
+Exactly one survivor becomes ready for review. More than one survivor means Airlock refuses to guess which implementation is best. Zero survivors means zero PRs.
 
 ### `airlock verify`
 
-The surviving patch gets a JSON verification file in `.airlock/records/`.
+A surviving patch gets a JSON verification file in `.airlock/records/`.
 
 `airlock verify` checks that file offline against the exact base commit and candidate commit. It verifies the signature, changed-file list, protected-file boundary, clean baseline fingerprint, and hashes of the recorded command results.
 
-It does **not** rerun the agents.
+It does not rerun the agents.
 
 ## Bring your own agents
 
@@ -129,30 +143,13 @@ Available placeholders: `{prompt}`, `{prompt_file}`, `{candidate_id}`, `{worktre
 
 Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's normal Git credential configuration. Provider credentials must be explicitly allowed.
 
-This is application-level separation. If you treat the agent command as hostile native code, put generation in a container or VM.
-
-## Cost reporting that does not lie
-
-Agents can optionally report provider/model/cost telemetry to `AIRLOCK_AGENT_REPORT`:
-
-```json
-{
-  "reported_cost_usd": "0.078",
-  "local_checks_passed": true,
-  "provider": "OpenRouter",
-  "model": "deepseek/..."
-}
-```
-
-`local_checks_passed` is informational only.
-
-If every agent reports cost, Airlock can show a total. If one does not, Airlock says the known total and how many costs are missing. It does not turn missing numbers into an estimate and call the estimate measured spend.
+If you treat an agent command as hostile native code, run generation inside a container or VM.
 
 ## Weak tests stay weak
 
 Airlock cannot invent tests your repo does not have.
 
-When no issue-specific check is configured, v0.1 uses a deliberately conservative fallback: a changed source module must at least be referenced by a frozen baseline test. If Airlock cannot establish even that, the patch is `NEEDS_EVIDENCE` and no unattended PR is opened for it.
+When no issue-specific check is configured, v0.1 uses a conservative fallback: a changed source module must at least be referenced by a frozen baseline test. If Airlock cannot establish even that, the patch is `NEEDS_EVIDENCE` and no unattended PR is opened for it.
 
 For a stronger check, add an issue-specific command before the run:
 
@@ -164,38 +161,18 @@ For a stronger check, add an issue-specific command before the run:
 }
 ```
 
-The verification file says exactly what passed. It never says the patch “broke nothing.”
+The verification file says exactly what passed. It never claims that passing the configured checks proves unknown behavior is correct.
 
-## What gets saved
+## Cost reporting
 
-Every run keeps:
+Agents can optionally report provider, model, and cost telemetry to `AIRLOCK_AGENT_REPORT`.
 
-- base commit
-- candidate commits and changed files
-- agent/model telemetry when reported
-- each independent check and exit code
-- hashes of stdout/stderr artifacts
-- reported cost with unknowns preserved
-- elapsed time
-- the surviving branch, if there is one
-- the verification file for the survivor
-
-`.airlock/index.json` maps those recorded hashes back to the patch that used them. That gives future tooling a cheap way to answer a practical question: **which patches should we re-check if one of these inputs changes?**
+If every agent reports cost, Airlock shows the measured total. If one does not, Airlock reports the known total and the number of missing costs. It does not invent a number for missing data.
 
 ## What Airlock does not promise
 
-Airlock does not make weak tests strong. It does not prove unknown edge cases, perfect correctness, or that one surviving patch is globally the best implementation.
+Airlock does not make weak tests strong. It does not prove perfect correctness or decide that one surviving patch is globally the best implementation.
 
-What it does give you is simpler:
+It solves a narrower problem that becomes more important as coding gets cheaper:
 
-**the agent that wrote the patch does not get to rewrite the checks, grade itself, or hold the credentials that ship it.**
-
-## Why use it?
-
-Because cheap coding agents create a new bottleneck: review.
-
-Running 50 agents is easy. Reading 50 diffs is terrible.
-
-Airlock lets you use more autonomous coding without turning your GitHub inbox into agent spam.
-
-**Give them the work. Keep the keys. Review the survivor.**
+**let lots of agents try without making a maintainer review lots of bad attempts.**
