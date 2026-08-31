@@ -164,7 +164,7 @@ def command_install_github(args: argparse.Namespace) -> int:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
-        description="Run more coding agents than you could ever review. Only verified patches get through.",
+        description="Let coding agents try. Only patches that survive your repo checks reach review.",
     )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)

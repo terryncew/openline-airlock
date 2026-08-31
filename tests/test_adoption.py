@@ -116,6 +116,17 @@ class AdoptionTests(unittest.TestCase):
         self.assertEqual(second.count("<!-- openline-airlock:begin -->"), 1)
 
 
+    def test_generated_contributing_copy_is_actionable_without_airlock_knowledge(self):
+        install_github(self.repo, github_repo="alice/demo")
+        contributing = (self.repo / "CONTRIBUTING.md").read_text()
+        self.assertIn("Do **not** open a pull request yourself", contributing)
+        self.assertIn("git rev-parse HEAD", contributing)
+        self.assertIn("`BLOCKED`", contributing)
+        self.assertIn("`NEEDS_EVIDENCE`", contributing)
+        self.assertIn("`REOPEN`", contributing)
+        self.assertIn("`SURVIVED`", contributing)
+        self.assertIn("The repo decides what passes", contributing)
+
     def test_generated_runtime_contains_no_webhook_server(self):
         install_github(self.repo, github_repo="alice/demo")
         runtime = self.repo / ".airlock/runtime/airlock_submit"

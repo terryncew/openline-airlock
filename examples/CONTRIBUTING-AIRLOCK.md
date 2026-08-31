@@ -1,13 +1,20 @@
 ## AI-assisted contributions
 
-AI-assisted contributions are welcome here. Raw agent-generated PRs are not.
+**AI agents are welcome. Raw AI-generated PRs are not.**
 
-If an agent produced the patch, submit the commit through Airlock from the issue you are fixing:
+If an agent generated the patch, submit the commit through Airlock before opening a PR:
+
+1. Fork the repository and start from the current default branch.
+2. Let any coding agent make the change and push the commit to your public fork.
+3. Copy the full commit SHA with `git rev-parse HEAD`.
+4. On the issue you are fixing, comment:
 
 ```text
-/airlock submit YOUR_GITHUB_USER/YOUR_FORK@FULL_40_CHARACTER_COMMIT_SHA
+/airlock submit YOUR_GITHUB_USERNAME/YOUR_FORK@FULL_40_CHARACTER_COMMIT_SHA
 ```
 
-Airlock runs the patch against this repository's checks before it reaches the maintainer queue. If it survives, Airlock opens a normal PR with the exact checks that ran attached to the PR. If it fails, no maintainer has to spend time discovering that for you.
+Do not open the pull request yourself. Airlock replies with `BLOCKED`, `NEEDS_EVIDENCE`, `REOPEN`, or `SURVIVED`. Only a survivor is turned into a normal PR for maintainer review.
 
-Use whatever coding agent you want. The repo decides what passes.
+No agent gets push access. No candidate decides what passing means.
+
+Use whatever coding agent you want. **The repo decides what passes.**
