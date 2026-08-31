@@ -44,11 +44,13 @@ AIRLOCK-SUBMIT-001 adds an experimental pre-PR path for open-source repositories
 
 The GitHub webhook authenticates who submitted it. Airlock enforces per-user and per-issue limits, checks that the source is actually that user's fork, freezes the current base commit, and queues the patch.
 
-A separate worker fetches the public commits, rejects protected-file changes before execution, and runs the repo's frozen checks in Docker with no network and no GitHub credentials. The worker can return `BLOCKED`, `NEEDS_EVIDENCE`, or `SURVIVED`.
+A separate worker fetches the public commits and checks protected paths **before Docker starts**. A patch that touches tests, `.github/`, `.airlock/`, or another protected path is rejected without running candidate code. Only patches that clear that static check reach the secretless Docker worker.
 
-A different trusted process holds GitHub write access. It never runs the submitted code. It only accepts the sealed patch artifact, reapplies it to the exact evaluated base, verifies the resulting Git tree, and then opens the PR.
+Every result leaves a signed outcome file — `BLOCKED`, `NEEDS_EVIDENCE`, or `SURVIVED` — including the base commit, changed paths, protected-path result, checks that ran, and whether execution was attempted. A rejected patch is explainable even though it never creates a PR.
 
-The PR carries the receipt: the base commit, patch hash, Airlock config hash, protected-file result, and the exact commands and exit codes that earned review.
+A different trusted process holds GitHub write access. It never runs the submitted code. It only accepts the sealed patch artifact after the sandbox is gone, reapplies it to the exact evaluated base, verifies the resulting Git tree, and then opens the PR. If the base branch moved after evaluation, the result becomes `REOPEN`; Airlock does not silently rebase it or carry the old pass forward. The contributor must submit a patch that is evaluated against the new base.
+
+The PR carries the receipt: the base commit, patch hash, outcome hash, Airlock config hash, protected-file result, and the exact commands and exit codes that earned review.
 
 **Use whatever coding agent you want. The repo decides what passes.**
 

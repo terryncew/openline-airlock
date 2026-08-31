@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.1 — AIRLOCK-SUBMIT-002 hardening
+
+- Reject protected-path changes before Docker starts.
+- Write a signed outcome file for `BLOCKED`, `NEEDS_EVIDENCE`, and `SURVIVED`.
+- Mark previously surviving submissions `REOPEN` when the base branch moves; never silently rebase old evidence.
+- Bind the signed outcome hash into the trusted PR receipt.
+- Add a frozen three-arm release-gate runner and a live HTTP spam-control probe.
+
 ## 0.1.0
 
 First standalone OpenLine Airlock release.
