@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2 — Candidate-bound checks
+
+- Makes local baseline, agent, and candidate-check processes put the active Git worktree's `src/` and repository root first on `PYTHONPATH`.
+- Prevents a Python editable install from the starting checkout from masking a candidate source change with the already-installed base package.
+- Aligns the legacy container worker with the Actions evaluator's candidate-worktree Python path.
+- Adds the `AIRLOCK-COLD-ADOPTION-001` regression that turns an unconditional candidate failure into `BLOCKED / TESTS_FAILED` instead of a signed survivor.
+
 ## 0.2.1 — Starter Rules
 
 - Turns `airlock init` into a zero-config onboarding step with plain-English sections for detected project tools, paths accepted patches cannot change, commands every patch must pass, and starting-repo status.

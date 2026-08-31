@@ -7,7 +7,7 @@ import tempfile
 from pathlib import Path
 
 from .gitops import add_worktree, head, remove_worktree, tracked_files
-from .util import compact_result, run, sha256_bytes
+from .util import compact_result, run, sha256_bytes, worktree_env
 
 PROTECTED_CONFIG_NAMES = {
     "pyproject.toml", "pytest.ini", "tox.ini", "setup.cfg", "mypy.ini", "ruff.toml",
@@ -202,7 +202,7 @@ def run_baseline(repo: Path, commands: dict[str, list[list[str]]], timeout: int 
         for kind in ("static", "tests"):
             for argv in commands[kind]:
                 before = run(["git", "status", "--porcelain", "--untracked-files=no"], temp)
-                result = run(argv, temp, timeout=timeout)
+                result = run(argv, temp, env=worktree_env(temp), timeout=timeout)
                 after = run(["git", "status", "--porcelain", "--untracked-files=no"], temp)
                 compact = compact_result(result)
                 compact["kind"] = kind

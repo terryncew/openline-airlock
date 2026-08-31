@@ -121,6 +121,8 @@ Exactly one survivor becomes ready for review. Zero survivors means zero candida
 
 The generated Starter Rules list the test directories, workflow files, Airlock files, and detected project configuration that accepted patches cannot change. They also list every command a patch must pass. These rules are a starting point; edit them for the repository you actually have.
 
+For Python repositories, Airlock puts the active candidate worktree's `src/` and repository root first on `PYTHONPATH` while running baseline, agent, and candidate checks. An editable install from the starting checkout therefore cannot hide a candidate source change behind the already-installed base package.
+
 If Airlock finds no runnable test, lint, or type-check command—or if the starting commit already fails one—it writes the draft configuration and stops before autonomous search begins.
 
 When the available tests do not meaningfully touch the changed module and there is no issue-specific target check, the result is `NEEDS_EVIDENCE`.
