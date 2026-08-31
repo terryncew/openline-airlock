@@ -1,0 +1,90 @@
+name: Airlock contributions
+
+on:
+  issue_comment:
+    types: [created]
+
+# Serialize public submissions. The queue can grow, but only one Airlock evaluation
+# for this repository consumes runner compute at a time.
+concurrency:
+  group: airlock-${{ github.repository }}
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  admit:
+    if: ${{ github.event.issue.pull_request == null && startsWith(github.event.comment.body, '/airlock submit ') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - id: admit
+        name: Static admission
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          PYTHONPATH=.airlock/runtime python -m airlock_submit.actions admit --out .airlock-action
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-admission-${{ github.event.comment.id }}
+          path: .airlock-action/
+          if-no-files-found: error
+          retention-days: 30
+
+  evaluate:
+    needs: admit
+    if: ${{ needs.admit.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: airlock-admission-${{ github.event.comment.id }}
+          path: .airlock-action
+      - name: Evaluate candidate
+        env:
+          GITHUB_TOKEN: ""
+          GH_TOKEN: ""
+        run: |
+          PYTHONPATH=.airlock/runtime python -m airlock_submit.actions evaluate --in .airlock-action --out .airlock-result
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-result-${{ github.event.comment.id }}
+          path: .airlock-result/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    needs: [admit, evaluate]
+    if: ${{ always() && needs.admit.result == 'success' && needs.evaluate.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: airlock-result-${{ github.event.comment.id }}
+          path: .airlock-result
+      - name: Publish Airlock result
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: |
+          PYTHONPATH=.airlock/runtime python -m airlock_submit.actions publish --in .airlock-result

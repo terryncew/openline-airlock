@@ -221,11 +221,11 @@ class AirlockTests(unittest.TestCase):
         self.assertIn("tests/**", protected)
         self.assertIn(".airlock/**", protected)
 
-    def test_12_cli_surface_has_exact_three_commands(self):
+    def test_12_cli_surface_keeps_core_commands_plus_github_install(self):
         from airlock.cli import build_parser
         parser = build_parser()
         action = next(a for a in parser._actions if isinstance(a, __import__('argparse')._SubParsersAction))
-        self.assertEqual(set(action.choices), {"init", "run", "verify"})
+        self.assertEqual(set(action.choices), {"init", "run", "verify", "install-github"})
 
 
 if __name__ == "__main__":

@@ -36,37 +36,36 @@ That is the product: **agents get lots of attempts; human attention stays scarce
 
 ## Public contributions: AI PRs welcome — Airlock first
 
-AIRLOCK-SUBMIT-001 adds an experimental pre-PR path for open-source repositories. A contributor does not open a raw agent PR. They comment on an issue with a commit from their public fork:
+There is no Airlock server to run. The GitHub path lives entirely in the repository and runs on GitHub Actions.
+
+Set up the local checks, then install the GitHub gate:
+
+```bash
+airlock init
+airlock install-github
+```
+
+Commit the generated files. That adds the repo-owned Airlock workflow, a maintainer-owned evaluator image definition, the public submission limits, the protected runtime, and a short `CONTRIBUTING.md` section.
+
+A contributor points an agent at an issue, pushes the resulting commit to their public fork, and comments on the issue:
 
 ```text
 /airlock submit alice/widget@0123456789abcdef0123456789abcdef01234567
 ```
 
-The GitHub webhook authenticates who submitted it. Airlock enforces per-user and per-issue limits, checks that the source is actually that user's fork, freezes the current base commit, and queues the patch.
+That comment is the submission. It is **not** a pull request.
 
-A separate worker fetches the public commits and checks protected paths **before Docker starts**. A patch that touches tests, `.github/`, `.airlock/`, or another protected path is rejected without running candidate code. Only patches that clear that static check reach the secretless Docker worker.
+Airlock first checks the GitHub account, fork relationship, submission limits, base commit, patch size, and protected paths. A patch that changes tests, `.github/`, `.airlock/`, or another protected surface is rejected before Docker starts.
 
-Every result leaves a signed outcome file — `BLOCKED`, `NEEDS_EVIDENCE`, or `SURVIVED` — including the base commit, changed paths, protected-path result, checks that ran, and whether execution was attempted. A rejected patch is explainable even though it never creates a PR.
+Only a patch that clears static admission reaches the evaluation job. That job has read-only repository permission, checks out without persistent credentials, builds the evaluator image from the frozen base commit, and runs the patch with no network and no GitHub token.
 
-A different trusted process holds GitHub write access. It never runs the submitted code. It only accepts the sealed patch artifact after the sandbox is gone, reapplies it to the exact evaluated base, verifies the resulting Git tree, and then opens the PR. If the base branch moved after evaluation, the result becomes `REOPEN`; Airlock does not silently rebase it or carry the old pass forward. The contributor must submit a patch that is evaluated against the new base.
+The final job is separate. It has the GitHub permission needed to open a PR, but it never executes candidate code. It verifies the exact patch and base again. If `main` moved after evaluation, the result becomes `REOPEN` and no PR is created.
 
-The PR carries the receipt: the base commit, patch hash, outcome hash, Airlock config hash, protected-file result, and the exact commands and exit codes that earned review.
+Every submission gets an issue result. A survivor gets a normal PR with the verification record attached. A rejected patch gets the exact reason and zero PRs.
+
+The default public gate is deliberately conservative: one Airlock evaluation consumes runner compute at a time, one open candidate per submitter per issue, a seven-day GitHub-account floor, and five submissions per user per rolling day.
 
 **Use whatever coding agent you want. The repo decides what passes.**
-
-### Maintainer setup
-
-Run `airlock init`, commit the resulting `.airlock/config.json`, create and commit `.airlock/submit.json` from `examples/submit.json`, point a GitHub App webhook at `/github/webhook`, and keep the three roles separate:
-
-```bash
-AIRLOCK_GITHUB_WEBHOOK_SECRET=... airlock-submit serve
-AIRLOCK_EVALUATION_KEY=... airlock-submit worker
-AIRLOCK_EVALUATION_KEY=... airlock-submit open-pr sub_...
-```
-
-The receiver needs only the webhook secret and optional read-only GitHub API access. The worker needs Docker and the evaluation key, but no GitHub credentials. The PR opener needs the evaluation key plus GitHub write access, and executes no candidate code.
-
-The container image is maintainer-owned and must already exist on the worker; Airlock never builds a Dockerfile supplied by the candidate. The default policy allows one open candidate per submitter per issue, applies a daily submission cap and account-age floor, limits total active work, and caps patch files/bytes before compute is spent.
 
 ## What a local run looks like
 
@@ -90,13 +89,19 @@ Verification file: .airlock/records/....json
 
 The numbers above are an example of the output format. Airlock reports measured run results and preserves unknown costs as unknown.
 
-## Three commands
+## Local workflow
 
 ```bash
 pip install .
 airlock init
 airlock run <issue-or-prompt> -n 12 --models claude-code,codex,aider --budget 2.00
 airlock verify .airlock/records/<run>.json
+```
+
+To accept public agent contributions without running a service:
+
+```bash
+airlock install-github
 ```
 
 ### `airlock init`
