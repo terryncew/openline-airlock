@@ -11,6 +11,7 @@ from .discovery import discover_commands, protected_patterns, run_baseline
 from .gitops import ensure_clean, root
 from .providers import builtin_providers
 from .verification import ensure_key, verify_offline
+from .adoption import install_github
 from .runner import run_tournament
 from .util import write_json
 
@@ -137,6 +138,29 @@ def command_verify(args: argparse.Namespace) -> int:
     return 0 if result["valid"] else 1
 
 
+
+def command_install_github(args: argparse.Namespace) -> int:
+    repo = root(Path(args.repo).resolve())
+    try:
+        result = install_github(
+            repo,
+            github_repo=args.github_repo,
+            base_branch=args.base_branch,
+            force=args.force,
+        )
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+    print("OpenLine Airlock — GitHub Actions installed")
+    print(f"Repository: {result['repo']}")
+    print("Mode: GitHub Actions only (no webhook service)")
+    print("Workflow: .github/workflows/airlock.yml")
+    print("Contribution instructions: CONTRIBUTING.md")
+    print(f"Install manifest: {result['manifest']}")
+    print("\nCommit these files. After merge, contributors can submit a fork commit on an issue with:")
+    print("  /airlock submit USER/FORK@FULL_40_CHARACTER_COMMIT_SHA")
+    return 0
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
@@ -163,6 +187,13 @@ def build_parser() -> argparse.ArgumentParser:
     verify.add_argument("verification_file")
     verify.add_argument("--repo", default=".")
     verify.set_defaults(func=command_verify)
+
+    install = sub.add_parser("install-github", help="Install the infrastructure-free GitHub Actions contribution gate.")
+    install.add_argument("--repo", default=".")
+    install.add_argument("--github-repo", help="GitHub repository in owner/name form; inferred from origin when omitted.")
+    install.add_argument("--base-branch", default="main")
+    install.add_argument("--force", action="store_true", help="Regenerate the maintainer-owned evaluator Dockerfile.")
+    install.set_defaults(func=command_install_github)
     return parser
 
 
