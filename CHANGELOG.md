@@ -1,5 +1,12 @@
 # Changelog
 
+## Launch-ready public contribution copy
+
+- Makes the repository itself directly usable as an Airlock target with a four-step fork/commit/issue-comment flow.
+- Removes fake sample run numbers from the README; public examples now describe commands and actual decisions only.
+- Makes `airlock install-github` generate self-contained contributor instructions for `BLOCKED`, `NEEDS_EVIDENCE`, `REOPEN`, and `SURVIVED`.
+- Documents installation directly from GitHub so maintainers can adopt Airlock before a package-index release.
+
 ## 0.1.3 — AIRLOCK-INTEGRATION-001
 
 - Adds a GitHub-runner integration test for the Actions-only public contribution path.
@@ -7,6 +14,7 @@
 - Freezes three outcomes: `SURVIVED`, `NEEDS_EVIDENCE`, and a protected-path `BLOCKED` that never executes candidate code.
 - Uploads the three outcome files plus a machine-readable integration report as a CI artifact.
 - Runs automatically in normal CI; maintainers do not start a separate workflow or operate a service.
+- Corrects evaluator side-effect detection so the candidate patch itself is an allowed starting state while any new tracked-file mutation during a check is still blocked.
 
 ## 0.1.2 — AIRLOCK-ADOPTION-001
 
