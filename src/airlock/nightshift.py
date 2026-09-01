@@ -1,14 +1,19 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Iterable
 
 from .config import load as load_config
 from .improvement import run_improvement_loop
 from .providers import resolve_provider
+from .runner import run_tournament
+from .util import canonical_json_bytes, sha256_bytes, sha256_file, write_json
+from .verification import ensure_key, sign
 
 
 NIGHTSHIFT_CONTEXT_SCHEMA = "airlock.nightshift.context.v1"
+WORKER_CONTACT_SCHEMA = "airlock.nightshift.worker-contact.v1"
 
 
 def _profiles(values: Iterable[str] | None) -> list[str]:
@@ -39,6 +44,127 @@ def nightshift_models(agents: int, profiles: Iterable[str] | None = None) -> tup
     if len(set(chosen)) != len(chosen):
         raise ValueError("parallel Hermes competition requires distinct profiles; shared writable state fakes independence")
     return ([f"hermes@{profile}" for profile in chosen], chosen)
+
+
+def _receipt_path(repo: Path, value: object) -> Path | None:
+    if not isinstance(value, str) or not value:
+        return None
+    path = Path(value)
+    return path if path.is_absolute() else repo / path
+
+
+def _read_generation_payload(repo: Path, row: dict) -> tuple[Path | None, dict]:
+    path = _receipt_path(repo, row.get("receipt"))
+    if path is None or not path.is_file():
+        return path, {}
+    try:
+        record = json.loads(path.read_text())
+    except Exception:
+        return path, {}
+    payload = record.get("payload", {})
+    return path, payload if isinstance(payload, dict) else {}
+
+
+def _worker_provenance(row: dict) -> dict:
+    model = row.get("model")
+    profile = None
+    if isinstance(model, str) and model.startswith("hermes@"):
+        profile = model.split("@", 1)[1]
+    return {
+        "model": model,
+        "hermes_profile": profile,
+        "agent_execution": row.get("agent_execution"),
+        "agent_report": row.get("agent_report", {}),
+    }
+
+
+def _contact_candidates(tournament: dict) -> list[dict]:
+    contacts = []
+    for row in tournament.get("candidates", []) or []:
+        contacts.append({
+            "candidate_id": row.get("candidate_id"),
+            "commit": row.get("commit"),
+            "disposition": "INELIGIBLE" if row.get("disposition") != "SURVIVED" else row.get("disposition"),
+            "reason": row.get("reason", "WORKER_CONTACT_ONLY"),
+            "tournament_disposition": row.get("disposition"),
+            "changed_paths": row.get("changed_paths", []),
+            "worker": _worker_provenance(row),
+        })
+    return contacts
+
+
+def _retain_controller_contact(
+    repo: Path,
+    result: dict,
+    captured_tournaments: list[dict],
+) -> dict:
+    """Keep real worker-contact evidence readable after a zero-patch generation.
+
+    The improvement loop already signs ordinary generation receipts. HERMES-LIVE-001
+    exposed a seam where the terminal controller could receive STOPPED_NO_IMPROVEMENT
+    without being able to recover the worker provenance from that generation. This
+    function does not grant candidate standing and does not change selection. It only
+    guarantees that a signed controller-facing receipt exists when a tournament
+    actually observed a worker contact.
+    """
+    generations = result.get("generations") or []
+    if not generations:
+        return result
+
+    first = generations[0]
+    existing_path, existing_payload = _read_generation_payload(repo, first)
+    existing_candidates = existing_payload.get("candidates")
+    if isinstance(existing_candidates, list) and existing_candidates:
+        # Remove any relative-path ambiguity for the frozen terminal controller.
+        if existing_path is not None:
+            first["receipt"] = str(existing_path.resolve())
+        return result
+
+    if not captured_tournaments:
+        return result
+    tournament = captured_tournaments[0]
+    contacts = _contact_candidates(tournament)
+    if not contacts:
+        return result
+
+    run_id = str(result.get("run_id") or "unknown")
+    generation_number = int(first.get("generation") or 1)
+    output_dir = repo / ".airlock" / "improvements" / run_id
+    output_dir.mkdir(parents=True, exist_ok=True)
+    raw_path = output_dir / f"worker-contact-source-{generation_number:02d}.json"
+    write_json(raw_path, tournament)
+    raw_sha = sha256_file(raw_path)
+
+    payload = dict(existing_payload)
+    payload.update({
+        "schema": payload.get("schema") or "airlock.improvement.generation.v1",
+        "run_id": payload.get("run_id") or run_id,
+        "generation": payload.get("generation") or generation_number,
+        "base_commit": payload.get("base_commit") or first.get("base_commit"),
+        "candidates": contacts,
+        "worker_contact_supplement": {
+            "schema": WORKER_CONTACT_SCHEMA,
+            "source_tournament_run_id": tournament.get("run_id"),
+            "source_tournament_sha256": raw_sha,
+            "source_tournament_payload_sha256": sha256_bytes(canonical_json_bytes(tournament)),
+            "standing_granted": False,
+            "selection_changed": False,
+            "reason": "Retain worker execution and authority audit even when no candidate earns standing.",
+        },
+    })
+
+    contact_path = output_dir / f"worker-contact-{generation_number:02d}.json"
+    signed = sign(payload, ensure_key(repo / ".airlock" / "verification.key"))
+    write_json(contact_path, signed)
+
+    # The frozen HERMES-LIVE controller reads the receipt path from the returned
+    # Nightshift report. Point that read at the signed supplemental receipt while
+    # leaving the ordinary signed improvement report on disk untouched.
+    first["receipt"] = str(contact_path.resolve())
+    first["controller_contact_receipt_sha256"] = sha256_file(contact_path)
+    result["controller_contact_receipt"] = str(contact_path.relative_to(repo))
+    result["controller_contact_receipt_sha256"] = sha256_file(contact_path)
+    return result
 
 
 def run_nightshift(
@@ -96,13 +222,19 @@ def run_nightshift(
         ),
     }
 
-    kwargs = {}
-    if tournament_runner is not None:
-        kwargs["tournament_runner"] = tournament_runner
+    captured_tournaments: list[dict] = []
+    base_tournament_runner = tournament_runner or run_tournament
+
+    def capturing_tournament_runner(*args, **kwargs):
+        report = base_tournament_runner(*args, **kwargs)
+        captured_tournaments.append(report)
+        return report
+
+    kwargs = {"tournament_runner": capturing_tournament_runner}
     if command_runner is not None:
         kwargs["command_runner"] = command_runner
 
-    return run_improvement_loop(
+    result = run_improvement_loop(
         repo,
         objective_path=objective_path,
         generations=generations,
@@ -113,3 +245,4 @@ def run_nightshift(
         run_context=run_context,
         **kwargs,
     )
+    return _retain_controller_contact(repo, result, captured_tournaments)

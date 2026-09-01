@@ -1,0 +1,33 @@
+{
+  "schema": "airlock.handoff.v1",
+  "experiment": "HERMES-LIVE-001-EVIDENCE-R4",
+  "base_main_sha": "aaba50e565ec3d299776ed3c035a5e3d0c655caa",
+  "defect": "A real Hermes attempt could end STOPPED_NO_IMPROVEMENT while the frozen terminal controller observed zero worker contacts because no controller-readable candidate provenance survived.",
+  "fix": [
+    "Capture the exact tournament report inside Nightshift without changing selection.",
+    "When the ordinary generation receipt has no controller-readable candidate, write a signed worker-contact receipt containing execution and authority-audit provenance.",
+    "Grant zero standing in the supplemental receipt and never change the selection result.",
+    "Use an absolute controller-facing receipt path to remove relative-path ambiguity.",
+    "Upload the complete nested improvement evidence tree for reconstruction."
+  ],
+  "frozen_surface_unchanged": [
+    ".airlock/config.json",
+    ".airlock/objective.json",
+    ".airlock/checks/hermes_live_001_measure.py",
+    ".airlock/checks/hermes_live_001_run.py",
+    ".airlock/checks/hermes_live_001_worker.py",
+    "src/airlock/runner.py"
+  ],
+  "out_of_scope": [
+    "AIRLOCK-SELF-001",
+    "AIRLOCK-FOREIGN-001",
+    "selector/product work",
+    "standing tick"
+  ],
+  "working_copy": {
+    "branch": "fix/hermes-live-001-evidence-r4",
+    "commit": "fix: retain Hermes worker contact evidence",
+    "pr_title": "fix: retain HERMES-LIVE-001 worker evidence",
+    "merge_direction": "fix/hermes-live-001-evidence-r4 \u2192 main"
+  }
+}
