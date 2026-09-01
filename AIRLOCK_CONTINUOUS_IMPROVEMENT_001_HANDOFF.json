@@ -1,0 +1,68 @@
+{
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "2e3dde901ded163d4da0d24e1b2aec57ee608e63",
+  "branch": "feat/continuous-improvement-loop",
+  "capability": "bounded, operator-scored software improvement that may compound only on an isolated Airlock branch",
+  "changes": [
+    "Adds airlock improve for repeated candidate search against one committed operator-owned objective.",
+    "Requires the Airlock config, objective, and repository evaluator files to be committed unchanged and protected before a run.",
+    "Measures each frozen base and candidate repeatedly; overlapping noisy ranges do not count as improvement.",
+    "Scores conservative measured gain minus an operator-authored changed-line complexity penalty.",
+    "Refuses ambiguous winners, weak gains, binary changes, protected changes, excessive files, excessive changed lines, and unmeasurable states.",
+    "Compounds accepted generations as normal commits on airlock/improve/<run-id> without moving the starting branch.",
+    "Writes signed, hash-chained generation receipts and verifies the complete base-to-final-commit chain without running candidate code.",
+    "Repositions the public README and Show HN draft around software that can earn its own improvements."
+  ],
+  "claim_boundary": "The deterministic acceptance fixture proves ten-generation mechanics, isolation from the starting branch, and receipt-chain verification. It does not establish that an external coding agent can produce ten real improvements, that one local metric captures total product value, or that a local benchmark gain survives production. A live canary or deployment loop remains out of scope.",
+  "commit_message": "feat: add governed continuous improvement",
+  "economics_boundary": "Provider-reported spend is recorded and unknown spend remains unknown. It cannot influence promotion because it is not independently authenticated. Dollar ROI requires a later external billing receipt.",
+  "files": {
+    ".github/workflows/ci.yml": "8b7710241b379b43cfadb07e2250c6266b5b39776dafe759223693a740f5742b",
+    ".gitignore": "04dc660ad091c70c32d6f778b36deb5ab63a50a8c03da24b73dca56c87ae2c2a",
+    "CHANGELOG.md": "f17baa8715ef1759ba9130bf1253a02a75b421a0247ab38406429269515b5027",
+    "README.md": "9d622444cc87d629b6ffce89e99bea2fc360a6c320ae421bd3f03bb83cf64ea4",
+    "SHOW_HN_DRAFT.md": "eca3aef42e2b8630a2ddc85d8de0f5887c2cfca48c8bf955fc4f18bd495f01d7",
+    "docs/CONTINUOUS_IMPROVEMENT.md": "62b6212c6e21d48b63ae3e2ee810bcb65895db269e24795c07b33fc26aa33aad",
+    "examples/measure-test-runtime.py": "bca2b2216280d1b10bf9dbcb5f329b74e453d62dd9bfef84599c7bccedb78110",
+    "examples/objective-test-runtime.json": "e1b1488b3550ec3a61186eeab1d155396c0f047e806cea4133af76434231abe2",
+    "schemas/improvement-generation-v1.schema.json": "6ef362c28fe1d3ae775a1046c0044d9e0e68db2667bdea42408d564a1a5c3cc8",
+    "schemas/improvement-v1.schema.json": "f802f65dbbe9614087b827d7b15796ad4134248ff76264b0f607498a1f6c8fe2",
+    "schemas/objective-v1.schema.json": "8cd51d5603d600eca9e0a7ee65e0e9b4362022b6afb6c3c39b23748451f7e1e1",
+    "scripts/verify_improvement_release.py": "0322776d71c3abfa87bc9abcbdf937289c37cae54b2b96794931846a0fe7aa76",
+    "src/airlock/cli.py": "7b75eb26a73bdaaa0a992237adb0e805a6bda3b648b5e8e291ced52aa0ce480f",
+    "src/airlock/entry.py": "9500db0c4afc0cedf40df5b11ce842d89395c827481e8e4bf95a48ea85626774",
+    "src/airlock/improvement.py": "b8c4e89e2e1ff61276f47d99f08abd25803d5bd0740a698ccf8620846db3af91",
+    "tests/test_improvement.py": "fc343a8ae3c40bfc5fb119d4cc28fde1f15d77434aba461b87427d53054aaa8b"
+  },
+  "handoff": "AIRLOCK-CONTINUOUS-IMPROVEMENT-001",
+  "invariants": [
+    "Agents may propose code but cannot change the operator objective, evaluator, Starter Rules, tests, workflows, or release key.",
+    "A candidate's worst observed metric must clear the base's best observed metric by the committed minimum gain.",
+    "Several ordinary survivors remain several; the improvement loop selects only when the protected scoring rule establishes one unique winner.",
+    "The starting branch is never checked out, reset, or advanced by the loop.",
+    "Execution or deployment authority remains outside airlock improve."
+  ],
+  "merge_direction": "feat/continuous-improvement-loop -> main",
+  "pr_title": "feat: add governed continuous improvement",
+  "schemas": [
+    "airlock.objective.v1",
+    "airlock.improvement.generation.v1",
+    "airlock.improvement.v1"
+  ],
+  "superseded_by": "AIRLOCK-NIGHTSHIFT-001",
+  "validation": {
+    "compileall": "PASS",
+    "continuous_improvement_release_verifier": "PASS",
+    "focused_improvement_tests": "12/12 PASS",
+    "full_source_suite": "134/134 PASS (all test modules executed)",
+    "github_ci": "PENDING after push",
+    "installed_wheel_suite": "134/134 PASS (all test modules executed against installed wheel)",
+    "legacy_v0_3_release_verifier": "PASS",
+    "ten_generation_mechanical_chain": "10/10 accepted; signed chain valid; starting branch unchanged",
+    "wheel": {
+      "filename": "openline_airlock-0.3.0-py3-none-any.whl",
+      "sha256": "9180725d33800c9371710588b5d43038176ac979891346e6b021c882756d739a"
+    }
+  },
+  "version": "0.3.0"
+}

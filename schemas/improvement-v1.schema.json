@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/terryncew/openline-airlock/schemas/improvement-v1.schema.json",
+  "title": "OpenLine Airlock improvement-chain report",
+  "type": "object",
+  "required": ["alg", "payload", "signature"],
+  "properties": {
+    "alg": {"const": "HMAC-SHA256"},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "run_id",
+        "status",
+        "objective",
+        "start_commit",
+        "final_commit",
+        "improvement_branch",
+        "generation_limit",
+        "attempted_generations",
+        "accepted_generations",
+        "generations",
+        "starting_ref_updated_by_airlock",
+        "claim_boundary"
+      ],
+      "properties": {
+        "schema": {"const": "airlock.improvement.v1"},
+        "run_id": {"type": "string"},
+        "status": {"type": "string"},
+        "objective": {"type": "object"},
+        "start_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "final_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "improvement_branch": {"type": "string", "pattern": "^airlock/improve/"},
+        "generation_limit": {"type": "integer", "minimum": 1},
+        "attempted_generations": {"type": "integer", "minimum": 0},
+        "accepted_generations": {"type": "integer", "minimum": 0},
+        "generations": {"type": "array", "items": {"type": "object"}},
+        "starting_ref_updated_by_airlock": {"const": false},
+        "claim_boundary": {"type": "string"}
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}

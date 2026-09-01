@@ -1,0 +1,29 @@
+{
+  "release": "AIRLOCK-HERMES-WORKER-001",
+  "base_main_commit": "2e3dde901ded163d4da0d24e1b2aec57ee608e63",
+  "purpose": "Finish the external autonomous-worker seam by connecting Hermes to Airlock's existing independent admission path without widening credential authority.",
+  "integration": {
+    "worker": "Hermes Agent",
+    "command": ["hermes", "-z", "{prompt}"],
+    "uses_existing_airlock_tournament_and_swarm_boundary": true,
+    "built_in_pass_env": ["HERMES_HOME"],
+    "max_additional_explicit_provider_credentials": 1,
+    "automatic_provider_key_catalog_forwarding": false
+  },
+  "authority_boundary": {
+    "worker_release_authority": "ABSENT",
+    "worker_git_push_disabled": true,
+    "github_tokens_forwarded_by_adapter": false,
+    "worker_controls_evaluator": false,
+    "worker_controls_protected_config": false,
+    "worker_controls_promotion": false
+  },
+  "validation": {
+    "focused_hermes_boundary_tests": "5/5 PASS",
+    "syntax_compile": "PASS",
+    "full_repository_ci": "PENDING_AFTER_WORKING_COPY_IMPORT",
+    "live_installed_hermes_run": false
+  },
+  "claim_boundary": "This constrains Airlock environment forwarding, not all filesystem credential reachability. HERMES_HOME may itself contain auth material, and native worktree execution is not a strong filesystem sandbox.",
+  "working_copy_note": "Completion overlay only. Apply it on top of the existing Working Copy tree so unrelated uncommitted continuous-improvement files are preserved; do not reset the tree first."
+}

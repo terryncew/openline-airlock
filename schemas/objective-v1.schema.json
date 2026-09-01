@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/terryncew/openline-airlock/schemas/objective-v1.schema.json",
+  "title": "OpenLine Airlock operator-owned objective",
+  "type": "object",
+  "required": ["schema", "name", "goal", "measure", "bounds", "selection"],
+  "properties": {
+    "schema": {"const": "airlock.objective.v1"},
+    "name": {"type": "string", "minLength": 1},
+    "goal": {"type": "string", "minLength": 1},
+    "measure": {
+      "type": "object",
+      "required": ["command", "direction", "repeats", "timeout_seconds"],
+      "properties": {
+        "command": {
+          "type": "array",
+          "minItems": 1,
+          "items": {"type": "string", "minLength": 1}
+        },
+        "direction": {"enum": ["maximize", "minimize"]},
+        "unit": {"type": "string", "minLength": 1},
+        "repeats": {"type": "integer", "minimum": 1, "maximum": 21},
+        "timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 7200},
+        "pass_env": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        },
+        "protected_evaluator_paths": {
+          "type": "array",
+          "items": {"type": "string", "minLength": 1},
+          "uniqueItems": true
+        }
+      },
+      "additionalProperties": false
+    },
+    "bounds": {
+      "type": "object",
+      "required": ["max_generations", "max_changed_files", "max_changed_lines"],
+      "properties": {
+        "max_generations": {"type": "integer", "minimum": 1, "maximum": 50},
+        "max_changed_files": {"type": "integer", "minimum": 1, "maximum": 1000},
+        "max_changed_lines": {"type": "integer", "minimum": 1, "maximum": 1000000}
+      },
+      "additionalProperties": false
+    },
+    "selection": {
+      "type": "object",
+      "required": [
+        "minimum_gain",
+        "complexity_penalty_per_changed_line",
+        "minimum_score_gap"
+      ],
+      "properties": {
+        "minimum_gain": {"type": ["string", "number"]},
+        "complexity_penalty_per_changed_line": {"type": ["string", "number"]},
+        "minimum_score_gap": {"type": ["string", "number"]}
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}
