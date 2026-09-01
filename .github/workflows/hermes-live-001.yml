@@ -36,7 +36,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.11"
 
       - name: Require the single delegated model credential
         shell: bash
@@ -53,32 +53,42 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          INSTALL_LOG="$RUNNER_TEMP/hermes-install.log"
+          exec > >(tee "$INSTALL_LOG") 2>&1
+
           rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
           mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
 
-          curl -fsSL             "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HERMES_COMMIT}/scripts/install.sh"             -o "$RUNNER_TEMP/hermes-install.sh"
+          # HERMES-LIVE only needs the real Python CLI.  Avoid the upstream
+          # all-in-one bootstrap because it also provisions browser/Node
+          # machinery that is outside this experiment's execution surface.
+          git -C "$HERMES_INSTALL_DIR" init
+          git -C "$HERMES_INSTALL_DIR" remote add origin \
+            https://github.com/NousResearch/hermes-agent.git
+          git -C "$HERMES_INSTALL_DIR" fetch --depth 1 origin "$HERMES_COMMIT"
+          git -C "$HERMES_INSTALL_DIR" checkout --detach FETCH_HEAD
 
-          bash "$RUNNER_TEMP/hermes-install.sh"             --skip-setup             --skip-browser             --skip-computer-use             --no-skills             --commit "$HERMES_COMMIT"             --force-commit             --dir "$HERMES_INSTALL_DIR"             --hermes-home "$HERMES_HOME"
-
-          mkdir -p "$RUNNER_TEMP/hermes-bin"
-          HERMES_BIN=""
-
-          for candidate in             "$HERMES_INSTALL_DIR/.venv/bin/hermes"             "$HERMES_INSTALL_DIR/venv/bin/hermes"             "$HOME/.local/bin/hermes"             "/usr/local/bin/hermes"; do
-            if [ -x "$candidate" ]; then
-              HERMES_BIN="$candidate"
-              break
-            fi
-          done
-
-          if [ -z "$HERMES_BIN" ]; then
-            HERMES_BIN="$(find "$HERMES_INSTALL_DIR" -type f -path '*/bin/hermes' -perm -u+x -print -quit 2>/dev/null || true)"
-          fi
-
-          if [ -z "$HERMES_BIN" ] || [ ! -x "$HERMES_BIN" ]; then
-            echo "::error::Pinned Hermes installed but no executable was found."
+          INSTALL_HEAD="$(git -C "$HERMES_INSTALL_DIR" rev-parse HEAD)"
+          if [ "$INSTALL_HEAD" != "$HERMES_COMMIT" ]; then
+            echo "::error::Hermes checkout mismatch: expected $HERMES_COMMIT got $INSTALL_HEAD"
             exit 2
           fi
 
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --upgrade pip
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --editable "$HERMES_INSTALL_DIR"
+
+          HERMES_BIN="$HERMES_INSTALL_DIR/venv/bin/hermes"
+          if [ ! -x "$HERMES_BIN" ]; then
+            echo "::error::Pinned Hermes installed but no executable was found at $HERMES_BIN."
+            exit 2
+          fi
+
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
           ln -sf "$HERMES_BIN" "$RUNNER_TEMP/hermes-bin/hermes"
           echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
 
@@ -135,7 +145,8 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python .airlock/checks/hermes_live_001_run.py --expect-main-move             2>&1 | tee "$RUNNER_TEMP/hermes-live-001-console.log"
+          python .airlock/checks/hermes_live_001_run.py --expect-main-move \
+            2>&1 | tee "$RUNNER_TEMP/hermes-live-001-console.log"
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
@@ -145,15 +156,28 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/hermes-live-001-artifact"
+          ARTIFACT_DIR="$RUNNER_TEMP/hermes-live-001-artifact"
+          mkdir -p "$ARTIFACT_DIR"
 
-          test -f "$RUNNER_TEMP/hermes-runtime.json" &&             cp "$RUNNER_TEMP/hermes-runtime.json" "$RUNNER_TEMP/hermes-live-001-artifact/runtime.json" || true
-          test -f "$RUNNER_TEMP/hermes-live-001-console.log" &&             cp "$RUNNER_TEMP/hermes-live-001-console.log" "$RUNNER_TEMP/hermes-live-001-artifact/console.log" || true
+          # Always leave at least one diagnostic receipt, even when setup fails
+          # before the real worker executes.
+          {
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "head_sha=${GITHUB_SHA}"
+          } > "$ARTIFACT_DIR/run.txt"
+
+          test -f "$RUNNER_TEMP/hermes-install.log" && \
+            cp "$RUNNER_TEMP/hermes-install.log" "$ARTIFACT_DIR/install.log" || true
+          test -f "$RUNNER_TEMP/hermes-runtime.json" && \
+            cp "$RUNNER_TEMP/hermes-runtime.json" "$ARTIFACT_DIR/runtime.json" || true
+          test -f "$RUNNER_TEMP/hermes-live-001-console.log" && \
+            cp "$RUNNER_TEMP/hermes-live-001-console.log" "$ARTIFACT_DIR/console.log" || true
 
           REPORT="$(find .airlock/improvements/HERMES-LIVE-001 -type f -name report.json -print 2>/dev/null | sort | tail -1 || true)"
           if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
-            cp "$REPORT" "$RUNNER_TEMP/hermes-live-001-artifact/report.json"
-            sha256sum "$REPORT" > "$RUNNER_TEMP/hermes-live-001-artifact/report.sha256"
+            cp "$REPORT" "$ARTIFACT_DIR/report.json"
+            sha256sum "$REPORT" > "$ARTIFACT_DIR/report.sha256"
           fi
 
       - name: Upload proof receipt
