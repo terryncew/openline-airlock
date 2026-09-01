@@ -1,0 +1,73 @@
+{
+  "authority_separation": {
+    "capture_runs_outside_candidate_checkout": true,
+    "evaluation_candidate_network": "none",
+    "evaluation_git_metadata_read_only": true,
+    "evaluation_github_write_permission": false,
+    "evaluation_provider_secret": false,
+    "generation_checkout_credentials_persisted": false,
+    "generation_github_permission": "contents:read",
+    "publication_executes_candidate_code": false,
+    "publication_github_write_permission": true,
+    "trusted_git_config_restored_before_capture": true
+  },
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "7a80eb2f5cf11afcf1033b68e6d637f7eea80cb1",
+  "branch": "feat/airlock-unattended-001",
+  "capability": "maintainer issue label -> isolated generation -> independent secretless evaluation -> trusted PR publication",
+  "changed_files": [
+    ".airlock/unattended.json",
+    ".github/workflows/airlock-unattended.yml",
+    "AIRLOCK_UNATTENDED_001_HANDOFF.json",
+    "docs/AIRLOCK_UNATTENDED_001.md",
+    "src/airlock/unattended.py",
+    "tests/test_unattended.py"
+  ],
+  "claim_boundary": "AIRLOCK-UNATTENDED-001 implements and locally tests the three-job authority separation. It does not claim the live GitHub unattended path has passed until a real issue label produces a complete GitHub Actions run. AIRLOCK-PUBLIC-COLD-ADOPTION-001 remains separately unproven.",
+  "handoff": "AIRLOCK-UNATTENDED-001",
+  "next_after_merge": "From iPhone, add OPENAI_API_KEY as a repository Actions secret, then label one controlled open issue 'airlock' and inspect the live generate/evaluate/publish run before expanding usage.",
+  "outcomes": [
+    "READY_FOR_REVIEW",
+    "NO_PATCH_READY",
+    "MULTIPLE_SURVIVORS",
+    "ENVIRONMENT_FAILURE",
+    "REOPEN"
+  ],
+  "receipt": {
+    "binds": [
+      "issue_number",
+      "base_commit",
+      "config_sha256",
+      "policy_sha256",
+      "workflow_run_id",
+      "workflow_run_attempt",
+      "candidate_dispositions",
+      "survivor_patch_sha256"
+    ],
+    "integrity": "canonical JSON SHA-256 plus GitHub Actions artifact custody",
+    "schema": "airlock.unattended.v1",
+    "signature_claimed": false
+  },
+  "reference_generator": {
+    "action_commit": "86365089eb2b84e0a8fb0717b304f8bdcb13b20e",
+    "permission_profile": ":workspace",
+    "provider": "OpenAI Codex GitHub Action",
+    "replaceable_capability": true,
+    "required_repository_secret": "OPENAI_API_KEY"
+  },
+  "trigger": {
+    "candidate_count": 4,
+    "event": "issues:labeled",
+    "label": "airlock"
+  },
+  "validation": {
+    "docker_runtime": "NOT_AVAILABLE_IN_LOCAL_BUILD_ENVIRONMENT",
+    "focused_tests": "12/12 PASS",
+    "full_repository_ci": "PENDING_GITHUB",
+    "live_issue_label_run": "NOT_RUN",
+    "python_compile": "PASS",
+    "workflow_yaml_parse": "PASS"
+  },
+  "version": "0.3.0",
+  "version_bump": false
+}
