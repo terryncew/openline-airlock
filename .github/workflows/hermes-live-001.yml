@@ -1,0 +1,168 @@
+name: HERMES-LIVE-001 real worker
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/hermes-live-001.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: hermes-live-001-terminal-proof
+  cancel-in-progress: false
+
+jobs:
+  live-proof:
+    name: real Hermes through frozen Airlock
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      HERMES_HOME: ${{ runner.temp }}/hermes-live-001-home
+      HERMES_COMMIT: 29112bef099274229cadff79cdff7bf7b99c4b77
+      HERMES_RELEASE: v2026.8.31
+      HERMES_MODEL: gpt-5.4
+
+    steps:
+      - name: Checkout exact merged run base
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Require the single delegated model credential
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::HERMES-LIVE-001 requires the existing repository secret OPENAI_API_KEY."
+            exit 2
+          fi
+
+      - name: Install pinned real Hermes
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$HERMES_HOME"
+          curl -fsSL             "https://raw.githubusercontent.com/NousResearch/hermes-agent/${HERMES_COMMIT}/scripts/install.sh"             -o "$RUNNER_TEMP/hermes-install.sh"
+          bash "$RUNNER_TEMP/hermes-install.sh"             --skip-setup             --skip-browser             --skip-computer-use             --no-skills             --commit "$HERMES_COMMIT"             --force-commit             --hermes-home "$HERMES_HOME"
+
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          HERMES_BIN=""
+          for candidate in             "$HOME/.local/bin/hermes"             "$HERMES_HOME/hermes-agent/.venv/bin/hermes"             "/usr/local/bin/hermes"; do
+            if [ -x "$candidate" ]; then
+              HERMES_BIN="$candidate"
+              break
+            fi
+          done
+          if [ -z "$HERMES_BIN" ]; then
+            HERMES_BIN="$(find "$HERMES_HOME" -type f -path '*/bin/hermes' -perm -u+x -print -quit 2>/dev/null || true)"
+          fi
+          if [ -z "$HERMES_BIN" ] || [ ! -x "$HERMES_BIN" ]; then
+            echo "::error::Pinned Hermes installed but no executable was found."
+            exit 2
+          fi
+          ln -sf "$HERMES_BIN" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+
+      - name: Prepare isolated Hermes home
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+
+          # The worker receives HERMES_HOME only. The delegated model key lives
+          # inside that isolated Hermes home instead of being forwarded in the
+          # worker process environment.
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: ${HERMES_MODEL}
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 90
+          EOF
+
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+
+      - name: Verify real Hermes runtime before contact
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v hermes
+          hermes --version || hermes version || true
+
+          INSTALL_HEAD="$(git -C "$HERMES_HOME/hermes-agent" rev-parse HEAD)"
+          test "$INSTALL_HEAD" = "$HERMES_COMMIT"
+
+          cat > "$RUNNER_TEMP/hermes-runtime.json" <<EOF
+          {
+            "schema": "airlock.hermes-live-001.runtime.v1",
+            "hermes_release": "$HERMES_RELEASE",
+            "hermes_commit": "$INSTALL_HEAD",
+            "model_provider": "openai-api",
+            "model": "$HERMES_MODEL",
+            "worker_forwarded_environment": ["HERMES_HOME"],
+            "github_write_permission": false
+          }
+          EOF
+
+      - name: Run frozen HERMES-LIVE-001
+        id: proof
+        shell: bash
+        run: |
+          set -o pipefail
+          python .airlock/checks/hermes_live_001_run.py --expect-main-move             2>&1 | tee "$RUNNER_TEMP/hermes-live-001-console.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Collect terminal receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/hermes-live-001-artifact"
+
+          if [ -f "$RUNNER_TEMP/hermes-runtime.json" ]; then
+            cp "$RUNNER_TEMP/hermes-runtime.json" "$RUNNER_TEMP/hermes-live-001-artifact/runtime.json"
+          fi
+          if [ -f "$RUNNER_TEMP/hermes-live-001-console.log" ]; then
+            cp "$RUNNER_TEMP/hermes-live-001-console.log" "$RUNNER_TEMP/hermes-live-001-artifact/console.log"
+          fi
+
+          REPORT="$(find .airlock/improvements/HERMES-LIVE-001 -type f -name report.json -print 2>/dev/null | sort | tail -1 || true)"
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            cp "$REPORT" "$RUNNER_TEMP/hermes-live-001-artifact/report.json"
+            sha256sum "$REPORT" > "$RUNNER_TEMP/hermes-live-001-artifact/report.sha256"
+          fi
+
+          # Never package the Hermes home: it contains the delegated model credential.
+          test ! -e "$RUNNER_TEMP/hermes-live-001-artifact/.env"
+
+      - name: Upload proof receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: HERMES-LIVE-001-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/hermes-live-001-artifact/
+          if-no-files-found: error
+          retention-days: 30

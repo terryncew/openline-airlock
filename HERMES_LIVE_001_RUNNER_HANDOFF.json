@@ -1,0 +1,41 @@
+{
+  "schema": "airlock.handoff.v1",
+  "experiment": "HERMES-LIVE-001-RUNNER",
+  "purpose": "Working Copy execution bridge for the already-preregistered HERMES-LIVE-001 live-worker proof.",
+  "base_main_sha": "f9624bc9a9e5f8fd117a69029ffe63355879e8d8",
+  "scope": [
+    "Add one GitHub Actions workflow that runs the frozen HERMES-LIVE-001 controller with a real pinned Hermes worker.",
+    "Use the existing OPENAI_API_KEY repository secret as the single delegated provider credential.",
+    "Forward HERMES_HOME only at the Airlock worker boundary.",
+    "Upload the signed terminal report and runtime metadata as a GitHub Actions artifact."
+  ],
+  "explicitly_out_of_scope": [
+    "AIRLOCK-FOREIGN-001",
+    "autonomous foreign-repo improvement",
+    "recursive/self-improving loops",
+    "changes to .airlock/config.json",
+    "changes to the frozen objective/evaluator/controller/worker boundary",
+    "new policy machinery",
+    "automatic standing/main mutation"
+  ],
+  "hermes": {
+    "release": "v2026.8.31",
+    "commit": "29112bef099274229cadff79cdff7bf7b99c4b77",
+    "provider": "openai-api",
+    "model": "gpt-5.4"
+  },
+  "trigger": {
+    "type": "push_to_main_path_filtered",
+    "path": ".github/workflows/hermes-live-001.yml",
+    "reason": "The runner starts once when this workflow is merged; the later human standing-tick merge does not recursively start another proof run."
+  },
+  "operator_sequence": [
+    "Import this ZIP at repository root in Working Copy.",
+    "Commit on feat/hermes-live-001-runner and open PR to main.",
+    "Merge only after CI is green.",
+    "The merge starts the real Hermes proof and the controller waits up to 900 seconds after first worker contact for the preregistered human main movement.",
+    "While it is waiting, merge the separate standing-tick control PR changing only .airlock/hermes-live-001-standing.json epoch 0 to 1.",
+    "Inspect the uploaded HERMES-LIVE-001 artifact; freeze if terminal_architecture_pass is true."
+  ],
+  "stop_rule": "If the preregistered claim is earned and the suite remains green, freeze HERMES-LIVE-001. Do not add FOREIGN-001 work here."
+}
