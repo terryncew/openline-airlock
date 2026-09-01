@@ -1,0 +1,213 @@
+name: Airlock unattended
+
+on:
+  issues:
+    types: [labeled]
+
+permissions: {}
+
+concurrency:
+  group: airlock-unattended-${{ github.repository }}-${{ github.event.issue.number }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    if: ${{ github.event.label.name == 'airlock' && github.event.issue.state == 'open' && github.event.issue.pull_request == null }}
+    name: generate candidate ${{ matrix.candidate }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        candidate: ["01", "02", "03", "04"]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install trusted Airlock base
+        run: python -m pip install .
+
+      - name: Require generator credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "$OPENAI_API_KEY" ]; then
+            echo "::error::AIRLOCK-UNATTENDED-001 needs repository secret OPENAI_API_KEY before the airlock label is used."
+            exit 2
+          fi
+
+      - name: Freeze issue prompt
+        id: prompt
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+        run: |
+          mkdir -p .airlock-unattended
+          python -m airlock.unattended prompt \
+            --event "$GITHUB_EVENT_PATH" \
+            --candidate "$CANDIDATE" \
+            --out .airlock-unattended/prompt.txt
+          PROMPT_SHA="$(sha256sum .airlock-unattended/prompt.txt | awk '{print $1}')"
+          GIT_CONFIG_SHA="$(sha256sum .git/config | awk '{print $1}')"
+          cp .git/config "$RUNNER_TEMP/airlock-trusted-git-config-$CANDIDATE"
+          echo "sha=$PROMPT_SHA" >> "$GITHUB_OUTPUT"
+          echo "git_config_sha=$GIT_CONFIG_SHA" >> "$GITHUB_OUTPUT"
+
+      # The generator is capability, not authority. This job has no GitHub write permission.
+      # The pinned Codex action proxies the provider credential and limits Codex to the workspace.
+      - name: Generate candidate
+        id: codex
+        continue-on-error: true
+        uses: openai/codex-action@86365089eb2b84e0a8fb0717b304f8bdcb13b20e
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          permission-profile: ":workspace"
+          prompt-file: .airlock-unattended/prompt.txt
+          output-file: .airlock-unattended/final.txt
+          codex-args: '["--ephemeral"]'
+
+      - name: Capture candidate as inert patch
+        if: ${{ always() && steps.prompt.outcome == 'success' }}
+        env:
+          CANDIDATE: ${{ matrix.candidate }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+          PROMPT_SHA: ${{ steps.prompt.outputs.sha }}
+          GIT_CONFIG_SHA: ${{ steps.prompt.outputs.git_config_sha }}
+          AGENT_OUTCOME: ${{ steps.codex.outcome }}
+        run: |
+          # Restore trusted Git config outside the agent sandbox, then leave the candidate
+          # checkout before importing Airlock so a candidate cannot shadow the trusted package.
+          test -d "$GITHUB_WORKSPACE/.git"
+          rm -f "$GITHUB_WORKSPACE/.git/config"
+          cp "$RUNNER_TEMP/airlock-trusted-git-config-$CANDIDATE" "$GITHUB_WORKSPACE/.git/config"
+          export GIT_NO_REPLACE_OBJECTS=1
+          export GIT_CONFIG_NOSYSTEM=1
+          export GIT_CONFIG_GLOBAL=/dev/null
+          export GIT_TERMINAL_PROMPT=0
+          cd "$RUNNER_TEMP"
+          python -m airlock.unattended capture \
+            --repo "$GITHUB_WORKSPACE" \
+            --base "$GITHUB_SHA" \
+            --candidate "$CANDIDATE" \
+            --issue "$ISSUE_NUMBER" \
+            --issue-url "$ISSUE_URL" \
+            --prompt "$GITHUB_WORKSPACE/.airlock-unattended/prompt.txt" \
+            --prompt-sha "$PROMPT_SHA" \
+            --git-config-sha "$GIT_CONFIG_SHA" \
+            --final-message "$GITHUB_WORKSPACE/.airlock-unattended/final.txt" \
+            --agent-outcome "$AGENT_OUTCOME" \
+            --out "$RUNNER_TEMP/airlock-candidate-$CANDIDATE"
+
+      - uses: actions/upload-artifact@v4
+        if: ${{ always() && steps.prompt.outcome == 'success' }}
+        with:
+          name: airlock-candidate-${{ matrix.candidate }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/airlock-candidate-${{ matrix.candidate }}/
+          if-no-files-found: error
+          retention-days: 30
+
+  evaluate:
+    name: independent gate
+    needs: generate
+    if: ${{ always() && needs.generate.result != 'cancelled' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install trusted Airlock base
+        run: python -m pip install .
+
+      # Build from the frozen base before candidate artifacts enter the job.
+      - name: Build frozen evaluator image
+        run: docker build -f .airlock/Dockerfile -t openline-airlock-unattended:base .
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: airlock-candidate-*-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/airlock-candidates
+
+      # This job receives neither OPENAI_API_KEY nor a GitHub write credential.
+      # Candidate checks execute in a no-network Docker container.
+      - name: Evaluate all candidates
+        env:
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          WORKFLOW_RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          python -m airlock.unattended evaluate \
+            --base "$GITHUB_SHA" \
+            --issue "$ISSUE_NUMBER" \
+            --candidates "$RUNNER_TEMP/airlock-candidates" \
+            --workflow-run-id "$WORKFLOW_RUN_ID" \
+            --workflow-run-attempt "$WORKFLOW_RUN_ATTEMPT" \
+            --out "$RUNNER_TEMP/airlock-result"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/airlock-result/
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: trusted publication
+    needs: evaluate
+    if: ${{ needs.evaluate.result == 'success' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+      pull-requests: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install trusted Airlock base
+        run: python -m pip install .
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/airlock-result
+
+      # Publisher can write to GitHub but never executes candidate code.
+      - name: Publish only one independently admitted survivor
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          PATCH_ARG=()
+          if [ -f "$RUNNER_TEMP/airlock-result/survivor.patch" ]; then
+            PATCH_ARG=(--patch "$RUNNER_TEMP/airlock-result/survivor.patch")
+          fi
+          python -m airlock.unattended publish \
+            --result "$RUNNER_TEMP/airlock-result/result.json" \
+            "${PATCH_ARG[@]}" \
+            --issue "$ISSUE_NUMBER" \
+            --base-branch "${{ github.event.repository.default_branch }}"
