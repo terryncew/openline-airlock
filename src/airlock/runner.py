@@ -30,6 +30,7 @@ from .verification import ensure_key, sign
 from .sandbox import WorktreeSandbox
 from .sieve import protected_files_check, run_checks, sufficiency_check
 from .util import (
+    canonical_json_bytes,
     compact_result,
     expand,
     matches_any,
@@ -75,6 +76,21 @@ def _agent_report(path: Path) -> dict:
             keep[key] = obj[key]
     if "local_checks_passed" in keep:
         keep["local_checks_passed"] = bool(keep["local_checks_passed"])
+    audit = obj.get("authority_audit")
+    if isinstance(audit, dict) and audit.get("schema") == "airlock.hermes-live-001.authority.v1":
+        filtered = {
+            "schema": audit.get("schema"),
+            "worker": audit.get("worker"),
+            "exec_interface": audit.get("exec_interface"),
+            "forbidden_environment_names_present": list(audit.get("forbidden_environment_names_present") or []),
+            "release_authority": audit.get("release_authority"),
+            "hermes_home_present": bool(audit.get("hermes_home_present")),
+            "hermes_home_path_sha256": audit.get("hermes_home_path_sha256"),
+            "github_credential_present": bool(audit.get("github_credential_present")),
+            "claim_boundary": audit.get("claim_boundary"),
+        }
+        keep["authority_audit"] = filtered
+        keep["authority_audit_sha256"] = sha256_bytes(canonical_json_bytes(filtered))
     findings = normalize_findings(obj.get("findings"))
     if findings:
         keep["findings"] = findings

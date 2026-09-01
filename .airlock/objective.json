@@ -1,0 +1,29 @@
+{
+  "bounds": {
+    "max_changed_files": 3,
+    "max_changed_lines": 160,
+    "max_generations": 10
+  },
+  "goal": "Make `airlock nightshift` continue to the next bounded generation when a generation produces no admissible winner, while leaving ordinary `airlock improve` stop-on-no-improvement behavior unchanged. A zero-standing generation must leave the admitted base unchanged; the next generation must re-run the full gate from that same base with no inherited credibility.",
+  "measure": {
+    "command": [
+      "python",
+      ".airlock/checks/hermes_live_001_measure.py"
+    ],
+    "direction": "maximize",
+    "pass_env": [],
+    "protected_evaluator_paths": [
+      ".airlock/checks/hermes_live_001_measure.py"
+    ],
+    "repeats": 1,
+    "timeout_seconds": 120,
+    "unit": "binary-contract"
+  },
+  "name": "Persistent retry after zero-standing generation",
+  "schema": "airlock.objective.v1",
+  "selection": {
+    "complexity_penalty_per_changed_line": "0.001",
+    "minimum_gain": "1",
+    "minimum_score_gap": "0"
+  }
+}
