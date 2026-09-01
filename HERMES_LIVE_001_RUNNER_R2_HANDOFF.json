@@ -1,0 +1,26 @@
+{
+  "schema": "airlock.handoff.v1",
+  "experiment": "HERMES-LIVE-001-RUNNER-R2",
+  "base_main_sha": "f3b3280f0099438b8ecd0464b2531e92e640d3a9",
+  "reason": "R1 failed at workflow dispatch before any job started. R2 removes the job-level runner.temp expression and uses fixed /tmp paths; it also pins a current Hermes-supported OpenAI model.",
+  "changes": [
+    "HERMES_HOME is /tmp/hermes-live-001-home instead of a job-level runner.temp expression.",
+    "Hermes install directory is explicit and outside the repository.",
+    "Runtime verification checks the explicit install checkout.",
+    "Model is gpt-5.6-sol.",
+    "Frozen HERMES-LIVE-001 objective/evaluator/controller/config are unchanged."
+  ],
+  "out_of_scope": [
+    "AIRLOCK-FOREIGN-001",
+    "standing tick",
+    "objective changes",
+    "evaluator changes",
+    "policy changes"
+  ],
+  "operator": {
+    "branch": "fix/hermes-live-001-runner-r2",
+    "commit": "fix: start HERMES-LIVE-001 real worker",
+    "pr_title": "fix: start HERMES-LIVE-001 real worker",
+    "merge_direction": "fix/hermes-live-001-runner-r2 \u2192 main"
+  }
+}
