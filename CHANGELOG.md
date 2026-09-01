@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — AIRLOCK-SOLVE-001
+
+- Adds `airlock solve`: one command from a GitHub issue or prompt to bounded autonomous search under the repository's existing Starter Rules.
+- Auto-runs the same zero-config Starter Rules setup only when `.airlock/config.json` is missing; existing developer rules are never rewritten by `solve`.
+- Lets `airlock solve 417` or `airlock solve #417` resolve the issue through the GitHub CLI, while full issue URLs and plain-English tasks continue to work without that resolution step.
+- Uses a deliberately smaller default search than `swarm` (4 attempts × 2 rounds) and preserves honest budget semantics: `--budget` remains a provider hint unless the provider enforces it.
+- Keeps the admission boundary unchanged: zero survivors means zero review work, multiple survivors stay multiple, and only one final survivor can be exposed for review.
+
 ## 0.2.2 — Candidate-bound checks
 
 - Makes local baseline, agent, and candidate-check processes put the active Git worktree's `src/` and repository root first on `PYTHONPATH`.
