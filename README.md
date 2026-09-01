@@ -33,6 +33,16 @@ airlock swarm "fix issue #417" \
 
 `airlock swarm` repeats the search instead of treating the first agent answer as special.
 
+Once you trust the Starter Rules, the short path is:
+
+```bash
+airlock solve 417
+```
+
+`airlock solve` is the unattended front door. If the repo has no Starter Rules yet, it runs the same zero-config setup first. A bare issue number is resolved with the GitHub CLI; a full GitHub issue URL or plain-English task works too. By default Airlock gives the task to four agent attempts across two rounds, reuses the same frozen checks, and attempts to open a PR only when exactly one final patch survives. Existing `.airlock/config.json` rules are never rewritten by `solve`.
+
+Use `--agents`, `--rounds`, `--models`, and `--budget` when you want explicit search controls. The budget remains a provider hint unless the provider itself enforces it.
+
 Each attempt runs in its own Git worktree. Across rounds, agents can share typed search notes such as root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings. Later agents can inspect prior candidate commits and Airlock outcomes instead of rediscovering every dead end from scratch.
 
 The shared blackboard cannot rewrite protected files, tests, Airlock config, verification commands, or the evidence sufficiency rule. Search can coordinate. Passing cannot.

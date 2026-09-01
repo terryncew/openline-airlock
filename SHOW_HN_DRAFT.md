@@ -21,6 +21,14 @@ airlock swarm "fix issue #417" \
   --budget 6.00
 ```
 
+Once the Starter Rules look right, the short path is just:
+
+```bash
+airlock solve 417
+```
+
+That command resolves the GitHub issue, uses the installed agent adapters, runs autonomous search under the same repo-owned checks, and attempts a PR only if exactly one final patch survives. If Starter Rules do not exist yet, `solve` creates them first and refuses to continue if the starting repository is red.
+
 Each attempt gets an isolated Git worktree. Agents can use bounded, typed notes from earlier rounds — root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings — so later attempts can avoid rediscovering the same dead ends.
 
 The important part is what shared notes cannot rewrite and accepted patches cannot change: the repository's Starter Rules.

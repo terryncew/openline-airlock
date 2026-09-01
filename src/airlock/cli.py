@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import argparse
+import json
 import shlex
+import shutil
 import sys
 from pathlib import Path
 
@@ -13,6 +15,7 @@ from .gitops import ensure_clean, root
 from .providers import builtin_providers
 from .runner import run_tournament
 from .swarm import run_swarm
+from .util import run
 from .verification import ensure_key, verify_offline
 
 
@@ -235,7 +238,6 @@ def command_run(args: argparse.Namespace) -> int:
     return 0 if report.get("status") == "READY" else 3
 
 
-
 def command_swarm(args: argparse.Namespace) -> int:
     repo = root(Path(args.repo).resolve())
     config_path = repo / ".airlock" / "config.json"
@@ -259,6 +261,89 @@ def command_swarm(args: argparse.Namespace) -> int:
         return 2
     return 0 if report.get("status") == "READY" else 3
 
+
+def _resolve_solve_target(repo: Path, issue_or_prompt: str) -> str:
+    """Turn a local GitHub issue number into a URL; leave URLs/prompts untouched."""
+    token = issue_or_prompt.strip()
+    number = token[1:] if token.startswith("#") else token
+    if not number.isdigit():
+        return issue_or_prompt
+    if not shutil.which("gh"):
+        raise RuntimeError(
+            "`airlock solve 417` needs the GitHub CLI to resolve the issue. "
+            "Pass the full GitHub issue URL or a prompt instead."
+        )
+    result = run(["gh", "issue", "view", number, "--json", "url"], repo, timeout=30)
+    if result["exit_code"] != 0:
+        detail = result.get("stderr", "").strip()[-500:]
+        raise RuntimeError(f"could not resolve GitHub issue #{number}: {detail or 'gh issue view failed'}")
+    try:
+        url = json.loads(result["stdout"]).get("url")
+    except Exception as exc:
+        raise RuntimeError(f"could not parse GitHub issue #{number}") from exc
+    if not isinstance(url, str) or not url.startswith("https://github.com/") or "/issues/" not in url:
+        raise RuntimeError(f"GitHub did not return a usable URL for issue #{number}")
+    return url
+
+
+def command_solve(args: argparse.Namespace) -> int:
+    """One-command path: establish Starter Rules if needed, search, then expose only a survivor."""
+    repo = root(Path(args.repo).resolve())
+    config_path = repo / ".airlock" / "config.json"
+
+    if not config_path.exists():
+        print("No Starter Rules yet. Airlock will inspect the repo first.\n")
+        init_rc = command_init(argparse.Namespace(repo=str(repo), timeout=args.timeout))
+        if init_rc != 0:
+            return init_rc
+        print("")
+
+    try:
+        target = _resolve_solve_target(repo, args.issue_or_prompt)
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    models = [item.strip() for item in (args.models or "").split(",") if item.strip()]
+    if not models:
+        try:
+            configured = load_config(config_path).get("providers", {})
+        except Exception:
+            configured = {}
+        if not configured:
+            models = list(builtin_providers())
+    try:
+        report = run_swarm(
+            repo,
+            target,
+            agents=args.agents,
+            rounds=args.rounds,
+            models=models,
+            budget=args.budget,
+            open_pr=not args.no_pr,
+            config_path=config_path,
+        )
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    status = report.get("status")
+    if status == "READY":
+        pr = report.get("pull_request") or {}
+        if pr.get("status") == "CREATED" and pr.get("url"):
+            print(f"\nAirlock survivor opened for review: {pr['url']}")
+        else:
+            print("\nOne patch survived. Airlock left it ready for review.")
+        return 0
+    if status == "MULTIPLE_SURVIVORS":
+        print("\nSeveral patches survived. Airlock refused to invent a winner.")
+    elif status == "NO_PATCH_READY":
+        print("\nNo patch earned review.")
+    elif status == "BASELINE_NOT_GREEN":
+        print("\nThe starting repository is red. Airlock did not spend agent attempts on it.")
+    return 3
+
+
 def command_verify(args: argparse.Namespace) -> int:
     repo = root(Path(args.repo).resolve())
     verification_path = Path(args.verification_file)
@@ -278,7 +363,6 @@ def command_verify(args: argparse.Namespace) -> int:
         print(f"  {'✓' if row['ok'] else '✗'} {row['check']}")
     print(f"Verification file SHA-256: {result['record_sha256']}")
     return 0 if result["valid"] else 1
-
 
 
 def command_install_github(args: argparse.Namespace) -> int:
@@ -303,10 +387,32 @@ def command_install_github(args: argparse.Namespace) -> int:
     print("  /airlock submit USER/FORK@FULL_40_CHARACTER_COMMIT_SHA")
     return 0
 
+
+def _build_solve_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="airlock solve",
+        description=(
+            "Give Airlock a GitHub issue or prompt. It sets up Starter Rules when needed, "
+            "lets several agents search, and exposes only a surviving patch."
+        ),
+    )
+    parser.add_argument("issue_or_prompt", help="GitHub issue number/URL or a plain-English task")
+    parser.add_argument("--repo", default=".")
+    parser.add_argument("--agents", "-n", type=int, default=4, help="Agent attempts per round (default: 4).")
+    parser.add_argument("--rounds", type=int, default=2, help="Search rounds (default: 2).")
+    parser.add_argument("--models", help="Comma-separated provider aliases; installed adapters are used when omitted.")
+    parser.add_argument("--budget", type=float, help="Recorded provider budget hint; enforcement remains provider-side.")
+    parser.add_argument("--timeout", type=int, default=1200, help="Starter Rules command timeout when auto-initializing.")
+    parser.add_argument("--no-pr", action="store_true", help="Keep a survivor local instead of attempting a GitHub PR.")
+    parser.set_defaults(func=command_solve)
+    return parser
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
         description="Spend machine attempts on software problems without turning every attempt into human review work.",
+        epilog="Shortcut: `airlock solve 417` runs setup + autonomous search for one GitHub issue.",
     )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -353,7 +459,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
+    raw = list(sys.argv[1:] if argv is None else argv)
+    if raw and raw[0] == "solve":
+        args = _build_solve_parser().parse_args(raw[1:])
+        return args.func(args)
+    args = build_parser().parse_args(raw)
     return args.func(args)
 
 
