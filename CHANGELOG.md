@@ -14,6 +14,7 @@
 
 ## Unreleased — Governed continuous improvement
 
+- Repairs AIRLOCK-SELF-001 after its first dispatch stopped before worker contact: infrastructure failure is now distinct from a valid negative result, the full baseline is proven in the prerequisite job, the local opportunity is single-file, shared Hermes attempts are serial, and every conclusion is rendered in the GitHub job summary.
 - Adds `airlock nightshift`, a Hermes-specific surface over the same protected objective/check/receipt chain.
 - Uses Hermes's scripted `-z` interface and keeps one persistent worker attempt per generation by default.
 - Requires distinct Hermes profiles for parallel candidate competition so shared mutable memory/skills cannot masquerade as independent workers.

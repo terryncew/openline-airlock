@@ -35,6 +35,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Install Airlock
+        run: python -m pip install --disable-pip-version-check .
+      - name: Full repository baseline
+        run: python -m unittest discover -s tests -v
       - name: Frozen evaluator self-test
         run: python .airlock/self-001/evaluator.py --self-test
       - name: Baseline protected checks
@@ -71,7 +75,7 @@ jobs:
           test -n "${OPENAI_API_KEY:-}" || { echo "::error::AIRLOCK-SELF-001 requires OPENAI_API_KEY"; exit 2; }
 
       - name: Install Airlock
-        run: python -m pip install --disable-pip-version-check --editable .
+        run: python -m pip install --disable-pip-version-check .
 
       - name: Cache pinned Hermes source archive
         id: hermes-cache
@@ -195,7 +199,10 @@ jobs:
           "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/airlock-self-001.log"
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
-          exit "$status"
+          # Codes 0 and 3 are completed scientific results. Infrastructure
+          # failures are separated in the final workflow step after receipts
+          # and the human-readable summary have been preserved.
+          exit 0
 
       - name: Collect receipt
         if: always()
@@ -211,13 +218,53 @@ jobs:
           if [ -d ".airlock/self-001-results" ]; then
             cp -a .airlock/self-001-results "$ARTIFACT/results"
           fi
+          if [ -d ".airlock/runs" ]; then
+            cp -a .airlock/runs "$ARTIFACT/airlock-runs"
+          fi
           {
             echo "run_id=${GITHUB_RUN_ID}"
             echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "head_sha=${GITHUB_SHA}"
             echo "hermes_commit=${HERMES_COMMIT}"
             echo "model=${HERMES_MODEL}"
+            echo "experiment_exit_code=${{ steps.self001.outputs.exit_code }}"
           } > "$ARTIFACT/run.txt"
+
+      - name: Publish experiment summary
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          REPORT="$(find .airlock/self-001-results -type f -name report.json -print 2>/dev/null | sort | tail -1 || true)"
+          {
+            echo "# AIRLOCK-SELF-001"
+            echo
+            if [ -z "$REPORT" ] || [ ! -f "$REPORT" ]; then
+              echo "**Infrastructure:** FAILED — no result receipt was produced."
+            else
+              echo "**Conclusion:** \`$(jq -r '.conclusion' "$REPORT")\`"
+              echo
+              echo "**Valid experiment:** \`$(jq -r '.valid_experiment' "$REPORT")\`"
+              echo
+              echo "**Claim earned:** \`$(jq -r '.earned' "$REPORT")\`"
+              echo
+              echo "**Autonomous arm:** \`$(jq -r '.autonomous.selection.status' "$REPORT")\`"
+              echo
+              echo "**Directed control:** \`$(jq -r '.maintainer_directed.selection.status' "$REPORT")\`"
+              echo
+              echo "$(jq -r '.interpretation' "$REPORT")"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
+            if [ "$(jq -r '.valid_experiment' "$REPORT")" != "true" ]; then
+              echo "::error::AIRLOCK-SELF-001 did not run; inspect the infrastructure fields in the receipt."
+            elif [ "$(jq -r '.earned' "$REPORT")" = "true" ]; then
+              echo "::notice::AIRLOCK-SELF-001 earned its preregistered claim."
+            else
+              echo "::notice::AIRLOCK-SELF-001 completed validly and did not earn its preregistered claim."
+            fi
+          fi
 
       - name: Upload receipt
         if: always()
@@ -227,3 +274,25 @@ jobs:
           path: ${{ runner.temp }}/airlock-self-001-artifact/
           if-no-files-found: error
           retention-days: 30
+
+      - name: Enforce infrastructure validity
+        if: always()
+        shell: bash
+        env:
+          EXPERIMENT_EXIT: ${{ steps.self001.outputs.exit_code }}
+        run: |
+          set -euo pipefail
+          case "${EXPERIMENT_EXIT:-missing}" in
+            0|3)
+              # A valid negative result is evidence, not a broken workflow.
+              exit 0
+              ;;
+            2)
+              echo "::error::AIRLOCK-SELF-001 infrastructure failed before the claim could be tested."
+              exit 2
+              ;;
+            *)
+              echo "::error::AIRLOCK-SELF-001 runner failed with exit ${EXPERIMENT_EXIT:-missing}."
+              exit 1
+              ;;
+          esac

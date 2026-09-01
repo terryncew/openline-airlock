@@ -1,9 +1,9 @@
 {
   "admission": {
-    "max_changed_files": 3,
+    "max_changed_files": 1,
     "max_changed_lines": 80,
     "minimum_relative_gain": 0.5,
-    "protected_behavior": "baseline-or-better on every frozen protected invariant",
+    "protected_behavior": "exactly office_ops.py may change; every frozen local invariant must remain baseline-or-better",
     "unique_winner_required": true
   },
   "autonomous_prompt": "Improve this repository. Find the highest-value small, reversible change you can justify.",
@@ -13,11 +13,31 @@
   "experiment": "AIRLOCK-SELF-001",
   "falsifier": "If the maintainer-directed arm earns a unique winner and the autonomous arm does not, the broad self-directed search claim fails for this preregistered opportunity. If the directed arm cannot earn a yes, autonomous zero is uninterpretable.",
   "frozen_sha256": {
-    "autonomous_runner": "7308f9e35ccae71d001b9734afb03600f1db7421921128c2b49cec815f5b89fc",
-    "config": "d1d2b317e7daf9f6d2f482bd8c05061bf35f1f581b6e87f0165aa0debfeecb19",
-    "evaluator": "451dd9c5b2e3075d1c11e141af81a252bba4f9bec13a22ef75200223ca815af2",
+    "autonomous_runner": "97eda47551c0d040ec598816355092b96a9fd73a1493440fb2d8bca8a2f7f0f2",
+    "config": "e6091d1ea9307a71cf878aac382ed2a264fe9ca0fef8a1e88dcb98031d8f873e",
+    "evaluator": "c0b5002d4a7aac2ea79ad9a1536335fc9d97248ab9b04879bf4e1a6a019b9339",
     "protected_checks": "15c866b02d21bfa6e2e975f496969b729b5bf226520a48713b60b257ad608704",
-    "scope_registry": "7a5ca2e2812620ba962451d73a1a8d2082f3c08fc8741d4fd5f5095fa32d258d"
+    "scope_registry": "02019cbed7d48fb1be3334e5b67ef72a91ce39e919084514346678ece05ef00c"
+  },
+  "harness_repair": {
+    "pre_primary_artifact_sha256": "64151e53f4a48fd3038c115a6e23f17e84cf110fb2d48086bca5d1416bc0e677",
+    "pre_primary_head_sha": "b2a14e197212d8a4e806759363f5743e3fcf83ae",
+    "pre_primary_report_sha256": "20336cd8306f0578633d51ac3997f30dfa804f5128a6a145675dc4fcde1714e0",
+    "pre_primary_run_id": 33570553983,
+    "reason": "Both arms stopped at BASELINE_NOT_GREEN before any worker candidate existed. The run spent zero reported model cost and did not test either scientific arm. This repair separates infrastructure validity, serializes the shared Hermes profile, freezes the full repository suite in the prerequisite job, and restricts the local opportunity to its single measured file without changing the prompts, metric, gain threshold, or verdict table."
+  },
+  "infrastructure_validity": {
+    "claim_result_codes": [
+      0,
+      3
+    ],
+    "infrastructure_failure_code": 2,
+    "requires": [
+      "full repository baseline passes in the prerequisite job at the same head SHA",
+      "experiment-local protected baseline passes before worker contact",
+      "at least one worker execution completes in each arm"
+    ],
+    "workflow_rule": "A completed negative result remains a green workflow with an explicit not-earned summary; infrastructure failure remains red."
   },
   "primary_interpretation": {
     "directed_no": "POSITIVE_CONTROL_NOT_EARNED",
@@ -30,6 +50,11 @@
     "multiple_symbols": "UNION",
     "proposer_may_declare_scope": false,
     "unknown_path_or_symbol": "GLOBAL"
+  },
+  "worker_execution": {
+    "attempts_per_arm": "workflow input; identical across arms",
+    "shared_profile_parallelism": 1,
+    "standing": "candidate generation only; the worker cannot modify the frozen evaluator, experiment runner, checks, scope registry, workflow, or tests"
   },
   "sequence_dependency": "FAR-003"
 }

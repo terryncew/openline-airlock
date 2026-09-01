@@ -208,6 +208,9 @@ def evaluate(repo: Path, base: str, candidate: str, registry: dict) -> dict:
     if TARGET_REL not in paths:
         result["reason"] = "NO_REGISTERED_MEASURABLE_CHANGE"
         return result
+    if paths != [TARGET_REL]:
+        result["reason"] = "OUT_OF_SCOPE_PATH"
+        return result
 
     with tempfile.TemporaryDirectory(prefix="airlock-self-001-eval-") as td:
         td = Path(td)
