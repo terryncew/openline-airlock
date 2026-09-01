@@ -52,6 +52,8 @@ jobs:
 
       - name: Install pinned real Hermes
         shell: bash
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           INSTALL_LOG="$RUNNER_TEMP/hermes-install.log"
@@ -60,26 +62,28 @@ jobs:
           rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
           mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
 
-          git -C "$HERMES_INSTALL_DIR" init
-          git -C "$HERMES_INSTALL_DIR" remote add origin             https://github.com/NousResearch/hermes-agent.git
-          git -C "$HERMES_INSTALL_DIR" fetch --depth 1 origin "$HERMES_COMMIT"
-          git -C "$HERMES_INSTALL_DIR" checkout --detach FETCH_HEAD
+          # The prior run proved the unauthenticated Git smart-HTTP path can be
+          # rate-limited (HTTP 429). Fetch the exact immutable commit archive through
+          # GitHub's authenticated REST endpoint instead. The token exists only in
+          # this install step and is never forwarded to the Airlock worker boundary.
+          ARCHIVE="$RUNNER_TEMP/hermes-${HERMES_COMMIT}.tar.gz"
+          curl --fail --location --silent --show-error             --retry 5 --retry-delay 2 --retry-all-errors             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer ${GH_READ_TOKEN}"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/NousResearch/hermes-agent/tarball/${HERMES_COMMIT}"             -o "$ARCHIVE"
 
-          INSTALL_HEAD="$(git -C "$HERMES_INSTALL_DIR" rev-parse HEAD)"
-          if [ "$INSTALL_HEAD" != "$HERMES_COMMIT" ]; then
-            echo "::error::Hermes checkout mismatch: expected $HERMES_COMMIT got $INSTALL_HEAD"
-            exit 2
-          fi
+          test -s "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          test -f "$HERMES_INSTALL_DIR/pyproject.toml"
 
           python -m venv "$HERMES_INSTALL_DIR/venv"
-          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install             --disable-pip-version-check             --upgrade pip
           "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install             --disable-pip-version-check             --editable "$HERMES_INSTALL_DIR"
 
           HERMES_BIN="$HERMES_INSTALL_DIR/venv/bin/hermes"
           if [ ! -x "$HERMES_BIN" ]; then
-            echo "::error::Pinned Hermes installed but no executable was found at $HERMES_BIN."
+            echo "::error::Pinned Hermes archive installed but no executable was found at $HERMES_BIN."
             exit 2
           fi
+
+          sha256sum "$ARCHIVE" > "$RUNNER_TEMP/hermes-source-archive.sha256"
+          printf '%s\n' "$HERMES_COMMIT" > "$RUNNER_TEMP/hermes-source-commit.txt"
 
           mkdir -p "$RUNNER_TEMP/hermes-bin"
           ln -sf "$HERMES_BIN" "$RUNNER_TEMP/hermes-bin/hermes"
@@ -116,15 +120,14 @@ jobs:
           set -euo pipefail
           command -v hermes
           hermes --version || hermes version || true
-
-          INSTALL_HEAD="$(git -C "$HERMES_INSTALL_DIR" rev-parse HEAD)"
-          test "$INSTALL_HEAD" = "$HERMES_COMMIT"
+          test "$(cat "$RUNNER_TEMP/hermes-source-commit.txt")" = "$HERMES_COMMIT"
 
           cat > "$RUNNER_TEMP/hermes-runtime.json" <<EOF
           {
             "schema": "airlock.hermes-live-001.runtime.v1",
             "hermes_release": "$HERMES_RELEASE",
-            "hermes_commit": "$INSTALL_HEAD",
+            "hermes_commit": "$HERMES_COMMIT",
+            "source_transport": "github-rest-commit-tarball",
             "model_provider": "openai-api",
             "model": "$HERMES_MODEL",
             "worker_forwarded_environment": ["HERMES_HOME"],
@@ -158,6 +161,8 @@ jobs:
 
           test -f "$RUNNER_TEMP/hermes-install.log" &&             cp "$RUNNER_TEMP/hermes-install.log" "$ARTIFACT_DIR/install.log" || true
           test -f "$RUNNER_TEMP/hermes-runtime.json" &&             cp "$RUNNER_TEMP/hermes-runtime.json" "$ARTIFACT_DIR/runtime.json" || true
+          test -f "$RUNNER_TEMP/hermes-source-archive.sha256" &&             cp "$RUNNER_TEMP/hermes-source-archive.sha256" "$ARTIFACT_DIR/hermes-source-archive.sha256" || true
+          test -f "$RUNNER_TEMP/hermes-source-commit.txt" &&             cp "$RUNNER_TEMP/hermes-source-commit.txt" "$ARTIFACT_DIR/hermes-source-commit.txt" || true
           test -f "$RUNNER_TEMP/hermes-live-001-console.log" &&             cp "$RUNNER_TEMP/hermes-live-001-console.log" "$ARTIFACT_DIR/console.log" || true
 
           REPORT="$(find .airlock/improvements/HERMES-LIVE-001 -type f -name report.json -print 2>/dev/null | sort | tail -1 || true)"
@@ -166,8 +171,6 @@ jobs:
             sha256sum "$REPORT" > "$ARTIFACT_DIR/report.sha256"
           fi
 
-          # Preserve the complete nested Nightshift evidence tree. This is diagnostic
-          # only; it carries no merge or promotion authority.
           if [ -d ".airlock/improvements" ]; then
             mkdir -p "$ARTIFACT_DIR/improvements"
             cp -a .airlock/improvements/. "$ARTIFACT_DIR/improvements/"

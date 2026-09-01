@@ -1,0 +1,18 @@
+{
+  "schema": "airlock.handoff.v1",
+  "experiment": "HERMES-LIVE-001-INSTALL-R5",
+  "base_main_sha": "e2335612e97c2c616d39bf4901e2ba11c08219e3",
+  "defect": "R4 reached the install step but unauthenticated Git smart-HTTP was rate-limited by GitHub with HTTP 429 before Hermes could install.",
+  "fix": [
+    "Replace unauthenticated git fetch with authenticated GitHub REST tarball retrieval for the exact pinned Hermes commit.",
+    "Keep GitHub token scoped to the install step only; it is not forwarded to the Airlock worker.",
+    "Retain source commit and archive SHA-256 in the diagnostic artifact.",
+    "Leave R4 worker-evidence retention and all frozen HERMES-LIVE acceptance files unchanged."
+  ],
+  "working_copy": {
+    "branch": "fix/hermes-live-001-install-r5",
+    "commit": "fix: make pinned Hermes install resilient",
+    "pr_title": "fix: make HERMES-LIVE-001 install resilient",
+    "merge_direction": "fix/hermes-live-001-install-r5 \u2192 main"
+  }
+}
