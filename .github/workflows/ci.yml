@@ -49,6 +49,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install .
+      - run: python scripts/verify_unattended_reachability.py --out airlock-unattended-reachability.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: airlock-unattended-reachability
+          path: airlock-unattended-reachability.json
+          if-no-files-found: error
+          retention-days: 30
       - run: docker version
       - run: python scripts/run_actions_runtime_selftest.py --out airlock-actions-selftest
       - uses: actions/upload-artifact@v4

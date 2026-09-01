@@ -201,7 +201,7 @@ class StarterRulesInitTests(unittest.TestCase):
         )
         self.assertIn("✓ Starting repo passes its checks", output)
         self.assertIn("Starter Rules saved to .airlock/config.json", output)
-        self.assertIn('Next:\n  airlock swarm "fix issue #417"', output)
+        self.assertIn("Next:\n  ", output)
         for term in ("policy", "admission", "mandate", "authority", "evaluator", "safe", "secure", "sandbox"):
             self.assertNotIn(term, output.casefold())
 

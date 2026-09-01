@@ -1,0 +1,29 @@
+{
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "cc4a70c7483a1d10ea9e983027e0ab4ec667a9b4",
+  "branch": "fix/airlock-first-run-gate",
+  "diagnosis": {
+    "all_four_patch_sha256": "55ee0f5e4e437bedca5884ef894bb805e1cf6d58411cb4305d3b2d68fa6ac0cf",
+    "all_four_reason": "PROTECTED_FILES_CHANGED",
+    "candidate_count": 4,
+    "empty_target_region": [
+      "protected regression test required legacy swarm text",
+      "protected issue-specific check required solve 417",
+      "stale target command from the abandoned trailing-slash demo remained in .airlock/config.json"
+    ],
+    "first_run_result": "NO_PATCH_READY"
+  },
+  "handoff": "AIRLOCK-FIRST-RUN-GATE-FIX-001",
+  "issue": 23,
+  "maintainer_changes": [
+    "tests/test_starter_rules.py now owns only Next-section structure, not the exact issue-specific command",
+    ".airlock/config.json removes the stale trailing-slash target and keeps only the issue #23 protected target",
+    "CI runs a pre-spend reachability proof"
+  ],
+  "reachability_falsifier": {
+    "known_bad": "airlock solve \"fix issue #417\" must produce NO_PATCH_READY with TARGET_FAILED for all four",
+    "known_good": "the exact code edit all four live agents converged on must produce READY_FOR_REVIEW with 4 raw survivors / 1 unique patch",
+    "live_attempt_2_allowed_only_after": "post-merge CI reachability artifact reports KNOWN_GOOD_REACHABLE_AND_KNOWN_BAD_REJECTED"
+  },
+  "trust_boundary": "These answer-key changes are maintainer-authored. Candidate agents remain unable to change tests/**, .airlock/**, or .github/**."
+}
