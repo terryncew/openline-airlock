@@ -12,6 +12,22 @@
 - Keeps budget semantics honest: requested budget remains a provider hint unless the provider enforces it, and missing reported economics remain unknown.
 - Keeps the public outside-fork GitHub contribution path as a separate evidence boundary; v0.3 does not convert local autonomous-search results into a claim that the live public-fork path has passed.
 
+## Unreleased — Governed continuous improvement
+
+- Adds `airlock nightshift`, a Hermes-specific surface over the same protected objective/check/receipt chain.
+- Uses Hermes's scripted `-z` interface and keeps one persistent worker attempt per generation by default.
+- Requires distinct Hermes profiles for parallel candidate competition so shared mutable memory/skills cannot masquerade as independent workers.
+- Adds bounded Hermes credential forwarding: `HERMES_HOME` by default and at most one explicitly named provider credential in protected config.
+- Binds worker identity, compact process execution evidence, optional provider/model usage reports, and per-generation reported economics into signed improvement receipts.
+- Freezes the claim boundary that software admission is not a substitute for sub-second live feasibility control in physical systems.
+- Adds `airlock improve`, a bounded loop that measures the current commit, runs competing agent attempts, and compounds only one uniquely scored improvement on an isolated Airlock branch.
+- Keeps the objective, metric command, minimum gain, scoring penalties, and blast-radius limits under operator-owned `.airlock/` configuration.
+- Uses conservative repeated measurement: a candidate's worst result must clear the base version's best result, so overlapping noisy observations do not count as gain.
+- Preserves normal issue-solving semantics: multiple ordinary survivors remain multiple. Only a protected objective contract can identify a unique improvement winner; ambiguity stops the loop.
+- Writes signed, hash-chained generation receipts and a final report that can be verified without running candidate code.
+- Leaves `main` untouched and makes every accepted generation a normal reversible Git commit.
+- Does not claim that a local metric captures total product value or that a local benchmark improvement survives production.
+
 ## 0.2.2 — Candidate-bound checks
 
 - Makes local baseline, agent, and candidate-check processes put the active Git worktree's `src/` and repository root first on `PYTHONPATH`.

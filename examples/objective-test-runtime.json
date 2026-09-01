@@ -1,0 +1,29 @@
+{
+  "schema": "airlock.objective.v1",
+  "name": "Python test runtime",
+  "goal": "Reduce the wall-clock time of the existing unittest suite without changing tests.",
+  "measure": {
+    "command": [
+      "python",
+      ".airlock/objectives/measure-test-runtime.py"
+    ],
+    "direction": "minimize",
+    "unit": "seconds",
+    "repeats": 5,
+    "timeout_seconds": 1200,
+    "pass_env": [],
+    "protected_evaluator_paths": [
+      ".airlock/objectives/measure-test-runtime.py"
+    ]
+  },
+  "bounds": {
+    "max_generations": 10,
+    "max_changed_files": 4,
+    "max_changed_lines": 200
+  },
+  "selection": {
+    "minimum_gain": "0.01",
+    "complexity_penalty_per_changed_line": "0.0001",
+    "minimum_score_gap": "0.001"
+  }
+}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+from decimal import Decimal
 import json
 import shlex
 import shutil
@@ -13,7 +14,9 @@ from .autopilot import run_autopilot
 from .config import load as load_config, save as save_config
 from .discovery import discovery_metadata, discover_commands, protected_patterns, run_baseline
 from .gitops import ensure_clean, root
+from .improvement import run_improvement_loop, verify_improvement_report
 from .inbox import build_inbox
+from .nightshift import run_nightshift
 from .providers import builtin_providers
 from .runner import run_tournament
 from .swarm import run_swarm
@@ -36,6 +39,7 @@ def _update_local_exclude(repo: Path) -> None:
         ".airlock/verification.key",
         ".airlock/swarms/",
         ".airlock/autopilot/",
+        ".airlock/improvements/",
     ]
     missing = [row for row in entries if row not in existing.splitlines()]
     if missing:
@@ -398,6 +402,117 @@ def command_autopilot(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_improve(args: argparse.Namespace) -> int:
+    """Run or verify a bounded, operator-scored improvement chain."""
+    repo = root(Path(args.repo).resolve())
+    _update_local_exclude(repo)
+    if args.verify:
+        report = verify_improvement_report(
+            (repo / args.verify).resolve(),
+            repo / ".airlock" / "verification.key",
+        )
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0 if report.get("valid") else 2
+
+    config_path = repo / ".airlock" / "config.json"
+    if not config_path.exists():
+        print("ERROR: .airlock/config.json is missing; run `airlock init` first", file=sys.stderr)
+        return 2
+    models = [item.strip() for item in (args.models or "").split(",") if item.strip()]
+    if not models:
+        try:
+            configured = load_config(config_path).get("providers", {})
+        except Exception:
+            configured = {}
+        models = list(configured) if configured else list(builtin_providers())
+    try:
+        report = run_improvement_loop(
+            repo,
+            objective_path=args.objective,
+            generations=args.generations,
+            agents=args.agents,
+            models=models,
+            budget=args.budget,
+            config_path=config_path,
+        )
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    print("")
+    print(f"Accepted generations: {report['accepted_generations']}/{report['attempted_generations']}")
+    print(f"Status: {report['status']}")
+    print(f"Improvement branch: {report['improvement_branch']}")
+    measurement = report["final_measurement"]
+    value = measurement.get("median", "unknown")
+    unit = measurement.get("unit", "")
+    print(f"Final measured utility: {value}{' ' + unit if unit else ''}")
+    print(f"Signed report: {report['report_file']}")
+    print("Your starting branch was not moved.")
+    return 0 if report["accepted_generations"] > 0 else 3
+
+
+def command_nightshift(args: argparse.Namespace) -> int:
+    """Run Hermes repeatedly while Airlock keeps the objective and promotion boundary outside the worker."""
+    repo = root(Path(args.repo).resolve())
+    _update_local_exclude(repo)
+    if args.verify:
+        report = verify_improvement_report(
+            (repo / args.verify).resolve(),
+            repo / ".airlock" / "verification.key",
+        )
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0 if report.get("valid") else 2
+
+    config_path = repo / ".airlock" / "config.json"
+    if not config_path.exists():
+        print("ERROR: .airlock/config.json is missing; run `airlock init` first", file=sys.stderr)
+        return 2
+    profiles = [item.strip() for item in (args.profiles or "").split(",") if item.strip()]
+    try:
+        report = run_nightshift(
+            repo,
+            objective_path=args.objective,
+            generations=args.generations,
+            agents=args.agents,
+            profiles=profiles,
+            budget=args.budget,
+            config_path=config_path,
+        )
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    context = report.get("run_context") or {}
+    print("")
+    print("Airlock nightshift")
+    print(f"Hermes attempts per generation: {context.get('attempts_per_generation', args.agents)}")
+    print(f"Profiles: {', '.join(context.get('profiles', profiles or ['default']))}")
+    print(f"Accepted generations: {report['accepted_generations']}/{report['attempted_generations']}")
+    print(f"Status: {report['status']}")
+    print(f"Improvement branch: {report['improvement_branch']}")
+    measurement = report["final_measurement"]
+    value = measurement.get("median", "unknown")
+    unit = measurement.get("unit", "")
+    print(f"Final measured utility: {value}{' ' + unit if unit else ''}")
+    known = Decimal("0")
+    unknown = 0
+    for row in report.get("worker_usage", []):
+        cost = row.get("reported_cost") or {}
+        try:
+            known += Decimal(str(cost.get("reported_cost_usd_total", "0")))
+        except Exception:
+            pass
+        unknown += int(cost.get("unknown_candidates", 0) or 0)
+    if unknown:
+        print(f"Known provider-reported spend: ${known} ({unknown} attempt(s) unknown)")
+    else:
+        print(f"Provider-reported spend: ${known}")
+    print(f"Signed report: {report['report_file']}")
+    print("Your starting branch was not moved.")
+    return 0 if report["accepted_generations"] > 0 else 3
+
+
 def command_inbox(args: argparse.Namespace) -> int:
     """Show only Airlock outcomes that currently need human attention."""
     repo = root(Path(args.repo).resolve())
@@ -536,6 +651,69 @@ def _build_inbox_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_nightshift_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="airlock nightshift",
+        description=(
+            "Let a persistent Hermes worker search for improvements while Airlock keeps the "
+            "objective, evaluator, and promotion decision outside the worker."
+        ),
+    )
+    parser.add_argument("--repo", default=".")
+    parser.add_argument(
+        "--objective",
+        default=".airlock/objective.json",
+        help="Protected objective contract (default: .airlock/objective.json).",
+    )
+    parser.add_argument("--generations", type=int, help="Generation limit; cannot exceed the objective contract.")
+    parser.add_argument(
+        "--agents",
+        "-n",
+        type=int,
+        default=1,
+        help="Hermes attempts per generation (default: 1). Parallel attempts require isolated profiles.",
+    )
+    parser.add_argument(
+        "--profiles",
+        help="Comma-separated Hermes profiles. Required and unique when --agents is greater than 1.",
+    )
+    parser.add_argument("--budget", type=float, help="Total provider budget hint divided across the bounded run.")
+    parser.add_argument(
+        "--verify",
+        metavar="REPORT",
+        help="Verify a saved nightshift/improvement-chain report instead of running.",
+    )
+    parser.set_defaults(func=command_nightshift)
+    return parser
+
+
+def _build_improve_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="airlock improve",
+        description=(
+            "Let agents search for small improvements while an operator-owned metric, "
+            "repository checks, and blast-radius limits decide what compounds."
+        ),
+    )
+    parser.add_argument("--repo", default=".")
+    parser.add_argument(
+        "--objective",
+        default=".airlock/objective.json",
+        help="Protected objective contract (default: .airlock/objective.json).",
+    )
+    parser.add_argument("--generations", type=int, help="Generation limit; cannot exceed the objective contract.")
+    parser.add_argument("--agents", "-n", type=int, default=4, help="Competing attempts per generation (default: 4).")
+    parser.add_argument("--models", help="Comma-separated provider aliases; installed adapters are used when omitted.")
+    parser.add_argument("--budget", type=float, help="Total provider budget hint divided across the bounded run.")
+    parser.add_argument(
+        "--verify",
+        metavar="REPORT",
+        help="Verify a saved improvement-chain report instead of running.",
+    )
+    parser.set_defaults(func=command_improve)
+    return parser
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
@@ -596,6 +774,12 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args)
     if raw and raw[0] == "inbox":
         args = _build_inbox_parser().parse_args(raw[1:])
+        return args.func(args)
+    if raw and raw[0] == "improve":
+        args = _build_improve_parser().parse_args(raw[1:])
+        return args.func(args)
+    if raw and raw[0] == "nightshift":
+        args = _build_nightshift_parser().parse_args(raw[1:])
         return args.func(args)
     args = build_parser().parse_args(raw)
     return args.func(args)

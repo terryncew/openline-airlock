@@ -1,12 +1,39 @@
 # OpenLine Airlock
 
-**Let coding agents keep trying without making maintainers keep reviewing.**
+**Software that can earn its own improvements.**
 
 Coding agents made attempts cheap. Human attention stayed expensive.
 
-Airlock lets a repository spend many machine attempts on software problems while keeping the definition of “good enough to review” in the repository: its tests, static checks, protected paths, and explicit Starter Rules.
+Airlock lets coding agents search for changes while keeping the definition of “better” outside the agents: in your tests, protected paths, metrics, limits, and promotion rules.
 
-A failed attempt disappears into the search history. A weakly evidenced attempt stops. Several valid patches stay several valid patches. Exactly one survivor can earn a normal review.
+A failed attempt disappears into machine history. A weakly evidenced attempt stops. A uniquely measured improvement can become the next starting point on an isolated branch. **The agent can change the code. It cannot change what counts as an improvement.**
+
+## The compounding loop
+
+Give Airlock one protected objective and a bounded number of generations:
+
+```bash
+airlock init
+airlock improve --objective .airlock/objective.json --generations 10 --agents 4
+```
+
+In every generation, agents compete to make one small, reversible improvement. Airlock independently reruns the repository checks and your measurement command. The candidate's worst measured result must beat the starting version's best result by your configured minimum. Complexity, changed files, and changed lines can all reduce or eliminate the candidate's score.
+
+One candidate must win cleanly. Noise, a tie, a protected-file change, a regression, weak evidence, or no real gain stops the loop. Accepted generations form ordinary Git commits on `airlock/improve/<run-id>` with signed, hash-chained receipts. `main` never moves.
+
+Start with the [operator objective guide](docs/CONTINUOUS_IMPROVEMENT.md) and the [test-runtime example](examples/objective-test-runtime.json).
+
+### Let Hermes take the night shift
+
+If Hermes is your persistent worker, use the same gate without turning Hermes into its own judge:
+
+```bash
+airlock nightshift --objective .airlock/objective.json --generations 10
+```
+
+Nightshift uses Hermes's scripted `-z` interface. The default is one Hermes attempt per generation, so one mutable profile can keep its memory and skills across the run. Parallel Hermes attempts require one distinct profile per candidate; Airlock refuses to call shared writable profile state "independent."
+
+Hermes may improve the candidate code and its own worker state. It still cannot redefine the protected objective, repository checks, or promotion rule. The starting branch stays untouched. See [Hermes Nightshift](docs/NIGHTSHIFT.md).
 
 ## The five-command loop
 
@@ -72,7 +99,7 @@ Airlock does not ask an LLM judge which patch “looks best.”
 
 A candidate is blocked if it changes protected files or fails the repository's configured checks. If the available checks do not justify unattended review, Airlock returns `NEEDS_EVIDENCE`.
 
-When several distinct patches survive, Airlock refuses to rank one into existence.
+In normal issue solving, several distinct survivors remain several; Airlock refuses to invent a winner. In the compounding loop, only a protected operator-authored scoring rule may establish one unique winner. An ambiguous score stops.
 
 **Agents search. The repository decides what earns attention.**
 
@@ -155,9 +182,9 @@ The public-fork path remains a separate claim boundary. Local autonomous search 
 
 Airlock shells out to agent commands you already use.
 
-Built-in adapters cover installed Claude Code, Codex, Aider, and OpenCode CLIs. Custom providers can be added in `.airlock/config.json`.
+Built-in adapters cover installed Claude Code, Codex, Aider, OpenCode, and Hermes CLIs. Hermes uses `hermes -z`; its built-in adapter forwards only `HERMES_HOME`. A key-based Hermes setup may explicitly name one additional provider credential in protected `.airlock/config.json`.
 
-Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's ordinary Git credential configuration unless explicitly allowed as provider credentials.
+Agent subprocesses do not receive GitHub tokens, release/signing keys, SSH-agent state, or the user's ordinary Git credential configuration through Airlock's worker adapter. Provider credentials cross only when explicitly named.
 
 Worktree isolation is not a strong sandbox. If an agent command must be treated as hostile native code, run generation inside a container or VM.
 
@@ -167,12 +194,14 @@ The v0.3 release freezes the current v1 record names used by the loop:
 
 `airlock.config.v1`, `airlock.run.v1`, `airlock.verification.v1`, `airlock.swarm.v1`, `airlock.autopilot.v1`, `airlock.autopilot.run.v1`, `airlock.inbox.v1`, and `airlock.review.v1`.
 
+The additive continuous-improvement records are `airlock.objective.v1`, `airlock.improvement.generation.v1`, and `airlock.improvement.v1`. Nightshift adds the embedded run-context schema `airlock.nightshift.context.v1`.
+
 “Frozen” means v0.3.x changes must remain backward-readable or move to a new schema name instead of silently changing the meaning of an existing one.
 
 ## What Airlock does not promise
 
-Airlock does not make weak tests strong, prove perfect correctness, decide that one passing implementation is globally best, guarantee a provider obeys a budget hint, or turn a local receipt into authority on a different system.
+Airlock does not make weak tests strong, prove that one scalar captures total product value, decide that one passing implementation is globally best, guarantee a provider obeys a budget hint, deploy to production, turn a local receipt into authority on a different system, or replace a sub-second live feasibility controller for physical systems.
 
 It solves a narrower problem:
 
-**machine search should be allowed to scale without forcing human review to scale with it.**
+**cheap intelligence may propose improvements; it does not get to manufacture success or promotion authority.**

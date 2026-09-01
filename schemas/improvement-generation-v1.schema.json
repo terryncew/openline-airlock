@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/terryncew/openline-airlock/schemas/improvement-generation-v1.schema.json",
+  "title": "OpenLine Airlock improvement generation receipt",
+  "type": "object",
+  "required": ["alg", "payload", "signature"],
+  "properties": {
+    "alg": {"const": "HMAC-SHA256"},
+    "signature": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "payload": {
+      "type": "object",
+      "required": [
+        "schema",
+        "run_id",
+        "generation",
+        "base_commit",
+        "objective_sha256",
+        "config_sha256",
+        "baseline",
+        "candidates",
+        "decision",
+        "parent_generation_receipt_sha256"
+      ],
+      "properties": {
+        "schema": {"const": "airlock.improvement.generation.v1"},
+        "run_id": {"type": "string"},
+        "generation": {"type": "integer", "minimum": 1},
+        "base_commit": {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+        "objective_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "config_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+        "baseline": {"type": "object"},
+        "candidates": {"type": "array", "items": {"type": "object"}},
+        "decision": {"type": "string"},
+        "promoted_commit": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{40}$"},
+            {"type": "null"}
+          ]
+        },
+        "parent_generation_receipt_sha256": {
+          "oneOf": [
+            {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+            {"type": "null"}
+          ]
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": false
+}
