@@ -1,0 +1,50 @@
+{
+  "init_baseline": {},
+  "parallelism": 2,
+  "protected_paths": [
+    ".github/**",
+    ".airlock/**",
+    "tests/**",
+    "pyproject.toml",
+    "src/airlock/runner.py",
+    "experiments/airlock-self-001/README.md",
+    "experiments/airlock-self-001/run_self_001.py",
+    "experiments/airlock-self-001/fixtures/**"
+  ],
+  "providers": {
+    "hermes": {
+      "command": [
+        "python",
+        ".airlock/checks/hermes_live_001_worker.py",
+        "{prompt}"
+      ],
+      "pass_env": [
+        "HERMES_HOME"
+      ],
+      "timeout_seconds": 2700
+    }
+  },
+  "schema": "airlock.config.v1",
+  "verification": {
+    "coverage_mode": "changed-module-reference",
+    "static_commands": [],
+    "target_commands": [
+      [
+        "python",
+        ".airlock/self-001/protected_checks.py"
+      ]
+    ],
+    "test_commands": [
+      [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ]
+    ],
+    "timeout_seconds": 1200
+  }
+}
