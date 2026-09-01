@@ -178,6 +178,8 @@ class UnattendedTests(unittest.TestCase):
         )
         self.assertEqual(result["decision"], "READY_FOR_REVIEW")
         self.assertEqual(result["survivor_count"], 1)
+        self.assertEqual(result["unique_survivor_count"], 1)
+        self.assertEqual(result["survivor"]["equivalent_candidate_ids"], ["01"])
         self.assertEqual(result["survivor"]["changed_paths"], ["src/widget.py"])
         self.assertTrue((out / "survivor.patch").exists())
         self.assertTrue(unattended.verify_result(out / "result.json", out / "survivor.patch")["valid"])
@@ -260,8 +262,34 @@ class UnattendedTests(unittest.TestCase):
         )
         self.assertEqual(result["decision"], "MULTIPLE_SURVIVORS")
         self.assertEqual(result["survivor_count"], 2)
+        self.assertEqual(result["unique_survivor_count"], 2)
         self.assertNotIn("survivor", result)
         self.assertFalse((out / "survivor.patch").exists())
+
+
+def test_identical_survivors_collapse_to_one_unique_patch(self):
+    repo, base = init_repo(candidate_count=2)
+    first = make_artifact(repo, base, "01", content="def value():\n    return 2\n")
+    second = make_artifact(repo, base, "02", content="def value():\n    return 2\n")
+    candidates = Path(tempfile.mkdtemp(prefix="candidates-"))
+    for name, artifact in (("airlock-candidate-01", first), ("airlock-candidate-02", second)):
+        target = candidates / name
+        target.mkdir()
+        for filename in ("candidate.json", "candidate.patch"):
+            (target / filename).write_bytes((artifact / filename).read_bytes())
+    out = Path(tempfile.mkdtemp())
+    result = unattended.evaluate_candidates(
+        repo, base=base, issue_number=17, candidates_root=candidates,
+        out_dir=out, workflow_run_id="23", command_runner=success_runner,
+    )
+    self.assertEqual(result["decision"], "READY_FOR_REVIEW")
+    self.assertEqual(result["survivor_count"], 2)
+    self.assertEqual(result["unique_survivor_count"], 1)
+    self.assertEqual(result["survivor"]["equivalent_candidate_ids"], ["01", "02"])
+    self.assertTrue((out / "survivor.patch").exists())
+    self.assertTrue(
+        unattended.verify_result(out / "result.json", out / "survivor.patch")["valid"]
+    )
 
     def test_receipt_tamper_is_rejected(self):
         repo, base = init_repo(candidate_count=1)

@@ -446,9 +446,22 @@ def evaluate_candidates(
         shutil.rmtree(temp_root, ignore_errors=True)
 
     generator_failures = sum(row.get("reason") == "GENERATOR_FAILED" for row in rows)
-    if len(survivors) == 1:
+
+    # Four independent agents may arrive at the exact same patch. That is one
+    # implementation, not four competing implementations. Collapse byte-identical
+    # survivor patches by their bound SHA-256, while preserving every candidate row
+    # in the receipt. Distinct surviving patches still require a human choice.
+    unique_by_patch: dict[str, tuple[dict[str, Any], Path]] = {}
+    equivalent_ids: dict[str, list[str]] = {}
+    for survivor, patch_path in survivors:
+        patch_sha = str(survivor["patch_sha256"])
+        unique_by_patch.setdefault(patch_sha, (survivor, patch_path))
+        equivalent_ids.setdefault(patch_sha, []).append(str(survivor["candidate_id"]))
+    unique_survivors = [unique_by_patch[key] for key in sorted(unique_by_patch)]
+
+    if len(unique_survivors) == 1:
         decision = "READY_FOR_REVIEW"
-    elif len(survivors) > 1:
+    elif len(unique_survivors) > 1:
         decision = "MULTIPLE_SURVIVORS"
     elif rows and generator_failures == len(rows):
         decision = "ENVIRONMENT_FAILURE"
@@ -465,6 +478,7 @@ def evaluate_candidates(
         "workflow_run_attempt": str(workflow_run_attempt),
         "candidate_count": len(rows),
         "survivor_count": len(survivors),
+        "unique_survivor_count": len(unique_survivors),
         "generator_failures": generator_failures,
         "decision": decision,
         "candidates": rows,
@@ -475,19 +489,21 @@ def evaluate_candidates(
             "publication_executes_candidate_code": False,
         },
     }
-    if len(survivors) == 1:
-        survivor, patch_path = survivors[0]
+    if len(unique_survivors) == 1:
+        survivor, patch_path = unique_survivors[0]
+        patch_sha = str(survivor["patch_sha256"])
         body["survivor"] = {
             "candidate_id": survivor["candidate_id"],
-            "patch_sha256": survivor["patch_sha256"],
+            "equivalent_candidate_ids": sorted(equivalent_ids[patch_sha]),
+            "patch_sha256": patch_sha,
             "changed_paths": survivor["changed_paths"],
         }
     result = {"receipt_sha256": sha256_bytes(canonical_bytes(body)), **body}
     out_dir.mkdir(parents=True, exist_ok=True)
     write_json(out_dir / "result.json", result)
     (out_dir / "result.sha256").write_text(sha256_file(out_dir / "result.json") + "\n", encoding="utf-8")
-    if len(survivors) == 1:
-        shutil.copy2(survivors[0][1], out_dir / "survivor.patch")
+    if len(unique_survivors) == 1:
+        shutil.copy2(unique_survivors[0][1], out_dir / "survivor.patch")
     return result
 
 
@@ -555,7 +571,7 @@ def publish_result(
             _run([
                 "gh", "issue", "comment", str(issue_number),
                 "--body", (
-                    f"Airlock found {result.get('survivor_count')} independently passing patches and refused to invent a winner. "
+                    f"Airlock found {result.get('unique_survivor_count', result.get('survivor_count'))} distinct independently passing patches and refused to invent a winner. "
                     f"See Actions run `{result.get('workflow_run_id')}` for the retained candidate evidence."
                 ),
             ], repo, timeout=60)
