@@ -66,7 +66,7 @@ def git(repo: Path, *args: str) -> str:
 
 
 def copy_tracked_repo(source: Path, dest: Path) -> None:
-    dest.mkdir(parents=True)
+    dest.mkdir(parents=True, exist_ok=True)
     names = subprocess.run(
         ["git", "ls-files", "-z"],
         cwd=source,
