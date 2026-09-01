@@ -1,28 +1,16 @@
 # Changelog
 
-## Unreleased — AIRLOCK-INBOX-001
+## 0.3.0 — Autonomous work loop
 
-- Adds `airlock inbox`: one compact view of Airlock outcomes that actually require human attention.
-- Surfaces a surviving PR as `REVIEW`, distinct surviving patches as `CHOOSE`, a red starting repository as `FIX_BASELINE`, and Autopilot environment failures as `FIX_ENV`.
-- Hides normal `NO_PATCH_READY` results by default so unsuccessful machine search does not become human review work; `--all` restores the audit view.
-- Treats malformed local Airlock records as visible `FIX_RECORD` items instead of silently dropping them.
-- Adds `--json` and `--limit` without changing evaluation, survivor, receipt, budget, or work-selection semantics.
-
-## Unreleased — AIRLOCK-AUTOPILOT-001
-
-- Adds `airlock autopilot --label airlock`: a bounded local queue that feeds maintainer-selected GitHub issues through the existing `solve` path one at a time.
-- Treats the issue label as the work-selection boundary; Autopilot never changes Starter Rules, protected paths, verification commands, or survivor semantics.
-- Defaults to at most three issues per invocation and divides any supplied `--budget` across the selected queue snapshot.
-- Persists issue URL + GitHub `updatedAt` + result under `.airlock/autopilot/` so an unchanged terminal result is not automatically paid for again. Issue edits make the work eligible again; `--retry-unchanged` is an explicit override.
-- Stops immediately on environment/setup errors before spending on later issues, while `NO_PATCH_READY` remains a valid per-issue outcome and does not weaken the next gate.
-
-## Unreleased — AIRLOCK-SOLVE-001
-
-- Adds `airlock solve`: one command from a GitHub issue or prompt to bounded autonomous search under the repository's existing Starter Rules.
-- Auto-runs the same zero-config Starter Rules setup only when `.airlock/config.json` is missing; existing developer rules are never rewritten by `solve`.
-- Lets `airlock solve 417` or `airlock solve #417` resolve the issue through the GitHub CLI, while full issue URLs and plain-English tasks continue to work without that resolution step.
-- Uses a deliberately smaller default search than `swarm` (4 attempts × 2 rounds) and preserves honest budget semantics: `--budget` remains a provider hint unless the provider enforces it.
-- Keeps the admission boundary unchanged: zero survivors means zero review work, multiple survivors stay multiple, and only one final survivor can be exposed for review.
+- Makes `airlock init → solve → autopilot → inbox → review` the canonical product loop.
+- Adds `airlock solve` as the one-command path from a GitHub issue or prompt to bounded multi-round agent search under existing Starter Rules.
+- Adds `airlock autopilot --label ...` for bounded maintainer-authorized issue queues with unchanged-work deduplication and fail-closed environment handling.
+- Adds `airlock inbox` to keep normal machine dead ends out of the human to-do list while surfacing review, choice, baseline, environment, and record work.
+- Adds `airlock review` to re-verify a signed survivor record and reduce it to the evidence a human needs without rerunning candidate code.
+- Makes top-level `airlock --help` show the normal loop first while preserving `swarm`, `run`, and `verify` as advanced controls.
+- Freezes the existing v1 record names for the 0.3.x line; incompatible meaning changes require a new schema name.
+- Keeps budget semantics honest: requested budget remains a provider hint unless the provider enforces it, and missing reported economics remain unknown.
+- Keeps the public outside-fork GitHub contribution path as a separate evidence boundary; v0.3 does not convert local autonomous-search results into a claim that the live public-fork path has passed.
 
 ## 0.2.2 — Candidate-bound checks
 

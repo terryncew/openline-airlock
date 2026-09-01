@@ -1,0 +1,90 @@
+{
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "84dd117701080ab7de6d090ec574bb896af51365",
+  "behavior": {
+    "advanced_commands_preserved": [
+      "swarm",
+      "run",
+      "verify"
+    ],
+    "candidate_evaluation_semantics_changed": false,
+    "canonical_loop": [
+      "init",
+      "solve",
+      "autopilot",
+      "inbox",
+      "review"
+    ],
+    "public_fork_boundary_claimed": false,
+    "schema_names_frozen_for_0_3_x": true,
+    "starter_rules_semantics_changed": false,
+    "top_level_help_is_product_surface": true
+  },
+  "branch": "release/airlock-v0.3.0-r3",
+  "capability": "release integration of init -> solve -> autopilot -> inbox -> review as one product loop",
+  "changed_files": [
+    "AIRLOCK_V0_3_001_HANDOFF.json",
+    ".github/workflows/ci.yml",
+    "CHANGELOG.md",
+    "README.md",
+    "RELEASE_CHECKLIST.md",
+    "SHOW_HN_DRAFT.md",
+    "docs/AIRLOCK_V0_3_001.md",
+    "pyproject.toml",
+    "scripts/verify_v030_release.py",
+    "src/airlock/__init__.py",
+    "src/airlock/entry.py",
+    "tests/test_release_v030.py",
+    "tests/test_starter_rules.py"
+  ],
+  "claim_boundary": "AIRLOCK-V0.3-001 packages the existing local autonomous-work loop and freezes its public surface. It does not prove the live outside-fork GitHub submission boundary; AIRLOCK-PUBLIC-COLD-ADOPTION-001 remains FAIL.",
+  "correction": {
+    "content_change_from_r2": "handoff metadata only",
+    "do_not_branch_from": [
+      "release/airlock-v0.3.0",
+      "release/airlock-v0.3.0-r2"
+    ],
+    "reason": "r3 must be created from current main, not from r1 or r2 ancestry",
+    "required_start": "main@84dd117701080ab7de6d090ec574bb896af51365"
+  },
+  "files": {
+    ".github/workflows/ci.yml": "279a1be7e05a20896ed57981962d67276d21def08f4761d90468c174152aac0c",
+    "CHANGELOG.md": "c90735c148b2db571bcc48fc4c485b2c48974463648b0b0b58860c7839742778",
+    "README.md": "7d172af2fc9f5e99a38daee56bd52ab2f2c8a9c9abc56f9873cc88b1ddccf3fa",
+    "RELEASE_CHECKLIST.md": "567981aee0ef3f6f983bdfdc70542d59fe4386f4ca980e0a3afb909f310c46cf",
+    "SHOW_HN_DRAFT.md": "705e60ff5056dba2658f8393e06e6506bcb28c1e141baafc6261f37dba8a828f",
+    "docs/AIRLOCK_V0_3_001.md": "5c607ccfa76df3dfa1d1aa0cc62278ffd6f00eaaa48df4a3c0006bc819bc58dc",
+    "pyproject.toml": "f4b56160f0eb47519def05a84c16bcb1399f0583592a66fed9c072c2e09d1b83",
+    "scripts/verify_v030_release.py": "fec467ff9a10a66db01973a6b97461da94d85869687a56503db476cfecaea945",
+    "src/airlock/__init__.py": "56b5e91c3bb77ab933c25fd65eba883419bdc5691cc94cb9dc840e8f4e3674eb",
+    "src/airlock/entry.py": "6e9f50b52c8b32f87b56399049bbf0f06383e9cc62dccf18438c1001da4a4a3b",
+    "tests/test_release_v030.py": "8c33544e883a46fd6b9999deb38b5686738567878ce12fe3d0821a4c0a079bef",
+    "tests/test_starter_rules.py": "f0250db97727250b396e6e7a3c4196dc0800c5040b5de94ed90f522a61e2006f"
+  },
+  "handoff": "AIRLOCK-V0.3-001",
+  "next_after_merge": [
+    "require green CI on the exact merge commit",
+    "tag that exact commit v0.3.0",
+    "run unattended GitHub execution from the tagged release",
+    "freeze features and let outside adoption falsify the product"
+  ],
+  "schema_freeze": [
+    "airlock.config.v1",
+    "airlock.run.v1",
+    "airlock.verification.v1",
+    "airlock.swarm.v1",
+    "airlock.autopilot.v1",
+    "airlock.autopilot.run.v1",
+    "airlock.inbox.v1",
+    "airlock.review.v1"
+  ],
+  "validation": {
+    "base_pr_19_ci": "PASS on head a407566ef97870e3ce51442795cb99eaed3d528e",
+    "base_pr_19_merged": true,
+    "focused_v030_release_tests": "4/4 PASS",
+    "fresh_wheel_install": "PENDING GitHub after merge",
+    "full_repo_ci": "PENDING GitHub after merge",
+    "release_verifier": "PASS"
+  },
+  "version": "0.3.0"
+}
