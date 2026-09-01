@@ -20,7 +20,7 @@ def sha256_bytes(data: bytes) -> str:
 
 
 def sha256_file(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    return sha256_bytes(path.read_bytes())
 
 
 def write_json(path: Path, obj: object) -> None:
