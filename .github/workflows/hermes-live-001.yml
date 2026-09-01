@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/hermes-live-001.yml"
+      - "src/airlock/nightshift.py"
 
 permissions:
   contents: read
@@ -59,12 +60,8 @@ jobs:
           rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
           mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
 
-          # HERMES-LIVE only needs the real Python CLI.  Avoid the upstream
-          # all-in-one bootstrap because it also provisions browser/Node
-          # machinery that is outside this experiment's execution surface.
           git -C "$HERMES_INSTALL_DIR" init
-          git -C "$HERMES_INSTALL_DIR" remote add origin \
-            https://github.com/NousResearch/hermes-agent.git
+          git -C "$HERMES_INSTALL_DIR" remote add origin             https://github.com/NousResearch/hermes-agent.git
           git -C "$HERMES_INSTALL_DIR" fetch --depth 1 origin "$HERMES_COMMIT"
           git -C "$HERMES_INSTALL_DIR" checkout --detach FETCH_HEAD
 
@@ -75,12 +72,8 @@ jobs:
           fi
 
           python -m venv "$HERMES_INSTALL_DIR/venv"
-          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install \
-            --disable-pip-version-check \
-            --upgrade pip
-          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install \
-            --disable-pip-version-check \
-            --editable "$HERMES_INSTALL_DIR"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install             --disable-pip-version-check             --upgrade pip
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install             --disable-pip-version-check             --editable "$HERMES_INSTALL_DIR"
 
           HERMES_BIN="$HERMES_INSTALL_DIR/venv/bin/hermes"
           if [ ! -x "$HERMES_BIN" ]; then
@@ -99,7 +92,6 @@ jobs:
         run: |
           set -euo pipefail
           umask 077
-
           printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
 
           cat > "$HERMES_HOME/config.yaml" <<EOF
@@ -145,8 +137,7 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          python .airlock/checks/hermes_live_001_run.py --expect-main-move \
-            2>&1 | tee "$RUNNER_TEMP/hermes-live-001-console.log"
+          python .airlock/checks/hermes_live_001_run.py --expect-main-move             2>&1 | tee "$RUNNER_TEMP/hermes-live-001-console.log"
           status=${PIPESTATUS[0]}
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
@@ -159,25 +150,27 @@ jobs:
           ARTIFACT_DIR="$RUNNER_TEMP/hermes-live-001-artifact"
           mkdir -p "$ARTIFACT_DIR"
 
-          # Always leave at least one diagnostic receipt, even when setup fails
-          # before the real worker executes.
           {
             echo "run_id=${GITHUB_RUN_ID}"
             echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
             echo "head_sha=${GITHUB_SHA}"
           } > "$ARTIFACT_DIR/run.txt"
 
-          test -f "$RUNNER_TEMP/hermes-install.log" && \
-            cp "$RUNNER_TEMP/hermes-install.log" "$ARTIFACT_DIR/install.log" || true
-          test -f "$RUNNER_TEMP/hermes-runtime.json" && \
-            cp "$RUNNER_TEMP/hermes-runtime.json" "$ARTIFACT_DIR/runtime.json" || true
-          test -f "$RUNNER_TEMP/hermes-live-001-console.log" && \
-            cp "$RUNNER_TEMP/hermes-live-001-console.log" "$ARTIFACT_DIR/console.log" || true
+          test -f "$RUNNER_TEMP/hermes-install.log" &&             cp "$RUNNER_TEMP/hermes-install.log" "$ARTIFACT_DIR/install.log" || true
+          test -f "$RUNNER_TEMP/hermes-runtime.json" &&             cp "$RUNNER_TEMP/hermes-runtime.json" "$ARTIFACT_DIR/runtime.json" || true
+          test -f "$RUNNER_TEMP/hermes-live-001-console.log" &&             cp "$RUNNER_TEMP/hermes-live-001-console.log" "$ARTIFACT_DIR/console.log" || true
 
           REPORT="$(find .airlock/improvements/HERMES-LIVE-001 -type f -name report.json -print 2>/dev/null | sort | tail -1 || true)"
           if [ -n "$REPORT" ] && [ -f "$REPORT" ]; then
             cp "$REPORT" "$ARTIFACT_DIR/report.json"
             sha256sum "$REPORT" > "$ARTIFACT_DIR/report.sha256"
+          fi
+
+          # Preserve the complete nested Nightshift evidence tree. This is diagnostic
+          # only; it carries no merge or promotion authority.
+          if [ -d ".airlock/improvements" ]; then
+            mkdir -p "$ARTIFACT_DIR/improvements"
+            cp -a .airlock/improvements/. "$ARTIFACT_DIR/improvements/"
           fi
 
       - name: Upload proof receipt
