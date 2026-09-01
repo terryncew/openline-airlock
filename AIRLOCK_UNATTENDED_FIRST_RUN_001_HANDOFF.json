@@ -1,0 +1,20 @@
+{
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "8b2e2a461ca6a588735ed2514eb8bf9084112c89",
+  "branch": "fix/airlock-unattended-first-run",
+  "changes": {
+    "identical_survivors": "byte-identical surviving patches collapse to one unique implementation; distinct passing patches still require human choice",
+    "planted_failure": false,
+    "receipt_visibility": "already present in unattended PR body: base SHA, patch SHA-256, config SHA-256, receipt SHA-256, workflow run, exact recorded commands and exit codes",
+    "target_authority": "the check lives under protected .airlock/** and cannot be rewritten by a candidate",
+    "target_check": ".airlock/checks/init_next_step.py pins the desired `airlock init` next step as `airlock solve 417`"
+  },
+  "claim_boundary": "No synthetic losing candidate is introduced. Real agents remain independent; the gate can reject a wrong implementation, but the demo does not manufacture a rejection.",
+  "handoff": "AIRLOCK-UNATTENDED-FIRST-RUN-001",
+  "purpose": "make the first real unattended issue test a repository-owned acceptance check and avoid deadlocking on byte-identical correct patches",
+  "validation": {
+    "focused_unattended_tests": "13/13 PASS",
+    "full_repo_ci": "PENDING GitHub",
+    "protected_target_script": "syntax checked; designed to FAIL on current swarm recommendation and PASS after candidate changes init to `airlock solve 417`"
+  }
+}
