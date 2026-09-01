@@ -1,0 +1,18 @@
+{
+  "schema": "airlock.handoff.v1",
+  "experiment": "HERMES-LIVE-001",
+  "purpose": "Freeze the terminal live-Hermes proof before generation 1. This commit is preregistration and control instrumentation, not the live result.",
+  "architecture_base_sha": "fe7dd7d53f83e588f758a9c75b14af63703911d2",
+  "branch": "feat/hermes-live-001-prereg",
+  "commit_message": "feat: freeze HERMES-LIVE-001 terminal proof",
+  "pr_title": "feat: freeze HERMES-LIVE-001 terminal proof",
+  "merge_direction": "feat/hermes-live-001-prereg -> main",
+  "post_merge": "Pull main, install/authenticate real Hermes with persistent HERMES_HOME, then run the frozen controller. Do not show Hermes the objective before this preregistration is merged.",
+  "live_command": "python .airlock/checks/hermes_live_001_run.py --expect-main-move",
+  "frozen_bounds": {
+    "max_attempts": 10,
+    "max_wall_seconds": 28800,
+    "worker_timeout_seconds": 2700
+  },
+  "release_rule": "If HERMES-LIVE-001 passes, freeze Nightshift and move to packaging. NIGHTSHIFT-002 exists only for a defect exposed by the live run."
+}

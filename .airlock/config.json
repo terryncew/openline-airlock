@@ -5,7 +5,8 @@
     ".github/**",
     ".airlock/**",
     "tests/**",
-    "pyproject.toml"
+    "pyproject.toml",
+    "src/airlock/runner.py"
   ],
   "verification": {
     "static_commands": [],
@@ -29,7 +30,19 @@
     "timeout_seconds": 1200,
     "coverage_mode": "changed-module-reference"
   },
-  "providers": {},
+  "providers": {
+    "hermes": {
+      "command": [
+        "python",
+        ".airlock/checks/hermes_live_001_worker.py",
+        "{prompt}"
+      ],
+      "pass_env": [
+        "HERMES_HOME"
+      ],
+      "timeout_seconds": 2700
+    }
+  },
   "init_baseline": {
     "commit": "1c10931d6453e6377219475db816e4423366f6e3",
     "commands": [],
