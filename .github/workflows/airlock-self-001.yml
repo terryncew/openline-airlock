@@ -1,0 +1,166 @@
+name: AIRLOCK-SELF-001
+
+on:
+  pull_request:
+    paths:
+      - ".airlock/self-001/**"
+      - "experiments/airlock-self-001/**"
+      - ".github/workflows/airlock-self-001.yml"
+  workflow_dispatch:
+    inputs:
+      agents:
+        description: "Hermes attempts per arm"
+        required: false
+        default: "2"
+      budget_usd:
+        description: "Optional total provider budget hint across both arms"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: airlock-self-001
+  cancel-in-progress: false
+
+jobs:
+  prereg-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Frozen evaluator self-test
+        run: python .airlock/self-001/evaluator.py --self-test
+      - name: Baseline protected checks
+        run: python .airlock/self-001/protected_checks.py
+
+  live:
+    if: github.event_name == 'workflow_dispatch'
+    needs: prereg-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      HERMES_HOME: /tmp/airlock-self-001-home
+      HERMES_INSTALL_DIR: /tmp/airlock-self-001-hermes
+      HERMES_COMMIT: 29112bef099274229cadff79cdff7bf7b99c4b77
+      HERMES_MODEL: gpt-5.6-sol
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Require delegated model credential
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          test -n "${OPENAI_API_KEY:-}" || { echo "::error::AIRLOCK-SELF-001 requires OPENAI_API_KEY"; exit 2; }
+
+      - name: Install Airlock
+        run: python -m pip install --disable-pip-version-check --editable .
+
+      - name: Install pinned Hermes
+        shell: bash
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          ARCHIVE="$RUNNER_TEMP/hermes-${HERMES_COMMIT}.tar.gz"
+          curl --fail --location --silent --show-error \
+            --retry 5 --retry-delay 2 --retry-all-errors \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_READ_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/NousResearch/hermes-agent/tarball/${HERMES_COMMIT}" \
+            -o "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install \
+            --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+
+      - name: Prepare isolated Hermes home
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: ${HERMES_MODEL}
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 90
+          EOF
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+
+      - name: Run AIRLOCK-SELF-001
+        id: self001
+        shell: bash
+        env:
+          AGENTS: ${{ inputs.agents }}
+          BUDGET: ${{ inputs.budget_usd }}
+        run: |
+          set -o pipefail
+          args=(python experiments/airlock-self-001/run_self_001.py --agents "${AGENTS:-2}" --model hermes)
+          if [ -n "${BUDGET:-}" ]; then
+            args+=(--budget "$BUDGET")
+          fi
+          "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/airlock-self-001.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit "$status"
+
+      - name: Collect receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          ARTIFACT="$RUNNER_TEMP/airlock-self-001-artifact"
+          mkdir -p "$ARTIFACT"
+          cp "$RUNNER_TEMP/airlock-self-001.log" "$ARTIFACT/console.log" 2>/dev/null || true
+          if [ -d ".airlock/self-001-results" ]; then
+            cp -a .airlock/self-001-results "$ARTIFACT/results"
+          fi
+          {
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "head_sha=${GITHUB_SHA}"
+            echo "hermes_commit=${HERMES_COMMIT}"
+            echo "model=${HERMES_MODEL}"
+          } > "$ARTIFACT/run.txt"
+
+      - name: Upload receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AIRLOCK-SELF-001-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/airlock-self-001-artifact/
+          if-no-files-found: error
+          retention-days: 30
