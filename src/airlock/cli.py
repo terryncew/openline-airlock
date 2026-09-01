@@ -13,6 +13,7 @@ from .autopilot import run_autopilot
 from .config import load as load_config, save as save_config
 from .discovery import discovery_metadata, discover_commands, protected_patterns, run_baseline
 from .gitops import ensure_clean, root
+from .inbox import build_inbox
 from .providers import builtin_providers
 from .runner import run_tournament
 from .swarm import run_swarm
@@ -397,6 +398,45 @@ def command_autopilot(args: argparse.Namespace) -> int:
     return 0
 
 
+def command_inbox(args: argparse.Namespace) -> int:
+    """Show only Airlock outcomes that currently need human attention."""
+    repo = root(Path(args.repo).resolve())
+    try:
+        report = build_inbox(repo, include_all=args.all, limit=args.limit)
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    if args.json:
+        print(json.dumps(report, indent=2, sort_keys=True))
+        return 0
+
+    print("Airlock inbox")
+    if report["needs_human"] == 0:
+        print("0 things need you.")
+    else:
+        noun = "thing" if report["needs_human"] == 1 else "things"
+        print(f"{report['needs_human']} {noun} need you.")
+        labels = {
+            "REVIEW": "review",
+            "CHOOSE": "choose",
+            "FIX_BASELINE": "fix baseline",
+            "FIX_ENV": "fix environment",
+            "FIX_RECORD": "inspect record",
+            "NONE": "no review",
+        }
+        for row in report["items"]:
+            source = row.get("source") or row.get("path") or "Airlock run"
+            print(f"  {labels.get(row.get('action'), row.get('action', 'inspect'))}: {source}")
+            print(f"    {row.get('detail', '')}")
+
+    if report["machine_only_results"] and not args.all:
+        count = report["machine_only_results"]
+        noun = "result" if count == 1 else "results"
+        print(f"{count} machine-only {noun} hidden. Use `airlock inbox --all` to audit them.")
+    return 0
+
+
 def command_verify(args: argparse.Namespace) -> int:
     repo = root(Path(args.repo).resolve())
     verification_path = Path(args.verification_file)
@@ -483,11 +523,24 @@ def _build_autopilot_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_inbox_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="airlock inbox",
+        description="Show the small set of Airlock outcomes that need human attention.",
+    )
+    parser.add_argument("--repo", default=".")
+    parser.add_argument("--all", action="store_true", help="Include machine-only outcomes such as NO_PATCH_READY.")
+    parser.add_argument("--json", action="store_true", help="Print the inbox report as JSON.")
+    parser.add_argument("--limit", type=int, default=20, help="Maximum visible inbox items (default: 20).")
+    parser.set_defaults(func=command_inbox)
+    return parser
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
         description="Spend machine attempts on software problems without turning every attempt into human review work.",
-        epilog="Shortcuts: `airlock solve 417` works one issue; `airlock autopilot --label airlock` works a bounded issue queue.",
+        epilog="Shortcuts: `airlock solve 417` works one issue; `airlock autopilot --label airlock` works a bounded issue queue; `airlock inbox` shows only what needs you.",
     )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -540,6 +593,9 @@ def main(argv: list[str] | None = None) -> int:
         return args.func(args)
     if raw and raw[0] == "autopilot":
         args = _build_autopilot_parser().parse_args(raw[1:])
+        return args.func(args)
+    if raw and raw[0] == "inbox":
+        args = _build_inbox_parser().parse_args(raw[1:])
         return args.func(args)
     args = build_parser().parse_args(raw)
     return args.func(args)

@@ -37,6 +37,14 @@ airlock autopilot --label airlock
 
 The label is the work boundary. Airlock snapshots the labeled issues, attempts at most three by default, and remembers the GitHub `updatedAt` value for each result so an unchanged failure does not quietly become another bill. Edit the issue and it can be tried again. An environment error stops the remaining queue; an issue that simply produces no acceptable patch does not weaken the rules for the next one.
 
+The human side is one command:
+
+```bash
+airlock inbox
+```
+
+It hides normal dead ends and shows only what crossed back into human work: a PR to review, multiple surviving patches that need a choice, a broken baseline, or an environment problem. The audit trail is still there with `--all`; it just does not become your default to-do list.
+
 Each attempt gets an isolated Git worktree. Agents can use bounded, typed notes from earlier rounds — root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings — so later attempts can avoid rediscovering the same dead ends.
 
 The important part is what shared notes cannot rewrite and accepted patches cannot change: the repository's Starter Rules.

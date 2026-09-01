@@ -53,6 +53,14 @@ airlock autopilot --label airlock
 
 A setup or environment error stops the queue before Airlock spends on later issues. A valid `NO_PATCH_READY` result does not: zero review work is still a legitimate result for that issue. `--budget` is divided across the selected issue snapshot and remains a provider hint.
 
+Then check the only queue that should grow slowly:
+
+```bash
+airlock inbox
+```
+
+`airlock inbox` reduces the local run history to outcomes that need a person: a patch that earned review, several distinct survivors that need a choice, a red starting repository, or an Autopilot environment failure. Normal `NO_PATCH_READY` results stay hidden because they created no review obligation. Use `airlock inbox --all` when you want the full audit trail instead.
+
 Each attempt runs in its own Git worktree. Across rounds, agents can share typed search notes such as root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings. Later agents can inspect prior candidate commits and Airlock outcomes instead of rediscovering every dead end from scratch.
 
 The shared blackboard cannot rewrite protected files, tests, Airlock config, verification commands, or the evidence sufficiency rule. Search can coordinate. Passing cannot.
