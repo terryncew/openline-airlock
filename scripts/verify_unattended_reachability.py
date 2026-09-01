@@ -90,6 +90,22 @@ def copy_tracked_repo(source: Path, dest: Path) -> None:
 def init_fixture(source: Path) -> tuple[Path, str]:
     repo = Path(tempfile.mkdtemp(prefix="airlock-reachability-repo-"))
     copy_tracked_repo(source, repo)
+
+    # This proof models the issue #23 starting state under the current gate.
+    # Once the real fix is present in the branch being tested, reconstruct only
+    # the pre-fix source line in the isolated fixture so the good/bad arms remain
+    # meaningful instead of failing because the bug has already been fixed.
+    cli = repo / "src" / "airlock" / "cli.py"
+    cli_text = cli.read_text(encoding="utf-8")
+    has_old = GOOD_OLD in cli_text
+    has_new = GOOD_NEW in cli_text
+    if has_old and has_new:
+        raise RuntimeError("issue #23 fixture is ambiguous: both old and fixed source lines are present")
+    if has_new:
+        cli.write_text(cli_text.replace(GOOD_NEW, GOOD_OLD, 1), encoding="utf-8")
+    elif not has_old:
+        raise RuntimeError("issue #23 fixture source line is no longer recognizable")
+
     git(repo, "init", "-b", "main")
     git(repo, "config", "user.name", "Airlock reachability")
     git(repo, "config", "user.email", "airlock-reachability@example.invalid")

@@ -214,7 +214,7 @@ def command_init(args: argparse.Namespace) -> int:
     print(f"Starter Rules saved to {config_path.relative_to(repo)}")
     print("You can change these rules whenever you want.")
     print("Next:")
-    print('  airlock swarm "fix issue #417"')
+    print("  airlock solve 417")
     return 0
 
 
