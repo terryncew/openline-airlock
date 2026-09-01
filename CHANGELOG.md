@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — AIRLOCK-INBOX-001
+
+- Adds `airlock inbox`: one compact view of Airlock outcomes that actually require human attention.
+- Surfaces a surviving PR as `REVIEW`, distinct surviving patches as `CHOOSE`, a red starting repository as `FIX_BASELINE`, and Autopilot environment failures as `FIX_ENV`.
+- Hides normal `NO_PATCH_READY` results by default so unsuccessful machine search does not become human review work; `--all` restores the audit view.
+- Treats malformed local Airlock records as visible `FIX_RECORD` items instead of silently dropping them.
+- Adds `--json` and `--limit` without changing evaluation, survivor, receipt, budget, or work-selection semantics.
+
 ## Unreleased — AIRLOCK-AUTOPILOT-001
 
 - Adds `airlock autopilot --label airlock`: a bounded local queue that feeds maintainer-selected GitHub issues through the existing `solve` path one at a time.
