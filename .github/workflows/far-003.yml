@@ -1,0 +1,17 @@
+name: FAR-003
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  far-003:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run frozen FAR-003 discriminating test
+        run: python experiments/far-003/run_far_003.py
