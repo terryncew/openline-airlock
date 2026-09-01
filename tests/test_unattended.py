@@ -267,29 +267,29 @@ class UnattendedTests(unittest.TestCase):
         self.assertFalse((out / "survivor.patch").exists())
 
 
-def test_identical_survivors_collapse_to_one_unique_patch(self):
-    repo, base = init_repo(candidate_count=2)
-    first = make_artifact(repo, base, "01", content="def value():\n    return 2\n")
-    second = make_artifact(repo, base, "02", content="def value():\n    return 2\n")
-    candidates = Path(tempfile.mkdtemp(prefix="candidates-"))
-    for name, artifact in (("airlock-candidate-01", first), ("airlock-candidate-02", second)):
-        target = candidates / name
-        target.mkdir()
-        for filename in ("candidate.json", "candidate.patch"):
-            (target / filename).write_bytes((artifact / filename).read_bytes())
-    out = Path(tempfile.mkdtemp())
-    result = unattended.evaluate_candidates(
-        repo, base=base, issue_number=17, candidates_root=candidates,
-        out_dir=out, workflow_run_id="23", command_runner=success_runner,
-    )
-    self.assertEqual(result["decision"], "READY_FOR_REVIEW")
-    self.assertEqual(result["survivor_count"], 2)
-    self.assertEqual(result["unique_survivor_count"], 1)
-    self.assertEqual(result["survivor"]["equivalent_candidate_ids"], ["01", "02"])
-    self.assertTrue((out / "survivor.patch").exists())
-    self.assertTrue(
-        unattended.verify_result(out / "result.json", out / "survivor.patch")["valid"]
-    )
+    def test_identical_survivors_collapse_to_one_unique_patch(self):
+        repo, base = init_repo(candidate_count=2)
+        first = make_artifact(repo, base, "01", content="def value():\n    return 2\n")
+        second = make_artifact(repo, base, "02", content="def value():\n    return 2\n")
+        candidates = Path(tempfile.mkdtemp(prefix="candidates-"))
+        for name, artifact in (("airlock-candidate-01", first), ("airlock-candidate-02", second)):
+            target = candidates / name
+            target.mkdir()
+            for filename in ("candidate.json", "candidate.patch"):
+                (target / filename).write_bytes((artifact / filename).read_bytes())
+        out = Path(tempfile.mkdtemp())
+        result = unattended.evaluate_candidates(
+            repo, base=base, issue_number=17, candidates_root=candidates,
+            out_dir=out, workflow_run_id="23", command_runner=success_runner,
+        )
+        self.assertEqual(result["decision"], "READY_FOR_REVIEW")
+        self.assertEqual(result["survivor_count"], 2)
+        self.assertEqual(result["unique_survivor_count"], 1)
+        self.assertEqual(result["survivor"]["equivalent_candidate_ids"], ["01", "02"])
+        self.assertTrue((out / "survivor.patch").exists())
+        self.assertTrue(
+            unattended.verify_result(out / "result.json", out / "survivor.patch")["valid"]
+        )
 
     def test_receipt_tamper_is_rejected(self):
         repo, base = init_repo(candidate_count=1)
@@ -351,6 +351,82 @@ def test_identical_survivors_collapse_to_one_unique_patch(self):
         self.assertNotIn("openai-api-key", publish_section)
         self.assertNotIn("codex-action", publish_section)
         self.assertIn("Publisher can write to GitHub but never executes candidate code", publish_section)
+
+    def test_publisher_retry_reuses_matching_branch_and_open_pr(self):
+        repo, base = init_repo(candidate_count=1)
+        origin = Path(tempfile.mkdtemp(prefix="airlock-origin-")) / "origin.git"
+        subprocess.run(["git", "init", "--bare", str(origin)], check=True, capture_output=True, text=True)
+        git(repo, "remote", "add", "origin", str(origin))
+        git(repo, "push", "-u", "origin", "main")
+
+        artifact = make_artifact(repo, base, "01", content="def value():\n    return 2\n")
+        candidates = Path(tempfile.mkdtemp(prefix="candidates-"))
+        target = candidates / "airlock-candidate-01"
+        target.mkdir()
+        for filename in ("candidate.json", "candidate.patch"):
+            (target / filename).write_bytes((artifact / filename).read_bytes())
+        result_dir = Path(tempfile.mkdtemp(prefix="result-"))
+        unattended.evaluate_candidates(
+            repo, base=base, issue_number=17, candidates_root=candidates,
+            out_dir=result_dir, workflow_run_id="777", command_runner=success_runner,
+        )
+
+        original_run = unattended._run
+        original_which = unattended.shutil.which
+        state = {"created": False, "url": "https://github.com/acme/widget/pull/99"}
+
+        def fake_which(name):
+            if name == "gh":
+                return "/usr/bin/gh"
+            return original_which(name)
+
+        def fake_run(argv, cwd, *, timeout=None, env=None):
+            if argv and argv[0] == "gh":
+                if argv[1:3] == ["pr", "list"]:
+                    rows = []
+                    if state["created"]:
+                        rows = [{"number": 99, "url": state["url"], "state": "OPEN", "headRefOid": "unused"}]
+                    return {"argv": argv, "exit_code": 0, "stdout": json.dumps(rows), "stderr": "", "timed_out": False, "duration_seconds": 0.0}
+                if argv[1:3] == ["pr", "create"]:
+                    state["created"] = True
+                    return {"argv": argv, "exit_code": 0, "stdout": state["url"] + "\n", "stderr": "", "timed_out": False, "duration_seconds": 0.0}
+                raise AssertionError(f"unexpected gh call: {argv}")
+            return original_run(argv, cwd, timeout=timeout, env=env)
+
+        unattended._run = fake_run
+        unattended.shutil.which = fake_which
+        try:
+            first = unattended.publish_result(
+                repo, result_path=result_dir / "result.json", patch_path=result_dir / "survivor.patch",
+                issue_number=17, base_branch="main",
+            )
+            second = unattended.publish_result(
+                repo, result_path=result_dir / "result.json", patch_path=result_dir / "survivor.patch",
+                issue_number=17, base_branch="main",
+            )
+        finally:
+            unattended._run = original_run
+            unattended.shutil.which = original_which
+
+        self.assertEqual(first["status"], "PUBLISHED")
+        self.assertFalse(first["reused_branch"])
+        self.assertFalse(first["reused_pr"])
+        self.assertEqual(second["status"], "PUBLISHED")
+        self.assertTrue(second["reused_branch"])
+        self.assertTrue(second["reused_pr"])
+        self.assertEqual(second["url"], state["url"])
+
+    def test_workflow_retries_publisher_without_new_agent_spend_and_dispatches_ci(self):
+        workflow = (ROOT / ".github" / "workflows" / "airlock-unattended.yml").read_text()
+        result_name = "airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}"
+        self.assertIn(result_name, workflow)
+        self.assertIn("overwrite: true", workflow)
+        publish_section = workflow.split("  publish:", 1)[1]
+        self.assertNotIn("airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}", publish_section)
+        self.assertIn("actions: write", publish_section)
+        self.assertIn("gh workflow run ci.yml --ref", publish_section)
+        ci = (ROOT / ".github" / "workflows" / "ci.yml").read_text()
+        self.assertIn("workflow_dispatch:", ci)
 
     def test_reference_policy_matches_four_candidate_matrix(self):
         policy = json.loads((ROOT / ".airlock" / "unattended.json").read_text())

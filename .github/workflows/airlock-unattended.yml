@@ -164,9 +164,13 @@ jobs:
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          # Stable across workflow attempts so a failed publisher can be retried
+          # without paying for generation/evaluation again. A rerun of evaluate
+          # replaces this artifact with the newly bound result.
+          name: airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}
           path: ${{ runner.temp }}/airlock-result/
           if-no-files-found: error
+          overwrite: true
           retention-days: 30
 
   publish:
@@ -175,6 +179,7 @@ jobs:
     if: ${{ needs.evaluate.result == 'success' }}
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       issues: write
       pull-requests: write
@@ -193,11 +198,12 @@ jobs:
 
       - uses: actions/download-artifact@v4
         with:
-          name: airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}-${{ github.run_attempt }}
+          name: airlock-unattended-result-${{ github.event.issue.number }}-${{ github.run_id }}
           path: ${{ runner.temp }}/airlock-result
 
       # Publisher can write to GitHub but never executes candidate code.
       - name: Publish only one independently admitted survivor
+        id: publish
         env:
           GH_TOKEN: ${{ github.token }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -210,4 +216,25 @@ jobs:
             --result "$RUNNER_TEMP/airlock-result/result.json" \
             "${PATCH_ARG[@]}" \
             --issue "$ISSUE_NUMBER" \
-            --base-branch "${{ github.event.repository.default_branch }}"
+            --base-branch "${{ github.event.repository.default_branch }}" \
+            > "$RUNNER_TEMP/airlock-publication.json"
+          cat "$RUNNER_TEMP/airlock-publication.json"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          result = json.loads(Path(os.environ["RUNNER_TEMP"]).joinpath("airlock-publication.json").read_text())
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as out:
+              out.write(f"status={result.get('status', '')}\n")
+              out.write(f"branch={result.get('branch', '')}\n")
+          PY
+
+      # GITHUB_TOKEN-created pull requests do not recursively start pull_request CI.
+      # Explicitly dispatch the existing CI workflow on the admitted branch instead.
+      - name: Dispatch normal CI for published head
+        if: ${{ steps.publish.outputs.status == 'PUBLISHED' && steps.publish.outputs.branch != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          AIRLOCK_BRANCH: ${{ steps.publish.outputs.branch }}
+        run: gh workflow run ci.yml --ref "$AIRLOCK_BRANCH"

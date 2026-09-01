@@ -528,6 +528,71 @@ def _safe_branch(issue_number: int, run_id: str) -> str:
     return f"airlock/unattended/issue-{issue_number}-{clean}"
 
 
+def _remote_branch_state(
+    repo: Path,
+    *,
+    branch: str,
+    base: str,
+    expected_patch_sha256: str,
+    expected_paths: list[str],
+) -> dict[str, Any]:
+    probe = _run(["git", "ls-remote", "--heads", "origin", f"refs/heads/{branch}"], repo, timeout=120)
+    if probe["exit_code"] != 0:
+        raise RuntimeError(str(probe["stderr"]).strip() or "could not inspect survivor branch")
+    if not str(probe["stdout"]).strip():
+        return {"exists": False}
+
+    fetch = _run([
+        "git", "fetch", "origin",
+        f"refs/heads/{branch}:refs/remotes/origin/{branch}",
+    ], repo, timeout=120)
+    if fetch["exit_code"] != 0:
+        raise RuntimeError(str(fetch["stderr"]).strip() or "could not fetch existing survivor branch")
+    remote_ref = f"origin/{branch}"
+    remote_sha = _git(repo, "rev-parse", remote_ref).strip()
+    parent = _git(repo, "rev-parse", f"{remote_sha}^").strip()
+    if parent != base:
+        raise RuntimeError("existing survivor branch is not based on the evaluated commit")
+    diff = _run(["git", "diff", "--binary", "--full-index", base, remote_sha, "--"], repo)
+    if diff["exit_code"] != 0:
+        raise RuntimeError(str(diff["stderr"]).strip() or "could not verify existing survivor branch")
+    if sha256_bytes(str(diff["stdout"]).encode()) != expected_patch_sha256:
+        raise RuntimeError("existing survivor branch patch does not match the admitted receipt")
+    paths = [
+        row.strip()
+        for row in _git(repo, "diff", "--name-only", base, remote_sha, "--").splitlines()
+        if row.strip()
+    ]
+    if paths != expected_paths:
+        raise RuntimeError("existing survivor branch changed-path binding mismatch")
+    return {"exists": True, "sha": remote_sha}
+
+
+def _existing_pull_request(repo: Path, *, branch: str, base_branch: str) -> dict[str, Any] | None:
+    if not shutil.which("gh"):
+        raise RuntimeError("GitHub CLI is required in the trusted publication job")
+    found = _run([
+        "gh", "pr", "list",
+        "--state", "all",
+        "--base", base_branch,
+        "--head", branch,
+        "--limit", "1",
+        "--json", "number,url,state,headRefOid",
+    ], repo, timeout=120)
+    if found["exit_code"] != 0:
+        raise RuntimeError(str(found["stderr"]).strip() or "publisher could not inspect existing pull requests")
+    try:
+        rows = json.loads(str(found["stdout"]) or "[]")
+    except Exception as exc:
+        raise RuntimeError("publisher could not parse existing pull request state") from exc
+    if not rows:
+        return None
+    row = rows[0]
+    if not isinstance(row, dict):
+        raise RuntimeError("publisher received invalid pull request state")
+    return row
+
+
 def publication_plan(repo: Path, result: dict[str, Any], *, current_base: str) -> dict[str, Any]:
     if current_base != result.get("base_commit"):
         return {"status": "REOPEN", "reason": "BASE_MOVED"}
@@ -592,12 +657,16 @@ def publish_result(
         raise RuntimeError("survivor patch missing")
 
     base = str(result["base_commit"])
+    expected_paths = list(result.get("survivor", {}).get("changed_paths", []))
+    patch_sha = str(result.get("survivor", {}).get("patch_sha256", ""))
+
+    # Re-apply and re-check the admitted patch even on a publisher retry. Publication
+    # owns GitHub writes, but it still does not get to reinterpret evaluator evidence.
     _git(repo, "checkout", "--detach", base)
     apply_result = _run(["git", "apply", "--index", "--binary", str(patch_path)], repo)
     if apply_result["exit_code"] != 0:
         raise RuntimeError(str(apply_result["stderr"]).strip() or "publisher could not apply survivor patch")
     actual_paths = [p.strip() for p in _git(repo, "diff", "--cached", "--name-only", base, "--").splitlines() if p.strip()]
-    expected_paths = list(result.get("survivor", {}).get("changed_paths", []))
     if actual_paths != expected_paths:
         raise RuntimeError("publisher changed-path binding mismatch")
     config = load_json(repo / ".airlock" / "config.json")
@@ -608,13 +677,22 @@ def publish_result(
 
     run_id = f"{result.get('workflow_run_id') or 'run'}-{result.get('workflow_run_attempt') or '1'}"
     branch = _safe_branch(issue_number, run_id)
-    _git(repo, "switch", "-c", branch)
-    _git(repo, "config", "user.name", "github-actions[bot]")
-    _git(repo, "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
-    _git(repo, "commit", "-m", f"airlock: survivor for issue #{issue_number}")
-    push = _run(["git", "push", "-u", "origin", branch], repo, timeout=120)
-    if push["exit_code"] != 0:
-        raise RuntimeError(str(push["stderr"]).strip() or "publisher could not push survivor branch")
+    remote = _remote_branch_state(
+        repo,
+        branch=branch,
+        base=base,
+        expected_patch_sha256=patch_sha,
+        expected_paths=expected_paths,
+    )
+    reused_branch = bool(remote.get("exists"))
+    if not reused_branch:
+        _git(repo, "switch", "-c", branch)
+        _git(repo, "config", "user.name", "github-actions[bot]")
+        _git(repo, "config", "user.email", "41898282+github-actions[bot]@users.noreply.github.com")
+        _git(repo, "commit", "-m", f"airlock: survivor for issue #{issue_number}")
+        push = _run(["git", "push", "-u", "origin", branch], repo, timeout=120)
+        if push["exit_code"] != 0:
+            raise RuntimeError(str(push["stderr"]).strip() or "publisher could not push survivor branch")
 
     checks: list[str] = []
     survivor_id = result["survivor"]["candidate_id"]
@@ -630,7 +708,7 @@ def publish_result(
         "### Airlock receipt",
         f"- Base: `{base}`",
         f"- Candidate: `{survivor_id}`",
-        f"- Patch SHA-256: `{result['survivor']['patch_sha256']}`",
+        f"- Patch SHA-256: `{patch_sha}`",
         f"- Config SHA-256: `{result['config_sha256']}`",
         f"- Receipt SHA-256: `{result['receipt_sha256']}`",
         f"- Workflow run: `{result['workflow_run_id']}` (attempt `{result.get('workflow_run_attempt', '1')}`)",
@@ -640,8 +718,27 @@ def publish_result(
         "",
         "Generation had no GitHub write credential. Candidate evaluation ran without the provider secret and with network disabled. The publication job did not execute candidate code.",
     ])
-    if not shutil.which("gh"):
-        raise RuntimeError("GitHub CLI is required in the trusted publication job")
+
+    existing_pr = _existing_pull_request(repo, branch=branch, base_branch=base_branch)
+    if existing_pr is not None:
+        state = str(existing_pr.get("state", "")).upper()
+        url = str(existing_pr.get("url", "")).strip()
+        if state != "OPEN":
+            return {
+                "status": "PUBLISHED_CLOSED",
+                "branch": branch,
+                "url": url,
+                "reused_branch": True,
+                "reused_pr": True,
+            }
+        return {
+            "status": "PUBLISHED",
+            "branch": branch,
+            "url": url,
+            "reused_branch": True,
+            "reused_pr": True,
+        }
+
     pr = _run([
         "gh", "pr", "create",
         "--base", base_branch,
@@ -651,7 +748,13 @@ def publish_result(
     ], repo, timeout=120)
     if pr["exit_code"] != 0:
         raise RuntimeError(str(pr["stderr"]).strip() or "publisher could not open pull request")
-    return {"status": "PUBLISHED", "branch": branch, "url": str(pr["stdout"]).strip()}
+    return {
+        "status": "PUBLISHED",
+        "branch": branch,
+        "url": str(pr["stdout"]).strip(),
+        "reused_branch": reused_branch,
+        "reused_pr": False,
+    }
 
 
 def build_parser() -> argparse.ArgumentParser:
