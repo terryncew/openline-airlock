@@ -1,0 +1,48 @@
+{
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "617ffdf8e7736cd9826fd3a9965af1225cf7e922",
+  "behavior": {
+    "budget_semantics": "total queue-snapshot provider hint divided across selected issues; provider enforcement unchanged",
+    "default_agents_per_round": 4,
+    "default_label": "airlock",
+    "default_max_issues": 3,
+    "default_rounds": 2,
+    "entrypoint": "airlock autopilot --label airlock",
+    "environment_error": "stop queue before spending on later issues",
+    "no_patch_ready": "valid per-issue outcome; continue to next authorized issue",
+    "selection_boundary": "open GitHub issues carrying the maintainer-selected label",
+    "starter_rules_rewritten": false,
+    "unchanged_terminal_issue": "skipped until GitHub updatedAt changes unless --retry-unchanged"
+  },
+  "branch": "feat/airlock-autopilot-001",
+  "capability": "bounded maintainer-labeled GitHub issue queue that feeds existing Airlock solve without letting the system choose its own work",
+  "changed_files": [
+    "AIRLOCK_AUTOPILOT_001_HANDOFF.json",
+    "CHANGELOG.md",
+    "README.md",
+    "SHOW_HN_DRAFT.md",
+    "docs/AIRLOCK_AUTOPILOT_001.md",
+    "src/airlock/autopilot.py",
+    "src/airlock/cli.py",
+    "tests/test_autopilot.py"
+  ],
+  "claim_boundary": "Autopilot only selects work from a maintainer-controlled label and sequences existing solve runs. It does not create issues, expand its own mandate, change Starter Rules or protected paths, weaken checks, rank multiple survivors, or turn a failed candidate into a PR.",
+  "files": {
+    "CHANGELOG.md": "cc2f42b3bba3c4568f738a29d8ea7a1ab5a403d73844dcd22235b672ee664d01",
+    "README.md": "588f0055a1c5577352dfa0b837e81c0af7d02d5fe5819dd110d3b4814c25cffb",
+    "SHOW_HN_DRAFT.md": "10868a1c6a601015a328f7c2bd21c859c30dd4d673ed1f34f5524e817ba12489",
+    "docs/AIRLOCK_AUTOPILOT_001.md": "347e585719b654a248e66bf658a7acf17c81d47de01f21a08594a593bcea501f",
+    "src/airlock/autopilot.py": "0adcf6ea901cadd0c247d6d06e5bb48519b4a078310ce29af91642ac44e2b8c2",
+    "src/airlock/cli.py": "b062f0ca0acda1bc0c64c48e9450b1ecfb818acb59898a506960abe12179a309",
+    "tests/test_autopilot.py": "01773b1822ae36157163be8fab177e78644d69a86a652f256addc1b0dfd20ecf"
+  },
+  "handoff": "AIRLOCK-AUTOPILOT-001",
+  "release_state": "unreleased on 0.2.2",
+  "validation": {
+    "autopilot_parser_dispatch_harness": "PASS",
+    "autopilot_unit_harness": "8/8 pass",
+    "cli_compile": "PASS",
+    "full_repo_ci": "PENDING GitHub after merge",
+    "legacy_parser_surface": "PASS unchanged"
+  }
+}

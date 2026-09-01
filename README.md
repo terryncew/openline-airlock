@@ -43,6 +43,16 @@ airlock solve 417
 
 Use `--agents`, `--rounds`, `--models`, and `--budget` when you want explicit search controls. The budget remains a provider hint unless the provider itself enforces it.
 
+If you want to hand Airlock a queue instead of one issue:
+
+```bash
+airlock autopilot --label airlock
+```
+
+`autopilot` snapshots the open issues carrying that label and works a bounded number of them one at a time. The label chooses what Airlock is allowed to work on; the existing Starter Rules still decide what can reach review. By default it attempts at most three issues in one run. It records each issue's GitHub `updatedAt` value locally and will not spend on the same unchanged issue again unless you pass `--retry-unchanged`. Change the issue and it becomes eligible again.
+
+A setup or environment error stops the queue before Airlock spends on later issues. A valid `NO_PATCH_READY` result does not: zero review work is still a legitimate result for that issue. `--budget` is divided across the selected issue snapshot and remains a provider hint.
+
 Each attempt runs in its own Git worktree. Across rounds, agents can share typed search notes such as root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings. Later agents can inspect prior candidate commits and Airlock outcomes instead of rediscovering every dead end from scratch.
 
 The shared blackboard cannot rewrite protected files, tests, Airlock config, verification commands, or the evidence sufficiency rule. Search can coordinate. Passing cannot.

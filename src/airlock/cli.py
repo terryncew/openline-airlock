@@ -9,6 +9,7 @@ from pathlib import Path
 
 from . import __version__
 from .adoption import install_github
+from .autopilot import run_autopilot
 from .config import load as load_config, save as save_config
 from .discovery import discovery_metadata, discover_commands, protected_patterns, run_baseline
 from .gitops import ensure_clean, root
@@ -33,6 +34,7 @@ def _update_local_exclude(repo: Path) -> None:
         ".airlock/index.json",
         ".airlock/verification.key",
         ".airlock/swarms/",
+        ".airlock/autopilot/",
     ]
     missing = [row for row in entries if row not in existing.splitlines()]
     if missing:
@@ -344,6 +346,57 @@ def command_solve(args: argparse.Namespace) -> int:
     return 3
 
 
+def command_autopilot(args: argparse.Namespace) -> int:
+    """Work a bounded snapshot of maintainer-labeled GitHub issues without changing Starter Rules."""
+    repo = root(Path(args.repo).resolve())
+    _update_local_exclude(repo)
+
+    def solve_issue(url: str, per_issue_budget: float | None) -> int:
+        return command_solve(argparse.Namespace(
+            issue_or_prompt=url,
+            repo=str(repo),
+            agents=args.agents,
+            rounds=args.rounds,
+            models=args.models,
+            budget=per_issue_budget,
+            timeout=args.timeout,
+            no_pr=args.no_pr,
+        ))
+
+    try:
+        report = run_autopilot(
+            repo,
+            label=args.label,
+            max_issues=args.max_issues,
+            budget=args.budget,
+            retry_unchanged=args.retry_unchanged,
+            solve_issue=solve_issue,
+        )
+    except Exception as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 2
+
+    if report["attempted"] == 0:
+        if report["queue_size"] == 0:
+            print(f"No open issues carry the `{args.label}` label.")
+        else:
+            print("No changed labeled issues need another attempt.")
+        return 0
+
+    ready = sum(row["status"] == "READY" for row in report["results"])
+    no_review = sum(row["status"] == "NO_REVIEW_READY" for row in report["results"])
+    print("\nAirlock autopilot summary")
+    print(f"Attempted: {report['attempted']}")
+    print(f"Ready: {ready}")
+    print(f"No review ready: {no_review}")
+    print(f"Skipped unchanged: {report['skipped_unchanged']}")
+    print(f"State: {report['state_file']}")
+    if report["stopped_on_error"]:
+        print("Stopped after an environment/setup error before spending on the rest of the queue.")
+        return 2
+    return 0
+
+
 def command_verify(args: argparse.Namespace) -> int:
     repo = root(Path(args.repo).resolve())
     verification_path = Path(args.verification_file)
@@ -408,11 +461,33 @@ def _build_solve_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def _build_autopilot_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        prog="airlock autopilot",
+        description=(
+            "Work a bounded queue of maintainer-labeled GitHub issues. The label chooses the work; "
+            "Starter Rules still decide which patches can reach review."
+        ),
+    )
+    parser.add_argument("--repo", default=".")
+    parser.add_argument("--label", default="airlock", help="Open-issue label that authorizes work (default: airlock).")
+    parser.add_argument("--max-issues", type=int, default=3, help="Maximum issues to attempt in one run (default: 3).")
+    parser.add_argument("--agents", "-n", type=int, default=4, help="Agent attempts per round for each issue (default: 4).")
+    parser.add_argument("--rounds", type=int, default=2, help="Search rounds for each issue (default: 2).")
+    parser.add_argument("--models", help="Comma-separated provider aliases; installed adapters are used when omitted.")
+    parser.add_argument("--budget", type=float, help="Total provider budget hint for this queue snapshot, divided across selected issues.")
+    parser.add_argument("--timeout", type=int, default=1200, help="Starter Rules command timeout when the first issue auto-initializes.")
+    parser.add_argument("--retry-unchanged", action="store_true", help="Retry issues even when their GitHub updatedAt value has not changed.")
+    parser.add_argument("--no-pr", action="store_true", help="Keep survivors local instead of attempting GitHub PRs.")
+    parser.set_defaults(func=command_autopilot)
+    return parser
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="airlock",
         description="Spend machine attempts on software problems without turning every attempt into human review work.",
-        epilog="Shortcut: `airlock solve 417` runs setup + autonomous search for one GitHub issue.",
+        epilog="Shortcuts: `airlock solve 417` works one issue; `airlock autopilot --label airlock` works a bounded issue queue.",
     )
     parser.add_argument("--version", action="version", version=__version__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -462,6 +537,9 @@ def main(argv: list[str] | None = None) -> int:
     raw = list(sys.argv[1:] if argv is None else argv)
     if raw and raw[0] == "solve":
         args = _build_solve_parser().parse_args(raw[1:])
+        return args.func(args)
+    if raw and raw[0] == "autopilot":
+        args = _build_autopilot_parser().parse_args(raw[1:])
         return args.func(args)
     args = build_parser().parse_args(raw)
     return args.func(args)
