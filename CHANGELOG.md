@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased — AIRLOCK-AUTOPILOT-001
+
+- Adds `airlock autopilot --label airlock`: a bounded local queue that feeds maintainer-selected GitHub issues through the existing `solve` path one at a time.
+- Treats the issue label as the work-selection boundary; Autopilot never changes Starter Rules, protected paths, verification commands, or survivor semantics.
+- Defaults to at most three issues per invocation and divides any supplied `--budget` across the selected queue snapshot.
+- Persists issue URL + GitHub `updatedAt` + result under `.airlock/autopilot/` so an unchanged terminal result is not automatically paid for again. Issue edits make the work eligible again; `--retry-unchanged` is an explicit override.
+- Stops immediately on environment/setup errors before spending on later issues, while `NO_PATCH_READY` remains a valid per-issue outcome and does not weaken the next gate.
+
 ## Unreleased — AIRLOCK-SOLVE-001
 
 - Adds `airlock solve`: one command from a GitHub issue or prompt to bounded autonomous search under the repository's existing Starter Rules.

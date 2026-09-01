@@ -29,6 +29,14 @@ airlock solve 417
 
 That command resolves the GitHub issue, uses the installed agent adapters, runs autonomous search under the same repo-owned checks, and attempts a PR only if exactly one final patch survives. If Starter Rules do not exist yet, `solve` creates them first and refuses to continue if the starting repository is red.
 
+Or give the repository a small autonomous queue:
+
+```bash
+airlock autopilot --label airlock
+```
+
+The label is the work boundary. Airlock snapshots the labeled issues, attempts at most three by default, and remembers the GitHub `updatedAt` value for each result so an unchanged failure does not quietly become another bill. Edit the issue and it can be tried again. An environment error stops the remaining queue; an issue that simply produces no acceptable patch does not weaken the rules for the next one.
+
 Each attempt gets an isolated Git worktree. Agents can use bounded, typed notes from earlier rounds — root-cause hypotheses, failing tests, relevant symbols, attempted approaches, counterexamples, and performance findings — so later attempts can avoid rediscovering the same dead ends.
 
 The important part is what shared notes cannot rewrite and accepted patches cannot change: the repository's Starter Rules.
