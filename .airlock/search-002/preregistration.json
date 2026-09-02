@@ -1,0 +1,51 @@
+{
+  "schema": "airlock.search-002.preregistration.v1",
+  "experiment": "AIRLOCK-SEARCH-002",
+  "developer_name": "Observable Scoreboard",
+  "base_main_when_built": "4024d1dc53ac00b8902d9c0faccb7bbb3ab06702",
+  "construct": "autonomous discovery against a fixed, public, independently enforced scorecard",
+  "design_correction": "Independence is authority separation, not secrecy.",
+  "scoreboard": {
+    "public_to_worker": true,
+    "protected_from_worker": true,
+    "dimensions": 8,
+    "decoys_present": true,
+    "external_evaluator_executes_consequences": true,
+    "implementation_matching_forbidden": true
+  },
+  "arms": {
+    "baseline": {
+      "candidates": 4,
+      "model": "gpt-5.6-sol",
+      "max_turns_per_candidate": 90,
+      "strategy": "free-form search with full scorecard visibility"
+    },
+    "outcome_trace": {
+      "candidates": 4,
+      "model": "gpt-5.6-sol",
+      "max_turns_per_candidate": 90,
+      "strategy": "25-turn read-only scorecard-linked planning + 65-turn frozen-target implementation"
+    }
+  },
+  "common_limits": {
+    "max_changed_files": 2,
+    "max_changed_lines": 120,
+    "public_checks_must_pass": true,
+    "scorecard_must_remain_unchanged": true
+  },
+  "primary_endpoint": "unique externally verified public score dimensions improved per arm",
+  "duplicate_rule": "Multiple candidates improving the same dimension count once.",
+  "success_rule": {
+    "label": "SEARCH_STRATEGY_GAIN",
+    "outcome_trace_minimum_unique": 2,
+    "minimum_margin_over_baseline": 2
+  },
+  "other_verdicts": {
+    "DISCOVERY_SEARCH_DEFICIT": "both arms score zero",
+    "OUTCOME_TRACE_NO_GAIN": "Outcome Trace ties or loses to baseline",
+    "INSUFFICIENT_SEARCH_GAIN": "Outcome Trace leads but misses the preregistered minimum or margin"
+  },
+  "power_control": "Before model contact, prove the starting substrate scores 0/8 and each public score dimension is independently reachable by a one-file consequence-level reference fix.",
+  "stopping_rule": "One prospective tournament. No scorecard edits, oracle edits, prompt tuning, budget changes, or reruns after observing results.",
+  "search001_status": "closed; no SEARCH-001D"
+}
