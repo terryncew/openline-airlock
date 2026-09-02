@@ -100,6 +100,45 @@ class AirlockSelf001HarnessTests(unittest.TestCase):
         self.assertIn("python -m unittest discover -s tests -v", workflow)
         self.assertIn("A valid negative result is evidence, not a broken workflow", workflow)
 
+    def test_valid_negative_exit_survives_github_errexit(self) -> None:
+        workflow = (ROOT / ".github" / "workflows" / "airlock-self-001.yml").read_text()
+        for required in (
+            "set +e",
+            'pipeline_status=("${PIPESTATUS[@]}")',
+            "status=${pipeline_status[0]}",
+            'echo "exit_code=$status" >> "$GITHUB_OUTPUT"',
+            "0|3)",
+        ):
+            self.assertIn(required, workflow)
+
+        with tempfile.TemporaryDirectory(prefix="airlock-self001-exit-") as tmp:
+            output = Path(tmp) / "github-output"
+            log = Path(tmp) / "runner.log"
+            script = r'''
+set -e
+set -o pipefail
+set +e
+bash -c 'exit 3' 2>&1 | tee "$LOG"
+pipeline_status=("${PIPESTATUS[@]}")
+set -e
+status=${pipeline_status[0]}
+if [ "${pipeline_status[1]}" -ne 0 ]; then
+  status=2
+fi
+echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+exit 0
+'''
+            completed = subprocess.run(
+                ["bash", "-c", script],
+                env={"PATH": str(Path("/usr/bin")), "LOG": str(log), "GITHUB_OUTPUT": str(output)},
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+            )
+            self.assertEqual(completed.returncode, 0, completed.stderr)
+            self.assertEqual(output.read_text().strip(), "exit_code=3")
+
     def test_additional_path_is_rejected_even_if_file_budget_is_relaxed(self) -> None:
         repo = Path(tempfile.mkdtemp(prefix="airlock-self001-scope-"))
         try:
