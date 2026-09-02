@@ -2,8 +2,16 @@
 from __future__ import annotations
 
 import json
+import sys
 import tempfile
 from pathlib import Path
+
+# When this file is executed directly, Python puts tests/ rather than the
+# substrate root on sys.path. Add the parent repo explicitly so the protected
+# baseline test can import the public package it is meant to reference.
+SUBSTRATE_ROOT = Path(__file__).resolve().parents[1]
+if str(SUBSTRATE_ROOT) not in sys.path:
+    sys.path.insert(0, str(SUBSTRATE_ROOT))
 
 from maintbox.chunks import chunks
 from maintbox.gitview import git_snapshot
