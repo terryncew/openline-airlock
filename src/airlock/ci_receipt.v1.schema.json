@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://openline.example/schemas/airlock.ci.receipt.v1.schema.json",
+  "title": "OpenLine Airlock CI Flight Recorder receipt payload",
+  "type": "object",
+  "required": [
+    "schema_version", "provider", "source_bundle_sha256", "rule_set_version",
+    "rule_set_sha256", "run", "findings", "disposition", "authorization",
+    "evidence_references", "canonical_payload_sha256"
+  ],
+  "properties": {
+    "schema_version": {"const": "airlock.ci.receipt.v1"},
+    "provider": {"const": "github-actions"},
+    "source_bundle_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "rule_set_version": {"const": "airlock.ci.rules.v1"},
+    "rule_set_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "canonical_payload_sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "disposition": {"enum": ["CODE_REPAIR_ALLOWED", "RETRY_RECOMMENDED", "REPORT_ONLY", "NO_ACTION"]},
+    "authorization": {"type": "object"},
+    "run": {"type": "object"},
+    "findings": {"type": "array"},
+    "evidence_references": {"type": "array"}
+  },
+  "additionalProperties": true
+}
