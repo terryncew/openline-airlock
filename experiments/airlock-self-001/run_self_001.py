@@ -106,6 +106,51 @@ def select(rows: list[dict], minimum_gap: float) -> dict:
     return {"status": "UNIQUE_WINNER", "winner": ordered[0], "eligible": len(ordered), "score_gap": gap}
 
 
+def infrastructure_status(tournament: dict) -> dict:
+    status = tournament.get("status")
+    if status == "BASELINE_NOT_GREEN":
+        return {
+            "valid": False,
+            "reason": "BASELINE_NOT_GREEN",
+            "baseline": tournament.get("baseline"),
+        }
+
+    candidates = tournament.get("candidates") or []
+    if not candidates:
+        return {
+            "valid": False,
+            "reason": "NO_CANDIDATE_RECORDS",
+            "baseline": tournament.get("baseline"),
+        }
+
+    completed = [
+        row for row in candidates
+        if (row.get("agent_execution") or {}).get("exit_code") == 0
+        and not (row.get("agent_execution") or {}).get("timed_out")
+    ]
+    if not completed:
+        return {
+            "valid": False,
+            "reason": "WORKER_EXECUTION_FAILED",
+            "baseline": tournament.get("baseline"),
+            "worker_executions": [
+                {
+                    "candidate_id": row.get("candidate_id"),
+                    "agent_execution": row.get("agent_execution"),
+                    "agent_report": row.get("agent_report", {}),
+                }
+                for row in candidates
+            ],
+        }
+
+    return {
+        "valid": True,
+        "reason": "WORKER_EXECUTION_COMPLETED",
+        "baseline": tournament.get("baseline"),
+        "completed_worker_executions": len(completed),
+    }
+
+
 def run_arm(repo: Path, base: str, *, name: str, prompt: str, agents: int, model: str, budget: float | None) -> dict:
     tournament = run_tournament(
         repo,
@@ -126,6 +171,8 @@ def run_arm(repo: Path, base: str, *, name: str, prompt: str, agents: int, model
                 "candidate_commit": commit,
                 "disposition": "REJECT",
                 "reason": f"STRUCTURAL_{row.get('reason', row.get('disposition', 'UNKNOWN'))}",
+                "agent_execution": row.get("agent_execution"),
+                "agent_report": row.get("agent_report", {}),
             })
             continue
         tree = git(repo, "rev-parse", f"{commit}^{{tree}}")
@@ -152,6 +199,7 @@ def run_arm(repo: Path, base: str, *, name: str, prompt: str, agents: int, model
         "prompt_sha256": hashlib.sha256(prompt.encode()).hexdigest(),
         "tournament_status": tournament.get("status"),
         "tournament_run_id": tournament.get("run_id"),
+        "infrastructure": infrastructure_status(tournament),
         "evaluated_candidates": evaluated,
         "selection": selection,
         "cost": cost_summary(tournament),
@@ -202,10 +250,17 @@ def main() -> int:
         budget=per_arm_budget,
     )
 
+    infrastructure_valid = bool(
+        autonomous["infrastructure"]["valid"]
+        and directed["infrastructure"]["valid"]
+    )
     auto_yes = autonomous["selection"]["status"] == "UNIQUE_WINNER"
     directed_yes = directed["selection"]["status"] == "UNIQUE_WINNER"
 
-    if directed_yes and auto_yes:
+    if not infrastructure_valid:
+        conclusion = "EXPERIMENT_NOT_RUN"
+        earned = False
+    elif directed_yes and auto_yes:
         conclusion = "AUTONOMOUS_IMPROVEMENT_EARNED"
         earned = True
     elif directed_yes and not auto_yes:
@@ -219,15 +274,17 @@ def main() -> int:
         earned = False
 
     result = {
-        "schema": "airlock.self001.result.v1",
+        "schema": "airlock.self001.result.v2",
         "experiment": "AIRLOCK-SELF-001",
         "frozen": frozen,
         "claim_under_test": prereg["claim_under_test"],
         "autonomous": autonomous,
         "maintainer_directed": directed,
+        "valid_experiment": infrastructure_valid,
         "conclusion": conclusion,
         "earned": earned,
         "interpretation": {
+            "EXPERIMENT_NOT_RUN": "The repository baseline or worker runtime failed before both preregistered arms completed. This is an infrastructure result and says nothing about autonomous search or the positive control.",
             "AUTONOMOUS_IMPROVEMENT_EARNED": "The broad worker found and earned a scoped, regression-protected improvement under the same frozen gate as the directed positive control.",
             "SEARCH_GAP": "The gate was reachable for a maintainer-directed worker, but the broad worker did not find an admissible improvement. Zero survivors is therefore evidence about search/selection, not an impossible gate.",
             "POSITIVE_CONTROL_NOT_EARNED": "The directed arm failed to earn a yes, so an autonomous zero cannot be interpreted as a worker/search failure.",
@@ -253,6 +310,8 @@ def main() -> int:
         "autonomous_selection": autonomous["selection"]["status"],
         "directed_selection": directed["selection"]["status"],
     }, indent=2, sort_keys=True))
+    if not infrastructure_valid:
+        return 2
     return 0 if earned else 3
 
 
