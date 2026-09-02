@@ -110,6 +110,23 @@ def remove_runtime_cache(repo: Path) -> None:
     for path in repo.rglob("*.pyc"):
         path.unlink(missing_ok=True)
 
+def clear_airlock_runtime_state(repo: Path) -> None:
+    """Remove only Airlock's generated run artifacts between depletion chunks."""
+    for rel in (
+        ".airlock/runs",
+        ".airlock/records",
+    ):
+        shutil.rmtree(repo / rel, ignore_errors=True)
+    for rel in (
+        ".airlock/index.json",
+        ".airlock/verification.key",
+    ):
+        (repo / rel).unlink(missing_ok=True)
+    remove_runtime_cache(repo)
+    dirty = sh(["git", "status", "--porcelain"], repo).stdout.strip()
+    if dirty:
+        raise RuntimeError(f"SEARCH-003 runtime cleanup left working tree dirty:\n{dirty}")
+
 def init_repo(source: Path) -> tuple[Path, Path]:
     tmp = Path(tempfile.mkdtemp(prefix="search003-repo-"))
     repo = tmp / "repo"
@@ -313,7 +330,8 @@ def main() -> int:
                     config_path=repo / ".airlock/search-003-public-config.json",
                 )
                 try:
-                    total_reported_cost += float(report.get("cost") or 0.0)
+                    cost = report.get("cost") or {}
+                    total_reported_cost += float(cost.get("reported_cost_usd_total") or 0.0)
                 except (TypeError, ValueError):
                     pass
 
@@ -365,6 +383,7 @@ def main() -> int:
                     "result": {k: v for k, v in result.items() if k != "patch"},
                     "retired_after": sorted(retired),
                 })
+                clear_airlock_runtime_state(repo)
             finally:
                 shutil.rmtree(home, ignore_errors=True)
 
