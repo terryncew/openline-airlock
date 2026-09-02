@@ -1,0 +1,53 @@
+{
+  "schema": "airlock.hermes-harness.handoff.v1",
+  "handoff": "AIRLOCK-HERMES-HARNESS-001",
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "ec90174f65f6120e92b20edc6a68707facef40e4",
+  "branch": "feat/hermes-harness-fingerprint",
+  "commit_message": "feat: fingerprint Hermes harness state",
+  "pr_title": "feat: fingerprint Hermes harness state",
+  "merge_direction": "feat/hermes-harness-fingerprint -> main",
+  "search_004_gate": "HARNESS_FINGERPRINT_REQUIRED",
+  "goal": "Bind every Nightshift generation to the deterministic non-secret Hermes harness state that actually ran, and enforce observable harness lineage before SEARCH-004 spends money.",
+  "changed_files": [
+    "AIRLOCK_HERMES_HARNESS_001_HANDOFF.json",
+    "AIRLOCK_NIGHTSHIFT_001_HANDOFF.json",
+    "BUILD_RECEIPT_HERMES_HARNESS_001.json",
+    "docs/HARNESS_FINGERPRINT.md",
+    "schemas/harness-fingerprint-v1.schema.json",
+    "scripts/verify_harness_fingerprint.py",
+    "src/airlock/harness.py",
+    "src/airlock/nightshift.py",
+    "tests/test_harness_fingerprint.py"
+  ],
+  "changes": [
+    "Fingerprint the Hermes runtime identity, Airlock model/profile, adapter command, redacted config, SOUL.md, skills, memories, hooks, tools, and context files when present.",
+    "Exclude .env, auth.json, secret-like credential files, databases, sessions, logs, caches, checkpoints, temporary state, and profile HOME from harness identity.",
+    "Record requested versus effective model per attempt; effective model comes only from post-execution worker evidence and remains explicitly UNAVAILABLE when not observed.",
+    "Bind requested model routing and a deterministic tool-registry digest into the pre-spend harness fingerprint.",
+    "Capture a controller-owned harness set immediately before each Nightshift tournament and again after the worker returns.",
+    "Record the starting harness and every observed A-to-B transition inside signed generation receipts.",
+    "Map each model/profile attempt to its pre-spend worker fingerprint.",
+    "Refuse the next tournament before spend if the observed pre-run harness no longer descends from the prior controller-observed state.",
+    "Keep HERMES-LIVE-001 frozen files byte-identical, including src/airlock/runner.py."
+  ],
+  "invariants": [
+    "Capability may mutate its harness; it still cannot mutate the repo-owned evaluator or promotion rule.",
+    "Harness identity never depends on credential values or transient session/cache churn.",
+    "Every paid Nightshift generation has an observable pre-spend harness identity.",
+    "A later generation may inherit only the harness state the controller observed at the end of the prior generation window.",
+    "Unobserved harness drift between generations fails before the next tournament spends.",
+    "Repository-local Hermes instructions remain part of repo state rather than being double-counted as external harness state.",
+    "Requested model identity never substitutes for observed effective-model evidence.",
+    "Tool-registry changes create a new harness identity even when the model and profile name stay constant."
+  ],
+  "claim_boundary": "The receipt proves deterministic non-secret harness identity and controller-observed lineage across Nightshift generation windows. It does not prove that Hermes alone caused every mutable-state change inside a window, does not persist credentials or session transcripts, and does not establish that the chosen fingerprint surface captures every future Hermes capability input. Hermes-first only; this is not a generic harness protocol.",
+  "search_004_rule": "Autonomous and maintainer-guided Hermes arms must both record starting harness fingerprints, requested routing, tool-registry identity, all observed transitions, and effective-model evidence when exposed. Different starting fingerprints are a confound unless the preregistration explicitly makes harness choice an experimental variable; unavailable effective-model evidence remains an explicit attribution limitation.",
+  "validation": {
+    "focused_harness_nightshift_live_provider_tests": "18/18 PASS",
+    "frozen_hermes_live_hashes": "PASS",
+    "full_source_suite": "152/152 PASS",
+    "harness_verifier": "PASS",
+    "base_main_sha": "ec90174f65f6120e92b20edc6a68707facef40e4"
+  }
+}

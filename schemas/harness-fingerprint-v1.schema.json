@@ -1,0 +1,234 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/terryncew/openline-airlock/schemas/harness-fingerprint-v1.schema.json",
+  "title": "OpenLine Airlock Hermes harness fingerprint",
+  "type": "object",
+  "required": [
+    "schema",
+    "worker",
+    "airlock_model",
+    "hermes_profile",
+    "adapter_command",
+    "adapter_pass_env",
+    "routing",
+    "runtime",
+    "state_root_present",
+    "tracked_files",
+    "tracked_file_count",
+    "tracked_bytes",
+    "tracked_surfaces",
+    "excluded_surfaces",
+    "claim_boundary",
+    "fingerprint_sha256"
+  ],
+  "properties": {
+    "schema": {
+      "const": "airlock.hermes-harness-fingerprint.v1"
+    },
+    "worker": {
+      "const": "hermes"
+    },
+    "airlock_model": {
+      "type": "string",
+      "minLength": 1
+    },
+    "hermes_profile": {
+      "type": "string",
+      "minLength": 1
+    },
+    "adapter_command": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "adapter_pass_env": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "runtime": {
+      "type": "object",
+      "required": [
+        "version",
+        "source_commit",
+        "source_commit_observed_from_git",
+        "source_commit_declared_by_environment",
+        "executable_name",
+        "executable_sha256"
+      ],
+      "properties": {
+        "version": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "source_commit_observed_from_git": {
+          "type": "boolean"
+        },
+        "source_commit_declared_by_environment": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executable_name": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "executable_sha256": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
+    },
+    "state_root_present": {
+      "type": "boolean"
+    },
+    "tracked_files": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path",
+          "kind"
+        ],
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1
+          },
+          "kind": {
+            "enum": [
+              "file",
+              "symlink"
+            ]
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "target_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "resolved_sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "resolved_size_bytes": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "normalization": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "tracked_file_count": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tracked_bytes": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "tracked_surfaces": {
+      "type": "object"
+    },
+    "excluded_surfaces": {
+      "type": "object"
+    },
+    "claim_boundary": {
+      "type": "string",
+      "minLength": 1
+    },
+    "fingerprint_sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "routing": {
+      "type": "object",
+      "required": [
+        "requested_model",
+        "requested_model_source",
+        "adapter_command",
+        "tool_registry",
+        "fingerprint_sha256",
+        "effective_model_note"
+      ],
+      "properties": {
+        "requested_model": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "requested_model_source": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "adapter_command": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "tool_registry": {
+          "type": "object",
+          "required": [
+            "tracked_tool_files",
+            "fingerprint_sha256"
+          ],
+          "properties": {
+            "tracked_tool_files": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "fingerprint_sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$"
+            }
+          },
+          "additionalProperties": true
+        },
+        "fingerprint_sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        },
+        "effective_model_note": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "additionalProperties": true
+    }
+  },
+  "additionalProperties": true
+}
