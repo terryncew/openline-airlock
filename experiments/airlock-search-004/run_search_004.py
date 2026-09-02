@@ -393,6 +393,46 @@ def _contact_receipt(out_dir: Path, key: bytes, payload: dict) -> tuple[str, str
     return path.name, sha256_file(path)
 
 
+def _worker_evidence(repo: Path, report: dict, row: dict) -> tuple[Path, dict, dict]:
+    """Load the frozen worker's unsanitized report from Airlock-owned storage."""
+    run_id = report.get("run_id")
+    candidate_id = row.get("candidate_id")
+    if not isinstance(run_id, str) or not run_id or not isinstance(candidate_id, str) or not candidate_id:
+        raise TelemetryError("WORKER_REPORT_ID_MISSING")
+
+    reports_root = (repo / ".airlock" / "runs").resolve()
+    report_path = (reports_root / run_id / "agent-reports" / f"{candidate_id}.json").resolve()
+    try:
+        report_path.relative_to(reports_root)
+    except ValueError as exc:
+        raise TelemetryError("WORKER_REPORT_PATH_ESCAPE") from exc
+    if not report_path.is_file():
+        raise TelemetryError("WORKER_REPORT_MISSING")
+    try:
+        raw = json.loads(report_path.read_text())
+    except Exception as exc:
+        raise TelemetryError("WORKER_REPORT_MALFORMED") from exc
+    if not isinstance(raw, dict):
+        raise TelemetryError("WORKER_REPORT_NOT_OBJECT")
+
+    audit = raw.get("authority_audit")
+    if not isinstance(audit, dict) or audit.get("schema") != "airlock.search-004.worker-boundary.v1":
+        raise TelemetryError("WORKER_AUTHORITY_AUDIT_MISSING")
+    if (
+        audit.get("forbidden_environment_names_present")
+        or audit.get("github_credential_present") is not False
+        or audit.get("release_authority") != "ABSENT"
+        or audit.get("usage_path_outside_candidate_repo") is not True
+        or audit.get("usage_path_outside_hermes_home") is not True
+    ):
+        raise TelemetryError("WORKER_AUTHORITY_AUDIT_FAILED")
+
+    usage = raw.get("usage_receipt")
+    if not isinstance(usage, dict):
+        raise TelemetryError("WORKER_USAGE_RECEIPT_MISSING")
+    return report_path, audit, usage
+
+
 def run_arm(state: dict, *, source: Path, search003, oracle, table: dict, tasks: list[dict], out_dir: Path, key: bytes) -> dict:
     arm = state["arm"]
     repo: Path = state["repo"]
@@ -460,9 +500,13 @@ def run_arm(state: dict, *, source: Path, search003, oracle, table: dict, tasks:
             spend += Decimal(metered["metered_cost_usd"])
 
             row = (report.get("candidates") or [{}])[0]
-            worker_usage = ((row.get("agent_report") or {}).get("usage_receipt") or {})
+            worker_report, worker_audit, worker_usage = _worker_evidence(repo, report, row)
             if worker_usage.get("sha256") != metered["usage_file_sha256"]:
                 raise TelemetryError("WORKER_RECEIPT_USAGE_HASH_MISMATCH")
+            worker_report_artifact = out_dir / f"worker-report-arm-{arm.lower()}-{round_no:02d}.json"
+            shutil.copy2(worker_report, worker_report_artifact)
+            if sha256_file(worker_report_artifact) != sha256_file(worker_report):
+                raise TelemetryError("WORKER_REPORT_ARCHIVE_HASH_MISMATCH")
 
             if row.get("disposition") != "SURVIVED":
                 result = {"status": "REJECT", "reason": row.get("reason") or "PUBLIC_GATE_REJECTED"}
@@ -501,6 +545,9 @@ def run_arm(state: dict, *, source: Path, search003, oracle, table: dict, tasks:
                 "model": MODEL,
                 "usage": metered,
                 "usage_artifact": usage_artifact.name,
+                "worker_report_artifact": worker_report_artifact.name,
+                "worker_report_sha256": sha256_file(worker_report_artifact),
+                "worker_authority_audit_sha256": sha256_bytes(canonical_json_bytes(worker_audit)),
                 "cumulative_metered_spend_usd": format(spend, "f"),
                 "airlock_public_disposition": row.get("disposition"),
                 "airlock_public_reason": row.get("reason"),

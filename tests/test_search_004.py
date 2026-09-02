@@ -70,6 +70,51 @@ class Search004Tests(unittest.TestCase):
         with self.assertRaisesRegex(M.TelemetryError, "PREFLIGHT_INPUT_OR_OUTPUT_ZERO"):
             self._meter(self._usage(output_tokens=0, reasoning_tokens=0, total_tokens=1120), require_output=True)
 
+    def test_worker_usage_receipt_is_loaded_from_airlock_owned_raw_report(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            report_path = repo / ".airlock/runs/run-1/agent-reports/candidate-01.json"
+            report_path.parent.mkdir(parents=True)
+            report_path.write_text(json.dumps({
+                "provider": "hermes",
+                "authority_audit": {
+                    "schema": "airlock.search-004.worker-boundary.v1",
+                    "forbidden_environment_names_present": [],
+                    "github_credential_present": False,
+                    "release_authority": "ABSENT",
+                    "usage_path_outside_candidate_repo": True,
+                    "usage_path_outside_hermes_home": True,
+                },
+                "usage_receipt": {"sha256": "a" * 64},
+            }))
+            path, audit, usage = M._worker_evidence(
+                repo,
+                {"run_id": "run-1"},
+                {"candidate_id": "candidate-01", "agent_report": {"provider": "hermes"}},
+            )
+        self.assertEqual(path, report_path)
+        self.assertEqual(audit["release_authority"], "ABSENT")
+        self.assertEqual(usage["sha256"], "a" * 64)
+
+    def test_worker_authority_audit_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            report_path = repo / ".airlock/runs/run-1/agent-reports/candidate-01.json"
+            report_path.parent.mkdir(parents=True)
+            report_path.write_text(json.dumps({
+                "authority_audit": {
+                    "schema": "airlock.search-004.worker-boundary.v1",
+                    "forbidden_environment_names_present": ["GITHUB_TOKEN"],
+                    "github_credential_present": True,
+                    "release_authority": "ABSENT",
+                    "usage_path_outside_candidate_repo": True,
+                    "usage_path_outside_hermes_home": True,
+                },
+                "usage_receipt": {"sha256": "a" * 64},
+            }))
+            with self.assertRaisesRegex(M.TelemetryError, "WORKER_AUTHORITY_AUDIT_FAILED"):
+                M._worker_evidence(repo, {"run_id": "run-1"}, {"candidate_id": "candidate-01"})
+
     def test_long_context_ambiguity_fails_closed(self):
         with self.assertRaisesRegex(M.TelemetryError, "LONG_CONTEXT_TIER_AMBIGUOUS"):
             self._meter(self._usage(input_tokens=272001, output_tokens=1, cache_read_tokens=0, cache_write_tokens=0, reasoning_tokens=0, total_tokens=272002))

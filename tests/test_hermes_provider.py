@@ -73,6 +73,23 @@ class HermesProviderTests(unittest.TestCase):
         self.assertNotIn("ANTHROPIC_API_KEY", env)
         self.assertNotIn("GITHUB_TOKEN", env)
 
+    def test_search004_non_secret_controller_context_is_allowed(self):
+        config = {
+            "providers": {
+                "hermes": {
+                    "command": ["python", ".airlock/search-004/worker.py", "{prompt}"],
+                    "pass_env": [
+                        "HERMES_HOME",
+                        "SEARCH004_USAGE_FILE",
+                        "HERMES_COMMIT",
+                        "HERMES_VERSION",
+                    ],
+                }
+            }
+        }
+        provider = resolve_provider(config, "hermes")
+        self.assertEqual(provider["pass_env"], config["providers"]["hermes"]["pass_env"])
+
     def test_credential_buffet_fails_closed(self):
         config = {
             "providers": {

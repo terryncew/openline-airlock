@@ -15,6 +15,11 @@ PRESETS = {
 }
 
 _HERMES_PROFILE_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_HERMES_NON_SECRET_CONTEXT = frozenset({
+    "HERMES_COMMIT",
+    "HERMES_VERSION",
+    "SEARCH004_USAGE_FILE",
+})
 
 
 def _preset_provider(name: str) -> dict:
@@ -33,14 +38,19 @@ def _validate_hermes_provider(provider: dict) -> dict:
     if not isinstance(pass_env, list) or any(not isinstance(key, str) or not key.strip() for key in pass_env):
         raise ValueError("providers.hermes.pass_env must be a list of environment variable names")
 
-    # HERMES_HOME is the only ambient context the built-in adapter may forward.
-    # A maintainer may explicitly name one additional provider credential in the
-    # protected Airlock config. Refuse credential buffets rather than guessing
-    # which secrets a model runtime might want.
-    extra = list(dict.fromkeys(key for key in pass_env if key != "HERMES_HOME"))
-    if len(extra) > 1:
+    # The built-in adapter may forward its state root plus the narrow,
+    # non-secret controller metadata used to bind an experimental run. A
+    # maintainer may also explicitly name one provider credential in protected
+    # Airlock config. Refuse credential buffets rather than guessing which
+    # secrets a model runtime might want.
+    credentials = list(dict.fromkeys(
+        key for key in pass_env
+        if key != "HERMES_HOME" and key not in _HERMES_NON_SECRET_CONTEXT
+    ))
+    if len(credentials) > 1:
         raise ValueError(
-            "providers.hermes.pass_env may contain HERMES_HOME plus at most one explicitly named provider credential"
+            "providers.hermes.pass_env may contain approved non-secret controller context "
+            "plus at most one explicitly named provider credential"
         )
     return provider
 
