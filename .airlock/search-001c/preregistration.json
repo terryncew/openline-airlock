@@ -1,0 +1,72 @@
+{
+  "schema": "airlock.search-001c.preregistration.v1",
+  "experiment": "AIRLOCK-SEARCH-001C",
+  "developer_name": "Outcome Trace",
+  "question": "Can a coding agent find the hidden useful improvement when every patch must start from a public repo outcome and trace that outcome down to a small controllable lever before code is written?",
+  "starting_commit": "91861c77e4b03ace60df147b0accf94f4351de18",
+  "current_main_when_built": "3c1dd3278b026ab9646116a79b2654fa8d08c352",
+  "frozen_history": {
+    "Free-form": "NO_ELIGIBLE_CANDIDATE",
+    "Repo Scout": "SEARCH_GAP_PERSISTS",
+    "Measure First": "DISCOVERY_SEARCH_DEFICIT",
+    "rerun_historical_arms": false
+  },
+  "evidence_density_preflight": {
+    "script": "experiments/airlock-search-001c/evidence_density_check.py",
+    "purpose": "Verify that the pinned repo actually exposes enough public contracts/checks/docs/history to make outcome-linked search testable before Hermes spends compute.",
+    "must_pass_before_worker_contact": true
+  },
+  "directed_control_channel_audit": {
+    "channel_type": "maintainer-specified target",
+    "public_discovery_channel_identified": false,
+    "used_to_weight_worker_attention": false,
+    "reason": "The directed control proves reachability but does not reveal a legitimate public discovery channel, so no hidden target information is transferred into Outcome Trace."
+  },
+  "synthetic_power_check": {
+    "script": "experiments/airlock-search-001c/outcome_link_power_check.py",
+    "passing_condition": "A candidate with a public anchor, traced lever, top-level outcome, reproducible probe, and <=2-file scope must rank ahead of a locally measurable cosmetic cleanup."
+  },
+  "worker_rules": {
+    "tracks": 4,
+    "model": "gpt-5.6-sol",
+    "turn_budget_per_track": {
+      "planning": 25,
+      "implementation": 65,
+      "total": 90
+    },
+    "planning_is_read_only": true,
+    "implementation_requires_plan_pass": true,
+    "max_changed_files": 2,
+    "max_changed_lines": 120,
+    "public_anchor_types": [
+      "documentation",
+      "cli",
+      "public_api",
+      "public_check",
+      "benchmark",
+      "changelog",
+      "git_history"
+    ],
+    "hidden_evaluator_visible": false,
+    "hidden_registry_visible": false,
+    "prior_hidden_feedback_visible": false,
+    "positive_control_patch_visible": false
+  },
+  "three_links": [
+    "Public anchor: a documented/tested/CLI/API/history outcome visible before the run.",
+    "Trace: an ordered path from that public surface to the exact file being changed.",
+    "Expected outcome: the same public outcome is independently re-measured before and after the patch."
+  ],
+  "success": "At least one Outcome Trace candidate becomes a unique winner under the unchanged frozen SELF-001 evaluator.",
+  "success_label": "SEARCH_STRATEGY_GAIN",
+  "negative": "OUTCOME_LINK_SEARCH_DEFICIT",
+  "invalid": "Evidence-density failure, frozen-selector mismatch, broken public baseline, infrastructure failure, or malformed bundle.",
+  "stopping_rule": "One prospective run. Freeze the result. No prompt, channel, scope, turn-budget, probe, or evaluator tuning after observing the outcome.",
+  "next_if_earned": "AIRLOCK-SEARCH-002 fresh-target replication",
+  "out_of_scope": [
+    "SELF-002",
+    "FOREIGN-001",
+    "compounding",
+    "generic planner work"
+  ]
+}
