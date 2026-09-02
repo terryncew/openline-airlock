@@ -1,0 +1,65 @@
+{
+  "schema": "airlock.search-001b.preregistration.v1",
+  "experiment": "AIRLOCK-SEARCH-001B",
+  "label": "Measure First",
+  "question": "Can a coding agent find the hidden useful improvement when it must prove a real local deficit before it is allowed to keep a patch?",
+  "starting_commit": "91861c77e4b03ace60df147b0accf94f4351de18",
+  "frozen_history": {
+    "baseline_freeform": "NO_ELIGIBLE_CANDIDATE",
+    "repo_scout": "SEARCH_GAP_PERSISTS",
+    "rule": "Historical arms are frozen and are not rerun."
+  },
+  "worker_information": {
+    "allowed": [
+      "public source code",
+      "public tests/checks",
+      "git history",
+      "package manifests",
+      "documentation",
+      "self-designed local numeric probes"
+    ],
+    "forbidden": [
+      "hidden evaluator output",
+      "hidden target registry",
+      "positive-control patch",
+      "candidate proximity hints from prior hidden runs"
+    ]
+  },
+  "resource_budget": {
+    "model": "gpt-5.6-sol",
+    "candidates": 4,
+    "max_changed_files": 2,
+    "max_changed_lines": 120,
+    "probe_repeats": 3,
+    "probe_timeout_seconds": 30,
+    "hermes_timeout_seconds": 2700
+  },
+  "mandatory_before_code": [
+    "list at least three concrete opportunities",
+    "attach a numeric local probe to each serious opportunity",
+    "identify the exact lever and declared files",
+    "select one target and freeze it before implementation"
+  ],
+  "mandatory_before_hidden_evaluation": [
+    "public checks survive",
+    "same probe reproduces on untouched baseline and candidate",
+    "candidate improves its own probe by more than its declared epsilon",
+    "patch stays within two files and 120 changed lines"
+  ],
+  "power_check": {
+    "script": "experiments/airlock-search-001b/selector_power_check.py",
+    "passing_condition": "A measured one-file performance opportunity ranks ahead of an unmeasured four-file cleanup."
+  },
+  "success": "At least one Measure First candidate earns a unique winner under the unchanged frozen SELF-001 evaluator.",
+  "success_label": "SEARCH_STRATEGY_GAIN",
+  "negative": "DISCOVERY_SEARCH_DEFICIT",
+  "invalid": "Broken substrate, infrastructure failure, selector mismatch, or bundle boundary failure.",
+  "stopping_rule": "One prospective run. Do not tune the prompt, probe rules, scope limits, or evaluator after seeing the result.",
+  "next_if_earned": "AIRLOCK-SEARCH-002 fresh-target replication",
+  "out_of_scope": [
+    "SELF-002",
+    "FOREIGN-001",
+    "compounding",
+    "generic planner work"
+  ]
+}
