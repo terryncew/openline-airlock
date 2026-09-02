@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Iterable
 
 from .config import load as load_config
+from .harness import HERMES_HARNESS_SCHEMA, fingerprint_harness_set
 from .improvement import run_improvement_loop
 from .providers import resolve_provider
 from .runner import run_tournament
@@ -75,6 +76,27 @@ def _worker_provenance(row: dict) -> dict:
         "hermes_profile": profile,
         "agent_execution": row.get("agent_execution"),
         "agent_report": row.get("agent_report", {}),
+        "harness": row.get("controller_harness"),
+        "model_route": row.get("controller_model_route"),
+    }
+
+
+
+
+def _attempt_model_route(row: dict, harness: dict) -> dict:
+    report = row.get("agent_report") or {}
+    effective = report.get("model") if isinstance(report, dict) else None
+    if not isinstance(effective, str) or not effective.strip():
+        effective = None
+    requested = (harness.get("routing") or {}).get("requested_model")
+    return {
+        "requested_model": requested,
+        "requested_model_source": (harness.get("routing") or {}).get("requested_model_source"),
+        "effective_model_observed": effective,
+        "effective_model_observation": "agent_report.model" if effective is not None else "UNAVAILABLE",
+        "matches_requested": None if effective is None or requested is None else effective == requested,
+        "routing_fingerprint_sha256": (harness.get("routing") or {}).get("fingerprint_sha256"),
+        "tool_registry_fingerprint_sha256": ((harness.get("routing") or {}).get("tool_registry") or {}).get("fingerprint_sha256"),
     }
 
 
@@ -196,6 +218,7 @@ def run_nightshift(
     commands = [provider["command"] for provider in providers]
     pass_env = [provider.get("pass_env", []) for provider in providers]
 
+    starting_harness = fingerprint_harness_set(models, providers)
     run_context = {
         "schema": NIGHTSHIFT_CONTEXT_SCHEMA,
         "worker": "hermes",
@@ -209,12 +232,16 @@ def run_nightshift(
         "worker_state_controls_objective": False,
         "worker_state_controls_evaluator": False,
         "worker_state_controls_promotion": False,
+        "harness_fingerprint_schema": HERMES_HARNESS_SCHEMA,
+        "starting_harness": starting_harness,
+        "harness_lineage": [],
+        "harness_lineage_complete": True,
         "parallel_profile_rule": (
             "one distinct Hermes profile per candidate" if agents > 1 else "single worker identity"
         ),
         "authority_boundary": (
             "Hermes may mutate its own profile and candidate worktree; Airlock keeps the committed objective, "
-            "repository checks, signed receipts, and promotion decision outside that mutable worker state."
+            "repository checks, signed receipts, harness fingerprinting, and promotion decision outside that mutable worker state."
         ),
         "time_boundary": (
             "This software gate covers measured candidate standing and repository-state promotion. "
@@ -224,9 +251,56 @@ def run_nightshift(
 
     captured_tournaments: list[dict] = []
     base_tournament_runner = tournament_runner or run_tournament
+    previous_after = starting_harness
 
     def capturing_tournament_runner(*args, **kwargs):
+        nonlocal previous_after
+        before = fingerprint_harness_set(models, providers)
+        expected_parent = previous_after["fingerprint_sha256"]
+        if before["fingerprint_sha256"] != expected_parent:
+            raise RuntimeError(
+                "Hermes harness changed outside an observed Nightshift transition; "
+                "refusing to spend against an unbound worker state"
+            )
+
         report = base_tournament_runner(*args, **kwargs)
+        after = fingerprint_harness_set(models, providers)
+        workers_by_model = {row["airlock_model"]: row for row in before["workers"]}
+        attempts = []
+        for row in report.get("candidates", []) or []:
+            model = row.get("model")
+            if isinstance(model, str) and model in workers_by_model:
+                harness = workers_by_model[model]
+                route = _attempt_model_route(row, harness)
+                row["controller_harness"] = harness
+                row["controller_model_route"] = route
+                attempts.append({
+                    "candidate_id": row.get("candidate_id"),
+                    "airlock_model": model,
+                    "harness_fingerprint_sha256": harness["fingerprint_sha256"],
+                    "model_route": route,
+                })
+
+        transition = {
+            "generation": len(run_context["harness_lineage"]) + 1,
+            "parent_harness_fingerprint_sha256": expected_parent,
+            "before_fingerprint_sha256": before["fingerprint_sha256"],
+            "worker_fingerprints_before": {
+                row["airlock_model"]: row["fingerprint_sha256"]
+                for row in before["workers"]
+            },
+            "after": after,
+            "after_fingerprint_sha256": after["fingerprint_sha256"],
+            "changed": before["fingerprint_sha256"] != after["fingerprint_sha256"],
+            "continuity_from_prior": True,
+            "source_tournament_run_id": report.get("run_id"),
+            "attempts": attempts,
+            "effective_model_observation_complete": bool(attempts) and all(
+                row["model_route"]["effective_model_observed"] is not None for row in attempts
+            ),
+        }
+        run_context["harness_lineage"].append(transition)
+        previous_after = after
         captured_tournaments.append(report)
         return report
 
