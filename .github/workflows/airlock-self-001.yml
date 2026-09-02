@@ -196,8 +196,18 @@ jobs:
           if [ -n "${BUDGET:-}" ]; then
             args+=(--budget "$BUDGET")
           fi
+
+          # GitHub invokes bash with errexit enabled. Disable it only around
+          # the scientific runner so completed negative result code 3 can be
+          # recorded before this step returns success and preserves receipts.
+          set +e
           "${args[@]}" 2>&1 | tee "$RUNNER_TEMP/airlock-self-001.log"
-          status=${PIPESTATUS[0]}
+          pipeline_status=("${PIPESTATUS[@]}")
+          set -e
+          status=${pipeline_status[0]}
+          if [ "${pipeline_status[1]}" -ne 0 ]; then
+            status=2
+          fi
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           # Codes 0 and 3 are completed scientific results. Infrastructure
           # failures are separated in the final workflow step after receipts
