@@ -43,6 +43,12 @@ def clone_home(seed:Path,label:str,turns:int):
     set_turns(home,turns)
     return home
 
+def _remove_runtime_cache(repo: Path) -> None:
+    for path in repo.rglob("__pycache__"):
+        shutil.rmtree(path, ignore_errors=True)
+    for path in repo.rglob("*.pyc"):
+        path.unlink(missing_ok=True)
+
 def fresh_repo(source:Path):
     tmp=Path(tempfile.mkdtemp(prefix="search002-worker-")); repo=tmp/"repo"
     shutil.copytree(source/"experiments/airlock-search-002/substrate",repo)
@@ -52,10 +58,20 @@ def fresh_repo(source:Path):
     shutil.copy2(source/".airlock/search-002/scorecard.json",repo/".airlock/search-002/scorecard.json")
     cfg=repo/".airlock/search-002-public-config.json"
     cfg.write_text(json.dumps(PUBLIC_CONFIG,indent=2)+"\n")
+
+    # Public preflight imports package modules and creates __pycache__. Run it
+    # before freezing the Git base, then remove interpreter cache artifacts.
+    # Airlock should see a genuinely clean repository at run_tournament entry.
+    if sh(["python","public_checks.py"],repo).returncode:
+        raise RuntimeError("public substrate not green")
+    _remove_runtime_cache(repo)
+
     sh(["git","init"],repo); sh(["git","config","user.name","SEARCH-002"],repo); sh(["git","config","user.email","search002@invalid.local"],repo)
     sh(["git","add","-A"],repo); cp=sh(["git","commit","-m","SEARCH-002 public substrate"],repo)
     if cp.returncode: raise RuntimeError(cp.stderr)
-    if sh(["python","public_checks.py"],repo).returncode: raise RuntimeError("public substrate not green")
+    status=sh(["git","status","--porcelain"],repo)
+    if status.returncode or status.stdout.strip():
+        raise RuntimeError("SEARCH-002 worker substrate is dirty before Airlock freeze")
     base=subprocess.check_output(["git","rev-parse","HEAD"],cwd=repo,text=True).strip()
     return tmp,repo,base
 
