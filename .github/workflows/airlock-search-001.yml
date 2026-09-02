@@ -42,7 +42,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        strategy: [baseline_freeform, triage_rank, hypotheses_first, planner_select]
+        strategy: [baseline_freeform, repo_scout]
     env:
       HERMES_HOME: /tmp/search-001-${{ matrix.strategy }}-home
       HERMES_INSTALL_DIR: /tmp/search-001-${{ matrix.strategy }}-hermes
@@ -66,17 +66,21 @@ jobs:
           set -euo pipefail
           rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"; mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
           ARCHIVE="$RUNNER_TEMP/hermes-$HERMES_COMMIT.tar.gz"
-          curl --fail --location --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors -H "Accept: application/vnd.github+json" -H "Authorization: Bearer $GH_READ_TOKEN" -H "X-GitHub-Api-Version: 2022-11-28" "https://api.github.com/repos/NousResearch/hermes-agent/tarball/$HERMES_COMMIT" -o "$ARCHIVE"
-          test -s "$ARCHIVE"; tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          curl --fail --location --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer $GH_READ_TOKEN"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/NousResearch/hermes-agent/tarball/$HERMES_COMMIT" -o "$ARCHIVE"
+          test -s "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
           python -m venv "$HERMES_INSTALL_DIR/venv"
           "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
           test -x "$HERMES_INSTALL_DIR/venv/bin/hermes"
-          mkdir -p "$RUNNER_TEMP/hermes-bin"; ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"; echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
       - name: Prepare isolated Hermes home
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
         run: |
-          set -euo pipefail; umask 077
+          set -euo pipefail
+          umask 077
           printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
           cat > "$HERMES_HOME/config.yaml" <<EOF
           model:
@@ -92,10 +96,10 @@ jobs:
             max_turns: 90
           EOF
           chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
-      - name: Generate without hidden evaluator
+      - name: Search and build candidates
         run: |
           mkdir -p "$RUNNER_TEMP/search-candidates/${{ matrix.strategy }}"
-          python experiments/airlock-search-001/generate.py --source-repo . --strategy "${{ matrix.strategy }}" --out "$RUNNER_TEMP/search-candidates/${{ matrix.strategy }}/bundle.json"
+          python experiments/airlock-search-001/generate.py             --source-repo .             --strategy "${{ matrix.strategy }}"             --out "$RUNNER_TEMP/search-candidates/${{ matrix.strategy }}/bundle.json"
       - uses: actions/upload-artifact@v4
         with:
           name: SEARCH-001-CANDIDATES-${{ matrix.strategy }}
@@ -119,10 +123,10 @@ jobs:
         with:
           pattern: SEARCH-001-CANDIDATES-*
           path: ${{ runner.temp }}/search-candidates
-      - name: Evaluate under frozen SELF-001 selector
+      - name: Compare the two search approaches
         run: |
           mkdir -p "$RUNNER_TEMP/search-result"
-          python experiments/airlock-search-001/evaluate.py --repo . --artifacts "$RUNNER_TEMP/search-candidates" --out "$RUNNER_TEMP/search-result/SEARCH-001-result.json"
+          python experiments/airlock-search-001/evaluate.py             --repo .             --artifacts "$RUNNER_TEMP/search-candidates"             --out "$RUNNER_TEMP/search-result/SEARCH-001-result.json"
       - uses: actions/upload-artifact@v4
         with:
           name: AIRLOCK-SEARCH-001-result

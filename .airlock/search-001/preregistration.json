@@ -1,71 +1,40 @@
 {
-  "schema": "airlock.search-001.preregistration.v1",
+  "schema": "airlock.search-001.preregistration.v2",
   "experiment": "AIRLOCK-SEARCH-001",
-  "question": "Can a modified autonomous search strategy find an independently admissible improvement that baseline Hermes failed to discover, without weakening or exposing the frozen SELF-001 selector?",
-  "substrate": {
-    "repo": "terryncew/openline-airlock",
-    "commit": "91861c77e4b03ace60df147b0accf94f4351de18"
-  },
-  "frozen_selector": {
-    "source_experiment": "AIRLOCK-SELF-001",
-    "identity_scheme": "git-blob",
-    "files": {
-      ".airlock/self-001/scope_registry.json": "a09198480999cd4172ef77b4d81b22f837016a79",
-      ".airlock/self-001/evaluator.py": "6cfe569eae7dc96bbefc9ec974555a55669e7bc1",
-      ".airlock/self-001/protected_checks.py": "3c54bf80e3d6ad0f33bfad466a60f978c50d5d40",
-      "experiments/airlock-self-001/run_self_001.py": "25ccfbfa30489ba8d0aec2eab745f9f071adf737"
-    },
-    "selection_semantics": "Exact select() ordering/gap semantics copied from frozen experiments/airlock-self-001/run_self_001.py, whose blob is pinned above.",
-    "worker_visibility": "ABSENT",
-    "rule": "Improve the searcher, never the judge."
-  },
-  "resource_budget": {
+  "plain_english_question": "Does a structured repo-search workflow help the same coding agent find a useful change that a free-form 'improve this repo' prompt misses?",
+  "starting_commit": "91861c77e4b03ace60df147b0accf94f4351de18",
+  "same_for_both": {
     "model": "gpt-5.6-sol",
-    "max_candidates_per_strategy": 4,
-    "max_iterations_per_candidate": 2,
-    "hermes_timeout_seconds": 2700,
-    "adaptive_budget_extension": false
+    "candidates": 4,
+    "repo_state": "91861c77e4b03ace60df147b0accf94f4351de18",
+    "public_checks": "same",
+    "hidden_evaluation": "same and unavailable to the worker",
+    "budget": "same"
   },
-  "strategies": [
+  "arms": [
     {
       "id": "baseline_freeform",
-      "kind": "control",
-      "prompt_sha256": "6eab04069872d7f91139dfe4502b682b36741ee656bb0ef1e890a25814be853e"
+      "label": "Free-form",
+      "description": "Tell Hermes to improve the repo and let it choose where to look."
     },
     {
-      "id": "triage_rank",
-      "kind": "modified",
-      "prompt_sha256": "a524c26e8381338f3799e6fb31eb5b67fc6e08b2709d08fca6373e2582577f88"
-    },
-    {
-      "id": "hypotheses_first",
-      "kind": "modified",
-      "prompt_sha256": "ec686c35f52ec8ada44cfaf43f7bd33a070bcc480fc06b6051f693e81c9d6768"
-    },
-    {
-      "id": "planner_select",
-      "kind": "modified",
-      "prompt_sha256": "f0a74da1617c47ea1c401c3d38d547278c6962d1651a966204a69f05173e34bc"
+      "id": "repo_scout",
+      "label": "Repo Scout",
+      "description": "Make Hermes understand the repo, list multiple opportunities, stress-check them, inspect ambiguous cases, rank them, then build the best small reversible change."
     }
   ],
-  "acceptance": {
-    "earned_label": "SEARCH_STRATEGY_GAIN",
-    "criterion": "Under the frozen SELF-001 gate and equal resource budget, baseline_freeform has no unique independently admissible winner and at least one preregistered modified search strategy has a unique independently admissible winner."
-  },
+  "success": "Repo Scout produces at least one independently accepted improvement while Free-form produces none.",
+  "invalid_run": "Any broken starting checks, missing target, hidden-evaluation leak, or infrastructure failure makes the experiment invalid rather than a negative result.",
   "amendment": {
-    "reason": "Execution-only bookkeeping repair before any SEARCH-001 candidate generation occurred.",
-    "observed_failure": "The preregistration harness contained incorrect SHA-256 strings for unchanged frozen SELF-001 files and called evaluator APIs that do not exist in the frozen evaluator module.",
-    "repair": "Pin exact Git blob identities from the already-frozen substrate; invoke the frozen evaluator through its CLI; copy the exact frozen SELF-001 selection semantics from the pinned run_self_001.py.",
-    "claim_effect": "NONE. No target, strategy prompt, model, budget, evaluator content, scope registry, protected checks, hidden opportunity, or acceptance criterion changed.",
-    "candidate_generation_before_repair": false
+    "reason": "The previous run accidentally removed the file under test, so no search happened.",
+    "changes": [
+      "Keep experiments/airlock-self-001/office_ops.py in the worker repo.",
+      "Remove only hidden evaluation material.",
+      "Fail closed if the worker starting state is not green.",
+      "Replace several generic search prompts with one developer-friendly Repo Scout workflow."
+    ],
+    "prior_run_status": "EXPERIMENT_NOT_RUN"
   },
-  "stopping_rule": "One prospective run only. No prompt rescue, evaluator changes, target changes, or budget extension after outcomes. Freeze the result.",
-  "next_if_earned": "AIRLOCK-SEARCH-002 fresh-target replication",
-  "explicitly_out_of_scope": [
-    "SELF-002 compounding",
-    "FOREIGN-001",
-    "selector changes",
-    "worker access to hidden evaluator",
-    "adaptive rescue"
-  ]
+  "stop_rule": "Run once. Do not tune Repo Scout after seeing the result.",
+  "next_if_it_works": "Repeat the same Repo Scout workflow on fresh hidden opportunities before attempting multi-step self-improvement."
 }
