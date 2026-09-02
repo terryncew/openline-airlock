@@ -24,8 +24,8 @@ PUBLIC_CONFIG={
   "parallelism":4,
   "providers":{"hermes":{"command":["python",".airlock/checks/hermes_live_001_worker.py","{prompt}"],"pass_env":["HERMES_HOME"],"timeout_seconds":2700}},
   "protected_paths":[".airlock/**","README.md","public_checks.py","tests/**",".github/**"],
-  "baseline":{"check_commands":[["python","public_checks.py"]],"timeout_seconds":300},
-  "verification":{"target_commands":[],"static_commands":[],"test_commands":[["python","public_checks.py"]],"timeout_seconds":300}
+  "baseline":{"check_commands":[["python","tests/test_public_contract.py"]],"timeout_seconds":300},
+  "verification":{"target_commands":[],"static_commands":[],"test_commands":[["python","tests/test_public_contract.py"]],"timeout_seconds":300}
 }
 
 def sh(cmd,cwd):
@@ -62,7 +62,7 @@ def fresh_repo(source:Path):
     cfg=repo/".airlock/search-002-public-config.json"
     cfg.write_text(json.dumps(PUBLIC_CONFIG,indent=2)+"\n")
 
-    if sh(["python","public_checks.py"],repo).returncode:
+    if sh(["python","tests/test_public_contract.py"],repo).returncode:
         raise RuntimeError("public substrate not green")
     remove_runtime_cache(repo)
 

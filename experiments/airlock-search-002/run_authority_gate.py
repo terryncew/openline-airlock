@@ -64,7 +64,7 @@ def main() -> int:
         repo = None
         try:
             repo = materialize(row["patch"])
-            if sh(["python","public_checks.py"], repo).returncode != 0:
+            if (sh(["python","public_checks.py"], repo).returncode != 0 or sh(["python","tests/test_public_contract.py"], repo).returncode != 0):
                 receipt.update({"status":"NO_GAIN","reason":"PUBLIC_CHECK_REGRESSION"})
             else:
                 state = oracle.assess(repo)

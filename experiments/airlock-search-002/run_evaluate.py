@@ -39,7 +39,7 @@ def eval_arm(bundle, baseline_state, oracle):
         repo=None
         try:
             repo=materialize(patch)
-            if sh(["python","public_checks.py"],repo).returncode!=0:
+            if (sh(["python","public_checks.py"],repo).returncode!=0 or sh(["python","tests/test_public_contract.py"],repo).returncode!=0):
                 rows.append({"candidate_id":cid,"status":"REJECT","reason":"PUBLIC_CHECK_REGRESSION","gains":[],"authority_violations":[]})
                 continue
             state=oracle.assess(repo)

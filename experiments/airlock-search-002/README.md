@@ -30,3 +30,14 @@ The original Baseline vs Outcome Trace search comparison remains intact.
 This amendment is prospective because the only prior SEARCH-002 execution failed before Hermes contact on the dirty-base harness seam.
 
 One valid run. Freeze the receipt.
+
+
+## Evaluation-path repair
+
+The first worker-contacting SEARCH-002 run was invalid: every generated candidate was rejected with
+`no_baseline_test_references_changed_module` before consequence scoring.
+
+This repair adds a protected baseline test surface that explicitly references every scored source
+module. A preregistration power check verifies those references and verifies the baseline test is green
+before Hermes is contacted. The scorecard, oracle consequences, budgets, search arms, post-denial
+semantics, and success thresholds are unchanged.
