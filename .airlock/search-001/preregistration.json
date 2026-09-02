@@ -8,11 +8,14 @@
   },
   "frozen_selector": {
     "source_experiment": "AIRLOCK-SELF-001",
-    "files_sha256": {
-      ".airlock/self-001/scope_registry.json": "f7dce99f85299814cfb2f3c052faf0072075fadf3d1fe40f7660c1e2a483badb",
-      ".airlock/self-001/evaluator.py": "6cb5ea1fc5bf8ffe08ff08add5f9d5f3739cd14227923228482d6604db9179bb",
-      ".airlock/self-001/protected_checks.py": "b328cd7de7569bb3803690eabc2c9ddbc2d94aae9fae07c4c94776879642698"
+    "identity_scheme": "git-blob",
+    "files": {
+      ".airlock/self-001/scope_registry.json": "a09198480999cd4172ef77b4d81b22f837016a79",
+      ".airlock/self-001/evaluator.py": "6cfe569eae7dc96bbefc9ec974555a55669e7bc1",
+      ".airlock/self-001/protected_checks.py": "3c54bf80e3d6ad0f33bfad466a60f978c50d5d40",
+      "experiments/airlock-self-001/run_self_001.py": "25ccfbfa30489ba8d0aec2eab745f9f071adf737"
     },
+    "selection_semantics": "Exact select() ordering/gap semantics copied from frozen experiments/airlock-self-001/run_self_001.py, whose blob is pinned above.",
     "worker_visibility": "ABSENT",
     "rule": "Improve the searcher, never the judge."
   },
@@ -48,6 +51,13 @@
   "acceptance": {
     "earned_label": "SEARCH_STRATEGY_GAIN",
     "criterion": "Under the frozen SELF-001 gate and equal resource budget, baseline_freeform has no unique independently admissible winner and at least one preregistered modified search strategy has a unique independently admissible winner."
+  },
+  "amendment": {
+    "reason": "Execution-only bookkeeping repair before any SEARCH-001 candidate generation occurred.",
+    "observed_failure": "The preregistration harness contained incorrect SHA-256 strings for unchanged frozen SELF-001 files and called evaluator APIs that do not exist in the frozen evaluator module.",
+    "repair": "Pin exact Git blob identities from the already-frozen substrate; invoke the frozen evaluator through its CLI; copy the exact frozen SELF-001 selection semantics from the pinned run_self_001.py.",
+    "claim_effect": "NONE. No target, strategy prompt, model, budget, evaluator content, scope registry, protected checks, hidden opportunity, or acceptance criterion changed.",
+    "candidate_generation_before_repair": false
   },
   "stopping_rule": "One prospective run only. No prompt rescue, evaluator changes, target changes, or budget extension after outcomes. Freeze the result.",
   "next_if_earned": "AIRLOCK-SEARCH-002 fresh-target replication",
