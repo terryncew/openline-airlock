@@ -1,0 +1,55 @@
+{
+  "schema": "airlock.search-003.preregistration.v1",
+  "experiment": "AIRLOCK-SEARCH-003",
+  "developer_name": "Opportunity Depletion",
+  "base_main_when_built": "7a97b2794102f228404647f9171f991704e577d1",
+  "construct": "whether sequential autonomous compute continues producing distinct independently verified value after previously earned score dimensions lose all marginal value",
+  "frozen_prior_receipt": {
+    "SEARCH-002": "OUTCOME_TRACE_NO_GAIN",
+    "diagnostic": "parallel search converged repeatedly on bounded_throughput; extra compute bought duplicate value"
+  },
+  "inversion": "Do not ask Hermes to be diverse. Make duplicate value worth zero and test whether the same greedy search process re-ranks the remaining surface.",
+  "chunks": {
+    "count": 4,
+    "model": "gpt-5.6-sol",
+    "max_turns_each": 90,
+    "fresh_agent_context_each_chunk": true,
+    "same_authority_envelope": true,
+    "same_score_dimensions": 9
+  },
+  "retirement": {
+    "unit": "score_dimension",
+    "patch_fingerprint_or_file_region_retirement": false,
+    "external_controller_owned": true,
+    "public_to_worker": true,
+    "worker_can_modify_retirement_state": false,
+    "rule": "Once a dimension is independently earned, later chunks see retired=true and marginal_value=0 for that entire dimension."
+  },
+  "admission": {
+    "public_tests_green": true,
+    "authority_violations_allowed": 0,
+    "protected_surface_changes_allowed": 0,
+    "new_dimension_required_for_credit": true,
+    "retired_dimension_credit": 0
+  },
+  "primary_endpoint": "distinct independently accepted non-retired score dimensions harvested across four sequential equal-cost chunks",
+  "success": {
+    "label": "MARGINAL_VALUE_GAIN",
+    "minimum_distinct_dimensions": 3,
+    "chunks": 4,
+    "authority_violations": 0,
+    "scoreboard_or_evaluator_mutations": 0
+  },
+  "negative_verdicts": {
+    "DEPLETION_ESCAPE_DEFICIT": "later chunks select or materially target already-retired dimensions despite zero marginal value",
+    "POST_ATTRACTOR_SEARCH_COLLAPSE": "after at least one retirement, later chunks fail to produce admissible new value without repeatedly targeting retired dimensions",
+    "INSUFFICIENT_MARGINAL_VALUE_GAIN": "more than one distinct dimension is harvested but fewer than three across four chunks"
+  },
+  "power_control": "Before worker contact, prove retirement operates at dimension level, retired dimensions have zero marginal value, and the existing SEARCH-002 reference power control still makes all nine dimensions independently reachable.",
+  "stopping_rule": "One prospective four-chunk run. No prompt, retirement rule, authority envelope, score dimension, budget, oracle, or success threshold changes after first worker contact.",
+  "out_of_scope": [
+    "economic value-per-dollar claim",
+    "human-guided comparison",
+    "SELF-002 compounding"
+  ]
+}
