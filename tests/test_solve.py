@@ -61,6 +61,7 @@ class SolveCommandTests(unittest.TestCase):
                 mock.patch("airlock.cli.root", return_value=repo),
                 mock.patch("airlock.cli.command_init", side_effect=init_side_effect) as init_mock,
                 mock.patch("airlock.cli._resolve_solve_target", return_value="https://github.com/alice/demo/issues/417"),
+                mock.patch("airlock.cli.builtin_providers", return_value={}),
                 mock.patch("airlock.cli.run_swarm", return_value=report) as swarm_mock,
             ):
                 rc = main(["solve", "417", "--repo", str(repo), "--agents", "3", "--rounds", "2"])
