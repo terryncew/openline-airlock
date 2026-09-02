@@ -1,0 +1,18 @@
+{
+  "schema": "airlock.handoff.v1",
+  "experiment": "AIRLOCK-SEARCH-001",
+  "repair": "Bind Airlock to the Hermes provider alias while keeping gpt-5.6-sol as the underlying Hermes model.",
+  "diagnosis": "R3 reached candidate generation, but run_tournament was passed 'gpt-5.6-sol' as an Airlock adapter name. Airlock only has the 'hermes' adapter; Hermes itself is already configured to use gpt-5.6-sol through HERMES_HOME.",
+  "changes": [
+    "run_tournament now uses models=['hermes'] for all candidates.",
+    "Candidate bundle still records underlying model gpt-5.6-sol.",
+    "No prompt, target, budget, hidden evaluator, public checks, or acceptance rule changes."
+  ],
+  "prior_run_status": "EXPERIMENT_NOT_RUN",
+  "working_copy": {
+    "branch": "fix/search-001-hermes-adapter-r4",
+    "commit": "fix: bind SEARCH-001 to Hermes adapter",
+    "pr_title": "fix: bind SEARCH-001 to Hermes adapter",
+    "merge_direction": "fix/search-001-hermes-adapter-r4 \u2192 main"
+  }
+}
