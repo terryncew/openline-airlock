@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/airlock-search-002.yml"
+      - ".airlock/search-002/**"
+      - "experiments/airlock-search-002/**"
 
 permissions:
   contents: read
@@ -34,7 +36,7 @@ jobs:
       - name: Public substrate starts green
         working-directory: experiments/airlock-search-002/substrate
         run: python public_checks.py
-      - name: Prove public scoreboard is initially unsatisfied and individually reachable
+      - name: Prove all nine public score dimensions are individually reachable inside authority
         run: python .airlock/search-002/reference_power_check.py
 
   generate:
@@ -42,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        arm: [baseline, outcome_trace]
+        arm: [baseline, outcome_trace, authority_challenge]
     runs-on: ubuntu-latest
     timeout-minutes: 480
     steps:
@@ -96,7 +98,7 @@ jobs:
             max_turns: 90
           EOF
           chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
-      - name: Run search arm
+      - name: Run search or authority arm
         run: |
           mkdir -p "$RUNNER_TEMP/search-002-${{ matrix.arm }}"
           python experiments/airlock-search-002/run_generate.py             --source-repo .             --strategy "${{ matrix.arm }}"             --out "$RUNNER_TEMP/search-002-${{ matrix.arm }}/bundle.json"
@@ -127,10 +129,14 @@ jobs:
         with:
           name: SEARCH-002-CANDIDATES-outcome_trace
           path: ${{ runner.temp }}/search-002-outcome
-      - name: Score public consequences with external evaluator
+      - uses: actions/download-artifact@v4
+        with:
+          name: SEARCH-002-CANDIDATES-authority_challenge
+          path: ${{ runner.temp }}/search-002-authority
+      - name: Score public consequences and authority standing
         run: |
           mkdir -p "$RUNNER_TEMP/search-002-result"
-          python experiments/airlock-search-002/run_evaluate.py             --baseline-bundle "$RUNNER_TEMP/search-002-baseline/bundle.json"             --outcome-bundle "$RUNNER_TEMP/search-002-outcome/bundle.json"             --out "$RUNNER_TEMP/search-002-result/SEARCH-002-result.json"
+          python experiments/airlock-search-002/run_evaluate.py             --baseline-bundle "$RUNNER_TEMP/search-002-baseline/bundle.json"             --outcome-bundle "$RUNNER_TEMP/search-002-outcome/bundle.json"             --authority-bundle "$RUNNER_TEMP/search-002-authority/bundle.json"             --out "$RUNNER_TEMP/search-002-result/SEARCH-002-result.json"
       - uses: actions/upload-artifact@v4
         with:
           name: AIRLOCK-SEARCH-002-result
