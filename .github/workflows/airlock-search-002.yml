@@ -36,15 +36,15 @@ jobs:
       - name: Public substrate starts green
         working-directory: experiments/airlock-search-002/substrate
         run: python public_checks.py
-      - name: Prove all nine public score dimensions are individually reachable inside authority
+      - name: Prove all nine score dimensions are reachable inside authority
         run: python .airlock/search-002/reference_power_check.py
 
-  generate:
+  generate-search:
     needs: preregistration
     strategy:
       fail-fast: false
       matrix:
-        arm: [baseline, outcome_trace, authority_challenge]
+        arm: [baseline, outcome_trace]
     runs-on: ubuntu-latest
     timeout-minutes: 480
     steps:
@@ -73,7 +73,6 @@ jobs:
           tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
           python -m venv "$HERMES_INSTALL_DIR/venv"
           "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
-          test -x "$HERMES_INSTALL_DIR/venv/bin/hermes"
           mkdir -p "$RUNNER_TEMP/hermes-bin"
           ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
           echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
@@ -98,7 +97,7 @@ jobs:
             max_turns: 90
           EOF
           chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
-      - name: Run search or authority arm
+      - name: Run search arm
         run: |
           mkdir -p "$RUNNER_TEMP/search-002-${{ matrix.arm }}"
           python experiments/airlock-search-002/run_generate.py             --source-repo .             --strategy "${{ matrix.arm }}"             --out "$RUNNER_TEMP/search-002-${{ matrix.arm }}/bundle.json"
@@ -109,8 +108,166 @@ jobs:
           if-no-files-found: error
           retention-days: 30
 
+  authority-initial:
+    needs: preregistration
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Require model credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: 'test -n "${OPENAI_API_KEY:-}"'
+      - run: python -m pip install .
+      - name: Install exact Hermes CLI
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          ARCHIVE="$RUNNER_TEMP/hermes-$HERMES_COMMIT.tar.gz"
+          curl --fail --location --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer $GH_READ_TOKEN"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/NousResearch/hermes-agent/tarball/$HERMES_COMMIT" -o "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+      - name: Prepare seed Hermes home
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: $HERMES_MODEL
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 90
+          EOF
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+      - name: Run initial authority attempt
+        run: |
+          mkdir -p "$RUNNER_TEMP/search-002-authority-initial"
+          python experiments/airlock-search-002/run_generate.py             --source-repo .             --strategy authority_initial             --out "$RUNNER_TEMP/search-002-authority-initial/bundle.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-INITIAL
+          path: ${{ runner.temp }}/search-002-authority-initial/bundle.json
+          if-no-files-found: error
+          retention-days: 30
+
+  authority-gate:
+    needs: authority-initial
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - uses: actions/download-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-INITIAL
+          path: ${{ runner.temp }}/search-002-authority-initial
+      - name: External authority gate
+        run: |
+          mkdir -p "$RUNNER_TEMP/search-002-authority-gate"
+          python experiments/airlock-search-002/run_authority_gate.py             --bundle "$RUNNER_TEMP/search-002-authority-initial/bundle.json"             --out "$RUNNER_TEMP/search-002-authority-gate/receipt.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-GATE
+          path: ${{ runner.temp }}/search-002-authority-gate/receipt.json
+          if-no-files-found: error
+          retention-days: 30
+
+  authority-continue:
+    needs: authority-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Require model credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: 'test -n "${OPENAI_API_KEY:-}"'
+      - run: python -m pip install .
+      - uses: actions/download-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-GATE
+          path: ${{ runner.temp }}/search-002-authority-gate
+      - name: Install exact Hermes CLI
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          ARCHIVE="$RUNNER_TEMP/hermes-$HERMES_COMMIT.tar.gz"
+          curl --fail --location --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors             -H "Accept: application/vnd.github+json"             -H "Authorization: Bearer $GH_READ_TOKEN"             -H "X-GitHub-Api-Version: 2022-11-28"             "https://api.github.com/repos/NousResearch/hermes-agent/tarball/$HERMES_COMMIT" -o "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+      - name: Prepare seed Hermes home
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: $HERMES_MODEL
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 90
+          EOF
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+      - name: Continue after denial from unchanged base
+        run: |
+          mkdir -p "$RUNNER_TEMP/search-002-authority-continue"
+          python experiments/airlock-search-002/run_generate.py             --source-repo .             --strategy authority_continue             --receipt "$RUNNER_TEMP/search-002-authority-gate/receipt.json"             --out "$RUNNER_TEMP/search-002-authority-continue/bundle.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-CONTINUE
+          path: ${{ runner.temp }}/search-002-authority-continue/bundle.json
+          if-no-files-found: error
+          retention-days: 30
+
   evaluate:
-    needs: generate
+    needs: [generate-search, authority-initial, authority-gate, authority-continue]
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -131,12 +288,20 @@ jobs:
           path: ${{ runner.temp }}/search-002-outcome
       - uses: actions/download-artifact@v4
         with:
-          name: SEARCH-002-CANDIDATES-authority_challenge
-          path: ${{ runner.temp }}/search-002-authority
-      - name: Score public consequences and authority standing
+          name: SEARCH-002-AUTHORITY-INITIAL
+          path: ${{ runner.temp }}/search-002-authority-initial
+      - uses: actions/download-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-GATE
+          path: ${{ runner.temp }}/search-002-authority-gate
+      - uses: actions/download-artifact@v4
+        with:
+          name: SEARCH-002-AUTHORITY-CONTINUE
+          path: ${{ runner.temp }}/search-002-authority-continue
+      - name: Score search and post-denial recovery
         run: |
           mkdir -p "$RUNNER_TEMP/search-002-result"
-          python experiments/airlock-search-002/run_evaluate.py             --baseline-bundle "$RUNNER_TEMP/search-002-baseline/bundle.json"             --outcome-bundle "$RUNNER_TEMP/search-002-outcome/bundle.json"             --authority-bundle "$RUNNER_TEMP/search-002-authority/bundle.json"             --out "$RUNNER_TEMP/search-002-result/SEARCH-002-result.json"
+          python experiments/airlock-search-002/run_evaluate.py             --baseline-bundle "$RUNNER_TEMP/search-002-baseline/bundle.json"             --outcome-bundle "$RUNNER_TEMP/search-002-outcome/bundle.json"             --authority-initial-bundle "$RUNNER_TEMP/search-002-authority-initial/bundle.json"             --authority-continue-bundle "$RUNNER_TEMP/search-002-authority-continue/bundle.json"             --authority-gate "$RUNNER_TEMP/search-002-authority-gate/receipt.json"             --out "$RUNNER_TEMP/search-002-result/SEARCH-002-result.json"
       - uses: actions/upload-artifact@v4
         with:
           name: AIRLOCK-SEARCH-002-result
