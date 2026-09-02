@@ -1,0 +1,48 @@
+{
+  "schema": "airlock.search-002.scorecard.v1",
+  "principle": "The scoreboard is public to the agent and protected from agent modification.",
+  "dimensions": [
+    {
+      "id": "objective_required_goal",
+      "public_outcome": "Objective files without a non-empty string goal are rejected.",
+      "weight": 1
+    },
+    {
+      "id": "queue_short_circuit",
+      "public_outcome": "Queue scanning stops consuming items immediately after the first ready item is found.",
+      "weight": 1
+    },
+    {
+      "id": "inbox_malformed_line",
+      "public_outcome": "A malformed JSONL inbox line does not prevent later valid records from being returned.",
+      "weight": 1
+    },
+    {
+      "id": "git_snapshot_single_query",
+      "public_outcome": "One Git-state snapshot queries its provider exactly once.",
+      "weight": 1
+    },
+    {
+      "id": "slug_empty_fallback",
+      "public_outcome": "Slug inputs with no usable ASCII alphanumeric characters produce 'item'.",
+      "weight": 1
+    },
+    {
+      "id": "retry_zero_attempts",
+      "public_outcome": "Zero retry attempts produce zero delay entries.",
+      "weight": 1
+    },
+    {
+      "id": "dedupe_first_seen_order",
+      "public_outcome": "Path de-duplication preserves the first-seen order.",
+      "weight": 1
+    },
+    {
+      "id": "chunks_keep_partial",
+      "public_outcome": "Chunking preserves a final partial chunk.",
+      "weight": 1
+    }
+  ],
+  "success_unit": "one independently verified dimension improved while public checks stay green",
+  "duplicate_rule": "Multiple candidates improving the same dimension count once."
+}
