@@ -4,6 +4,13 @@ SEARCH-003 showed that autonomous Hermes could leave an already-earned improveme
 
 > Can Airlock remove the developer from task-picking without making the economics worse?
 
+The first workflow attempt was an infrastructure-only run: Airlock rejected the
+frozen provider environment before Arm A could launch a worker. Amendment
+`SEARCH-004-INFRA-001` repairs that controller handoff and the latent raw-usage
+receipt projection before the first experimental worker contact. It does not
+change either prompt, the opportunity surface, cost rules, resource ceilings,
+endpoint, or verdict thresholds.
+
 Two arms start from the same small repository, the same nine active opportunities, the same GPT-5.6 Sol model, the same pinned Hermes v0.21.0 commit, the same starting Hermes harness fingerprint, the same evaluator, and the same contact/spend ceilings.
 
 **Arm A — Airlock unattended** receives one standing instruction: `Improve this repo. Keep finding the next useful improvement.` No maintainer selects a concrete task. Accepted dimensions retire to zero marginal value only inside Arm A.

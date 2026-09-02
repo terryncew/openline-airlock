@@ -34,6 +34,13 @@ def main() -> int:
         return fail("schema")
     if data.get("experiment_parent_sha") != "971750ee6d5bda0e2195dd87ca8ee9d37afb9187":
         return fail("base commit")
+    amendment = data.get("infrastructure_amendment", {})
+    if amendment.get("id") != "SEARCH-004-INFRA-001":
+        return fail("infrastructure amendment")
+    if amendment.get("prior_valid_arm_worker_contacts") != 0:
+        return fail("amendment is not prospective")
+    if amendment.get("failed_run_id") != 33681402437:
+        return fail("amendment run identity")
     cp = subprocess.run(
         ["git", "merge-base", "--is-ancestor", data["experiment_parent_sha"], "HEAD"],
         cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,

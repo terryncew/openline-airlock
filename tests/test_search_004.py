@@ -7,6 +7,8 @@ import unittest
 from decimal import Decimal
 from pathlib import Path
 
+from airlock.providers import resolve_provider
+
 ROOT = Path(__file__).resolve().parents[1]
 RUNNER = ROOT / "experiments/airlock-search-004/run_search_004.py"
 SPEC = importlib.util.spec_from_file_location("search004_test_runner", RUNNER)
@@ -69,6 +71,61 @@ class Search004Tests(unittest.TestCase):
     def test_preflight_requires_positive_input_and_output(self):
         with self.assertRaisesRegex(M.TelemetryError, "PREFLIGHT_INPUT_OR_OUTPUT_ZERO"):
             self._meter(self._usage(output_tokens=0, reasoning_tokens=0, total_tokens=1120), require_output=True)
+
+    def test_frozen_worker_uses_a_dedicated_custom_adapter(self):
+        self.assertEqual(M.PROVIDER, "search004-hermes")
+        self.assertNotIn("hermes", M.PUBLIC_CONFIG["providers"])
+        provider = resolve_provider(M.PUBLIC_CONFIG, M.PROVIDER)
+        self.assertEqual(provider["command"], ["python", ".airlock/search-004/worker.py", "{prompt}"])
+        self.assertEqual(
+            provider["pass_env"],
+            ["HERMES_HOME", "SEARCH004_USAGE_FILE", "HERMES_COMMIT", "HERMES_VERSION"],
+        )
+
+    def test_worker_usage_receipt_is_loaded_from_airlock_owned_raw_report(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            report_path = repo / ".airlock/runs/run-1/agent-reports/candidate-01.json"
+            report_path.parent.mkdir(parents=True)
+            report_path.write_text(json.dumps({
+                "provider": "hermes",
+                "authority_audit": {
+                    "schema": "airlock.search-004.worker-boundary.v1",
+                    "forbidden_environment_names_present": [],
+                    "github_credential_present": False,
+                    "release_authority": "ABSENT",
+                    "usage_path_outside_candidate_repo": True,
+                    "usage_path_outside_hermes_home": True,
+                },
+                "usage_receipt": {"sha256": "a" * 64},
+            }))
+            path, audit, usage = M._worker_evidence(
+                repo,
+                {"run_id": "run-1"},
+                {"candidate_id": "candidate-01", "agent_report": {"provider": "hermes"}},
+            )
+        self.assertEqual(path, report_path)
+        self.assertEqual(audit["release_authority"], "ABSENT")
+        self.assertEqual(usage["sha256"], "a" * 64)
+
+    def test_worker_authority_audit_fails_closed(self):
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            report_path = repo / ".airlock/runs/run-1/agent-reports/candidate-01.json"
+            report_path.parent.mkdir(parents=True)
+            report_path.write_text(json.dumps({
+                "authority_audit": {
+                    "schema": "airlock.search-004.worker-boundary.v1",
+                    "forbidden_environment_names_present": ["GITHUB_TOKEN"],
+                    "github_credential_present": True,
+                    "release_authority": "ABSENT",
+                    "usage_path_outside_candidate_repo": True,
+                    "usage_path_outside_hermes_home": True,
+                },
+                "usage_receipt": {"sha256": "a" * 64},
+            }))
+            with self.assertRaisesRegex(M.TelemetryError, "WORKER_AUTHORITY_AUDIT_FAILED"):
+                M._worker_evidence(repo, {"run_id": "run-1"}, {"candidate_id": "candidate-01"})
 
     def test_long_context_ambiguity_fails_closed(self):
         with self.assertRaisesRegex(M.TelemetryError, "LONG_CONTEXT_TIER_AMBIGUOUS"):

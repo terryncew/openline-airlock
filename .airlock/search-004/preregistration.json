@@ -3,6 +3,29 @@
   "experiment": "SEARCH-004 \u2014 Unattended Yield",
   "question": "Can Airlock remove the developer from task-picking without making the economics worse?",
   "experiment_parent_sha": "971750ee6d5bda0e2195dd87ca8ee9d37afb9187",
+  "infrastructure_amendment": {
+    "id": "SEARCH-004-INFRA-001",
+    "failed_run_id": 33681402437,
+    "failed_head_sha": "ab15b9d35b307947b1057fccf5f04502d6941a42",
+    "prior_valid_arm_worker_contacts": 0,
+    "status": "Prospective before the first experimental worker contact.",
+    "observed_blocker": "The experiment wrapper was registered under the reserved built-in hermes provider name, so Airlock applied direct-Hermes pass_env limits to a custom controller wrapper and rejected it before the first arm subprocess.",
+    "latent_blocker": "The generic Airlock report projection intentionally omitted the SEARCH-004-specific raw usage receipt that the controller must bind to its metered usage file.",
+    "repair": [
+      "Register the frozen wrapper under the dedicated search004-hermes adapter name, preserving the built-in Hermes credential limit.",
+      "Load, validate, and archive the frozen worker report from Airlock-owned run storage before clearing runtime state."
+    ],
+    "unchanged": [
+      "experiment question and claim boundary",
+      "arm prompts, order, and opportunity retirement",
+      "Hermes commit, model, and starting harness rule",
+      "worker-contact and spend ceilings",
+      "price table, metering formula, endpoints, and verdict thresholds"
+    ],
+    "previous_frozen_sha256": {
+      "experiments/airlock-search-004/run_search_004.py": "e081ac450db0c7e488128c990a3cc1a85021100e0655714796997e9b90c56d92"
+    }
+  },
   "worker": {
     "name": "Hermes",
     "commit": "29112bef099274229cadff79cdff7bf7b99c4b77",
@@ -103,11 +126,12 @@
     ".airlock/search-004/price-table.json": "f28a6f9ba243841489c483b072236535cbb24da13dccf37a6f0d133c37e6f970",
     ".airlock/search-004/guided-tasks.json": "6251cfb07b10d6f90fc9547abe6b9920b51b845b071007e3aab8450c17d308ff",
     ".airlock/search-004/worker.py": "6ad7f0d17de28fa3bc617d8e95929ef782cec2fb8fa543dad6ae1ab4a16e3bac",
-    "experiments/airlock-search-004/run_search_004.py": "e081ac450db0c7e488128c990a3cc1a85021100e0655714796997e9b90c56d92",
+    "experiments/airlock-search-004/run_search_004.py": "85d377d2f686a4c5d96305dc9b961aa890f0571d130773df88952b711d065c89",
     "experiments/airlock-search-003/run_search_003.py": "2c8ca7569403c47269364f9e7f05e136922890a67fe6a7d0b9a6dbe7a491531c",
     ".airlock/search-002/scorecard.json": "e9816bfa7856306e5b38d0a86afee73ce86c387f37a866cc06babe61c0f7d89b",
     ".airlock/search-002/oracle.py": "304fb1c432b973e5170ce509c5d55cf9f7cc93c064ea6c012eca0d1c8a155b03",
     "src/airlock/harness.py": "43174b1dfa1dbf01bda2433e8e0d9a4d24fb4c2d69d701a8148187f61ea677ed",
+    "src/airlock/providers/registry.py": "edcff30ef5a6f15dd6c03e65e46fe5e64b00c3a5d1c7db6dbfa1e4fc7e5e6ea3",
     "src/airlock/runner.py": "21df9af4eb99f4f1670ab359356fff674097d249832016a5621c69e26a231cd3"
   },
   "claim_boundary": "SEARCH-004 tests whether unattended target selection preserves or improves verified software yield per metered dollar on the same nine-opportunity substrate while removing concrete maintainer task assignments. It does not claim general superiority across repos, models, providers or harnesses."
