@@ -1,0 +1,61 @@
+{
+  "schema": "airlock.search-001.preregistration.v1",
+  "experiment": "AIRLOCK-SEARCH-001",
+  "question": "Can a modified autonomous search strategy find an independently admissible improvement that baseline Hermes failed to discover, without weakening or exposing the frozen SELF-001 selector?",
+  "substrate": {
+    "repo": "terryncew/openline-airlock",
+    "commit": "91861c77e4b03ace60df147b0accf94f4351de18"
+  },
+  "frozen_selector": {
+    "source_experiment": "AIRLOCK-SELF-001",
+    "files_sha256": {
+      ".airlock/self-001/scope_registry.json": "f7dce99f85299814cfb2f3c052faf0072075fadf3d1fe40f7660c1e2a483badb",
+      ".airlock/self-001/evaluator.py": "6cb5ea1fc5bf8ffe08ff08add5f9d5f3739cd14227923228482d6604db9179bb",
+      ".airlock/self-001/protected_checks.py": "b328cd7de7569bb3803690eabc2c9ddbc2d94aae9fae07c4c94776879642698"
+    },
+    "worker_visibility": "ABSENT",
+    "rule": "Improve the searcher, never the judge."
+  },
+  "resource_budget": {
+    "model": "gpt-5.6-sol",
+    "max_candidates_per_strategy": 4,
+    "max_iterations_per_candidate": 2,
+    "hermes_timeout_seconds": 2700,
+    "adaptive_budget_extension": false
+  },
+  "strategies": [
+    {
+      "id": "baseline_freeform",
+      "kind": "control",
+      "prompt_sha256": "6eab04069872d7f91139dfe4502b682b36741ee656bb0ef1e890a25814be853e"
+    },
+    {
+      "id": "triage_rank",
+      "kind": "modified",
+      "prompt_sha256": "a524c26e8381338f3799e6fb31eb5b67fc6e08b2709d08fca6373e2582577f88"
+    },
+    {
+      "id": "hypotheses_first",
+      "kind": "modified",
+      "prompt_sha256": "ec686c35f52ec8ada44cfaf43f7bd33a070bcc480fc06b6051f693e81c9d6768"
+    },
+    {
+      "id": "planner_select",
+      "kind": "modified",
+      "prompt_sha256": "f0a74da1617c47ea1c401c3d38d547278c6962d1651a966204a69f05173e34bc"
+    }
+  ],
+  "acceptance": {
+    "earned_label": "SEARCH_STRATEGY_GAIN",
+    "criterion": "Under the frozen SELF-001 gate and equal resource budget, baseline_freeform has no unique independently admissible winner and at least one preregistered modified search strategy has a unique independently admissible winner."
+  },
+  "stopping_rule": "One prospective run only. No prompt rescue, evaluator changes, target changes, or budget extension after outcomes. Freeze the result.",
+  "next_if_earned": "AIRLOCK-SEARCH-002 fresh-target replication",
+  "explicitly_out_of_scope": [
+    "SELF-002 compounding",
+    "FOREIGN-001",
+    "selector changes",
+    "worker access to hidden evaluator",
+    "adaptive rescue"
+  ]
+}
