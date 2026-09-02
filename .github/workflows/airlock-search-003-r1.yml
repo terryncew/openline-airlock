@@ -1,0 +1,111 @@
+name: AIRLOCK-SEARCH-003-R1
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/airlock-search-003-r1.yml"
+      - "scripts/run_search_003_runtime_restore_r1.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: airlock-search-003-r1
+  cancel-in-progress: false
+
+env:
+  HERMES_COMMIT: 29112bef099274229cadff79cdff7bf7b99c4b77
+  HERMES_MODEL: gpt-5.6-sol
+  HERMES_HOME: /tmp/search-003-hermes-seed
+  HERMES_INSTALL_DIR: /tmp/search-003-hermes
+
+jobs:
+  preregistration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install .
+      - name: Verify SEARCH-002 reference opportunity power
+        run: python .airlock/search-002/reference_power_check.py
+      - name: Verify dimension-level retirement
+        run: python .airlock/search-003/depletion_power_check.py
+      - name: Verify R1 wrapper parses
+        run: python -m py_compile scripts/run_search_003_runtime_restore_r1.py experiments/airlock-search-003/run_search_003.py
+
+  run:
+    needs: preregistration
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Require model credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: 'test -n "${OPENAI_API_KEY:-}"'
+      - run: python -m pip install .
+      - name: Install exact Hermes CLI
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          ARCHIVE="$RUNNER_TEMP/hermes-$HERMES_COMMIT.tar.gz"
+          curl --fail --location --silent --show-error --retry 5 --retry-delay 2 --retry-all-errors \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_READ_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/NousResearch/hermes-agent/tarball/$HERMES_COMMIT" -o "$ARCHIVE"
+          test -s "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
+          test -x "$HERMES_INSTALL_DIR/venv/bin/hermes"
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+      - name: Prepare seed Hermes home
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: $HERMES_MODEL
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 90
+          EOF
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+      - name: Run four sequential depleted search chunks with committed-state restore
+        run: |
+          mkdir -p "$RUNNER_TEMP/search-003-result"
+          python scripts/run_search_003_runtime_restore_r1.py \
+            --out "$RUNNER_TEMP/search-003-result/SEARCH-003-result.json"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: AIRLOCK-SEARCH-003-R1-result
+          path: ${{ runner.temp }}/search-003-result/SEARCH-003-result.json
+          if-no-files-found: error
+          retention-days: 90
