@@ -1,0 +1,145 @@
+name: AIRLOCK-SEARCH-004 Unattended Yield
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/airlock-search-004.yml"
+      - ".airlock/search-004/**"
+      - "experiments/airlock-search-004/**"
+      - "scripts/verify_search_004_prereg.py"
+      - "tests/test_search_004.py"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: airlock-search-004
+  cancel-in-progress: false
+
+env:
+  HERMES_COMMIT: 29112bef099274229cadff79cdff7bf7b99c4b77
+  HERMES_RELEASE: v0.21.0
+  HERMES_MODEL: gpt-5.6-sol
+  HERMES_HOME: /tmp/airlock-search004/seed-hermes-home
+  HERMES_INSTALL_DIR: /tmp/airlock-search004/hermes-install
+
+jobs:
+  preregistration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - run: python -m pip install .
+      - name: Verify frozen SEARCH-004 design
+        run: python scripts/verify_search_004_prereg.py
+      - name: Verify nine-opportunity evaluator power
+        run: python .airlock/search-002/reference_power_check.py
+      - name: Verify arm-local retirement mechanism
+        run: python .airlock/search-003/depletion_power_check.py
+      - name: Verify SEARCH-004 unit boundary
+        run: python -m unittest tests.test_search_004 -v
+
+  run:
+    needs: preregistration
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Require delegated model credential
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: 'test -n "${OPENAI_API_KEY:-}"'
+      - run: python -m pip install .
+      - name: Install exact Hermes v0.21.0 source
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          ARCHIVE="$RUNNER_TEMP/hermes-${HERMES_COMMIT}.tar.gz"
+          curl --fail --location --silent --show-error \
+            --retry 5 --retry-delay 2 --retry-all-errors \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer $GH_READ_TOKEN" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/NousResearch/hermes-agent/tarball/${HERMES_COMMIT}" \
+            -o "$ARCHIVE"
+          test -s "$ARCHIVE"
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install --disable-pip-version-check --editable "$HERMES_INSTALL_DIR"
+          test -x "$HERMES_INSTALL_DIR/venv/bin/hermes"
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+          printf '%s\n' "$HERMES_COMMIT" > "$RUNNER_TEMP/hermes-source-commit.txt"
+          sha256sum "$ARCHIVE" > "$RUNNER_TEMP/hermes-source-archive.sha256"
+      - name: Prepare common starting Hermes harness
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: $HERMES_MODEL
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 90
+          EOF
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+      - name: Verify exact Hermes runtime before spend
+        run: |
+          set -euo pipefail
+          command -v hermes
+          hermes --version
+          test "$(cat "$RUNNER_TEMP/hermes-source-commit.txt")" = "$HERMES_COMMIT"
+      - name: Run SEARCH-004 preflight and both frozen arms
+        id: experiment
+        run: |
+          set +e
+          OUT="$RUNNER_TEMP/search-004-result"
+          mkdir -p "$OUT"
+          python experiments/airlock-search-004/run_search_004.py \
+            --source-repo . \
+            --out "$OUT/SEARCH-004-result.json"
+          status=$?
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+      - name: Preserve Hermes source identity
+        if: always()
+        run: |
+          OUT="$RUNNER_TEMP/search-004-result"
+          cp "$RUNNER_TEMP/hermes-source-commit.txt" "$OUT/" || true
+          cp "$RUNNER_TEMP/hermes-source-archive.sha256" "$OUT/" || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: AIRLOCK-SEARCH-004-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/search-004-result/
+          if-no-files-found: error
+          retention-days: 90
+      - name: Enforce terminal experiment status
+        if: always()
+        run: exit "${{ steps.experiment.outputs.exit_code || '2' }}"

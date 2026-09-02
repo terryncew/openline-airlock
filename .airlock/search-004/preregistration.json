@@ -1,0 +1,114 @@
+{
+  "schema": "airlock.search-004.preregistration.v1",
+  "experiment": "SEARCH-004 \u2014 Unattended Yield",
+  "question": "Can Airlock remove the developer from task-picking without making the economics worse?",
+  "experiment_parent_sha": "971750ee6d5bda0e2195dd87ca8ee9d37afb9187",
+  "worker": {
+    "name": "Hermes",
+    "commit": "29112bef099274229cadff79cdff7bf7b99c4b77",
+    "release": "v0.21.0",
+    "model": "gpt-5.6-sol",
+    "provider": "openai-api",
+    "starting_harness_rule": "Arm A and Arm B are cloned from the same seed HERMES_HOME and must have identical Airlock harness fingerprints before either experimental worker contact."
+  },
+  "opportunity_pool": {
+    "count": 9,
+    "scope": "INTRA_ARM_ONLY",
+    "rule": "Each arm begins with all nine dimensions active. An independently accepted dimension becomes zero marginal value only for later contacts inside that same arm.",
+    "cross_arm_depletion": false
+  },
+  "arms": {
+    "A": {
+      "name": "Airlock unattended",
+      "maintainer_task_assignments_expected": 0,
+      "instruction": "Improve this repo. Keep finding the next useful improvement."
+    },
+    "B": {
+      "name": "Maintainer-guided Hermes",
+      "instruction_source": ".airlock/search-004/guided-tasks.json",
+      "rule": "Each actual worker contact receives the next still-active committed task. No task may be substituted, reordered or tuned after experimental contact begins."
+    }
+  },
+  "resource_bounds": {
+    "max_worker_contacts_per_arm": 4,
+    "spend_ceiling_usd_per_arm": "5.00",
+    "spend_ceiling_semantics": "A new worker contact may start only while cumulative metered spend is below the ceiling. The full metered cost of an in-flight contact is always counted even if it crosses the ceiling.",
+    "preflight_spend_charged_to_arms": false
+  },
+  "arm_order": [
+    "A",
+    "B"
+  ],
+  "arm_order_randomization": {
+    "method": "SHA256('SEARCH-004|971750ee6d5bda0e2195dd87ca8ee9d37afb9187|arm-order-v1') low-bit; 0 => A,B; 1 => B,A",
+    "seed_sha256": "665860f23150419be6cf32056e3e1d3c1e838521889105414735f6417ba9ef98",
+    "resolved_order": [
+      "A",
+      "B"
+    ]
+  },
+  "primary_endpoint": {
+    "name": "economic_yield",
+    "definition": "distinct_verified_improvements / metered_usd",
+    "symbol_arm_a": "Y_A",
+    "symbol_arm_b": "Y_B"
+  },
+  "product_endpoint": {
+    "name": "maintainer_task_assignments_required",
+    "symbol": "T",
+    "definition": "One intervention is counted each time a maintainer-selected concrete improvement target is inserted into an experimental worker prompt. The generic unattended objective is not a task assignment. Precommitted automatic skips of already-retired guided tasks are not interventions."
+  },
+  "verdict_matrix": [
+    {
+      "verdict": "UNATTENDED_YIELD_GAIN",
+      "numeric_condition": "Y_A >= 1.15 * Y_B, or Y_B = 0 and Y_A > 0",
+      "intervention_condition": "T_A = 0 and T_B >= 1"
+    },
+    {
+      "verdict": "UNATTENDED_YIELD_PARITY",
+      "numeric_condition": "0.85 * Y_B <= Y_A < 1.15 * Y_B",
+      "intervention_condition": "T_A = 0 and T_B >= 1"
+    },
+    {
+      "verdict": "GUIDANCE_YIELD_ADVANTAGE",
+      "numeric_condition": "Y_A < 0.85 * Y_B",
+      "intervention_condition": "Any"
+    },
+    {
+      "verdict": "NULL_YIELD",
+      "numeric_condition": "Y_A = 0 and Y_B = 0",
+      "intervention_condition": "Any"
+    },
+    {
+      "verdict": "COST_TELEMETRY_FAILURE",
+      "numeric_condition": "Missing/malformed usage file, zero model usage, unmapped token class/model/provider/service tier, ambiguous long-context pricing, usage hash mismatch, or non-positive independently reconstructed cost",
+      "intervention_condition": "Any"
+    }
+  ],
+  "cost_telemetry": {
+    "source": "Hermes v0.21.0 hermes -z --usage-file",
+    "provider_estimated_cost_is_authoritative": false,
+    "metering_rule": "Airlock hashes each usage file and recomputes USD from recorded token classes using the frozen price table.",
+    "preflight_rule": "Before Arm A or Arm B contacts Hermes, make one tiny real gpt-5.6-sol call using an isolated preflight Hermes home. Require exit 0, input_tokens > 0, output_tokens > 0, api_calls > 0 and independently reconstructed cost > 0.",
+    "failure_rule": "Any telemetry failure immediately invalidates the economic comparison and stops further worker contact."
+  },
+  "prompt_freeze": {
+    "no_prompt_tuning_after_first_experimental_contact": true,
+    "guided_schedule_frozen_before_arm_a": true,
+    "live_dashboard": false,
+    "running_yield_tally_visible_to_maintainer": false
+  },
+  "substrate_tree_sha256": "d0c5832473497dc89f1de2f95a456370e2c7d15e19c98641a0a1a202b4f7f892",
+  "frozen_files": {
+    ".airlock/search-004/price-table.json": "f28a6f9ba243841489c483b072236535cbb24da13dccf37a6f0d133c37e6f970",
+    ".airlock/search-004/guided-tasks.json": "6251cfb07b10d6f90fc9547abe6b9920b51b845b071007e3aab8450c17d308ff",
+    ".airlock/search-004/worker.py": "6ad7f0d17de28fa3bc617d8e95929ef782cec2fb8fa543dad6ae1ab4a16e3bac",
+    "experiments/airlock-search-004/run_search_004.py": "e081ac450db0c7e488128c990a3cc1a85021100e0655714796997e9b90c56d92",
+    "experiments/airlock-search-003/run_search_003.py": "2c8ca7569403c47269364f9e7f05e136922890a67fe6a7d0b9a6dbe7a491531c",
+    ".airlock/search-002/scorecard.json": "e9816bfa7856306e5b38d0a86afee73ce86c387f37a866cc06babe61c0f7d89b",
+    ".airlock/search-002/oracle.py": "304fb1c432b973e5170ce509c5d55cf9f7cc93c064ea6c012eca0d1c8a155b03",
+    "src/airlock/harness.py": "43174b1dfa1dbf01bda2433e8e0d9a4d24fb4c2d69d701a8148187f61ea677ed",
+    "src/airlock/runner.py": "21df9af4eb99f4f1670ab359356fff674097d249832016a5621c69e26a231cd3"
+  },
+  "claim_boundary": "SEARCH-004 tests whether unattended target selection preserves or improves verified software yield per metered dollar on the same nine-opportunity substrate while removing concrete maintainer task assignments. It does not claim general superiority across repos, models, providers or harnesses."
+}
