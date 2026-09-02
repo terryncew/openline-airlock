@@ -1,13 +1,17 @@
 # AIRLOCK-SEARCH-001
 
-SEARCH-001 tests search strategy only against pinned SELF-001 substrate `91861c77e4b03ace60df147b0accf94f4351de18`.
+Can a coding agent find better work to do when you give it a better way to explore a repo?
 
-Generation and evaluation are separate jobs. The worker repository physically excludes the hidden evaluator, hidden scope registry, SELF-001 preregistration, fixtures, and directed SELF-001 harness before a fresh Git repository is created. Candidate patches cross afterward as inert artifacts.
+This compares two versions of the same Hermes worker with the same model, repo, candidate count, checks, and hidden evaluation.
 
-Four equal-budget strategies are preregistered: baseline free-form, triage-and-rank, hypotheses-first, and planner-select. All use Hermes gpt-5.6-sol with four candidates.
+**Free-form** gets: “Improve this repo.”
 
-`SEARCH_STRATEGY_GAIN` is earned only when baseline has no unique admissible winner and at least one modified strategy does under the frozen SELF-001 selector.
+**Repo Scout** has to understand the repo first, list several possible improvements, check whether each one is actually useful, look at speed/reliability/dev experience/security/maintainability/user impact, inspect one decisive fact when the diagnosis is fuzzy, rank the options, and only then build the best small reversible fix.
 
-One run. No rescue after results. No SELF-002 here.
+The worker cannot see or change the hidden evaluation.
 
-**Improve the searcher, never the judge.**
+The previous SEARCH-001 run does not count. The setup accidentally deleted `office_ops.py`, the file the public checks exercise, so Hermes never got a valid repo to search. This version keeps the target and fails immediately if the starting checks are broken.
+
+A win means Repo Scout finds an independently accepted improvement and Free-form does not.
+
+If that happens, the next test is the same Repo Scout workflow on fresh hidden opportunities. No multi-step self-improvement yet.
