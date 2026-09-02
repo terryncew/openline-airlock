@@ -18,6 +18,7 @@ from airlock.util import canonical_json_bytes, sha256_bytes, sha256_file, write_
 from airlock.verification import ensure_key, sign
 
 MODEL = "gpt-5.6-sol"
+PROVIDER = "search004-hermes"
 HERMES_COMMIT = "29112bef099274229cadff79cdff7bf7b99c4b77"
 EXPERIMENT_PARENT = "971750ee6d5bda0e2195dd87ca8ee9d37afb9187"
 MAX_WORKER_CONTACTS = 4
@@ -36,7 +37,7 @@ PUBLIC_CONFIG = {
     "schema": "airlock.config.v1",
     "parallelism": 1,
     "providers": {
-        "hermes": {
+        PROVIDER: {
             "command": ["python", ".airlock/search-004/worker.py", "{prompt}"],
             "pass_env": ["HERMES_HOME", "SEARCH004_USAGE_FILE", "HERMES_COMMIT", "HERMES_VERSION"],
             "timeout_seconds": 2700,
@@ -255,7 +256,7 @@ def verdict_for(y_a: Decimal, y_b: Decimal, t_a: int, t_b: int) -> str:
 
 
 def _provider() -> dict:
-    return PUBLIC_CONFIG["providers"]["hermes"]
+    return PUBLIC_CONFIG["providers"][PROVIDER]
 
 
 def _fingerprint(home: Path) -> dict:
@@ -486,7 +487,7 @@ def run_arm(state: dict, *, source: Path, search003, oracle, table: dict, tasks:
                 repo,
                 prompt,
                 agents=1,
-                models=["hermes"],
+                models=[PROVIDER],
                 budget=None,
                 open_pr=False,
                 config_path=repo / ".airlock/search-004-public-config.json",
