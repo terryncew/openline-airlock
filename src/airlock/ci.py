@@ -229,7 +229,14 @@ class GitHubActionsReadClient:
         return rows
 
     def job_log(self, repo: str, job_id: int) -> dict[str, Any]:
-        return self._optional_bytes(f"/repos/{repo}/actions/jobs/{job_id}/logs", accept="text/plain")
+        # GitHub's job-log endpoint is an API redirect endpoint. The API request
+        # itself expects the standard GitHub JSON media type; urllib follows the
+        # redirect and returns the eventual plain-text log bytes. Sending
+        # ``Accept: text/plain`` to the API endpoint can produce HTTP 415.
+        return self._optional_bytes(
+            f"/repos/{repo}/actions/jobs/{job_id}/logs",
+            accept="application/vnd.github+json",
+        )
 
     def annotations(self, repo: str, check_run_url: str | None) -> dict[str, Any]:
         if not check_run_url:

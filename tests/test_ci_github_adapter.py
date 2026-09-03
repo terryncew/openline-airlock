@@ -86,6 +86,22 @@ class GitHubAdapterTests(unittest.TestCase):
         self.assertEqual([x for x in calls if x[0] == "log"], [("log", 101)])
         self.assertEqual(bundle["later_attempts"][0]["jobs"][0]["id"], 202)
 
+    def test_job_log_uses_github_api_media_type_before_following_redirect(self):
+        seen = []
+        def opener(req, timeout=0):
+            seen.append(req)
+            if req.headers.get("Accept") != "application/vnd.github+json":
+                raise urllib.error.HTTPError(req.full_url, 415, "unsupported media type", {}, None)
+            return _Response(b"tests/test_x.py::test_x FAILED\nAssertionError\n")
+
+        client = GitHubActionsReadClient(token="read-only-token", opener=opener)
+        result = client.job_log("example/widget", 123)
+
+        self.assertTrue(result["available"])
+        self.assertIn(b"AssertionError", result["bytes"])
+        self.assertEqual(client.request_methods, ["GET"])
+        self.assertEqual(seen[0].headers.get("Accept"), "application/vnd.github+json")
+
     def test_authoritative_missing_job_log_is_preserved_as_missing_evidence(self):
         req = mock.Mock(full_url="https://api.github.com/repos/example/widget/actions/jobs/1/logs")
         def opener(request, timeout=0):
