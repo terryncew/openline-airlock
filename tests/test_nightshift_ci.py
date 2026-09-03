@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from airlock import ci, command, nightshift_ci
+from airlock import ci, ci_retry, command, nightshift_ci
 from airlock.ci import PROVIDER, SCHEMA_VERSION
 from airlock.util import canonical_json_bytes, sha256_bytes
 from airlock.verification import sign
@@ -68,6 +68,9 @@ class NightshiftCIIntegrationTests(unittest.TestCase):
         with mock.patch("airlock.nightshift_ci.main", return_value=7) as integration:
             self.assertEqual(command.main(["nightshift", "--ci", "123"]), 7)
             integration.assert_called_once_with(["--ci", "123"])
+        with mock.patch("airlock.nightshift_ci.main", return_value=8) as integration:
+            self.assertEqual(command.main(["nightshift", "--retry-ci"]), 8)
+            integration.assert_called_once_with(["--retry-ci"])
         with mock.patch("airlock.entry.main", return_value=9) as frozen:
             self.assertEqual(command.main(["nightshift", "--budget", "2"]), 9)
             frozen.assert_called_once_with(["nightshift", "--budget", "2"])
@@ -135,7 +138,55 @@ class NightshiftCIIntegrationTests(unittest.TestCase):
         finally:
             td.cleanup()
 
+    def test_explicit_retry_mode_consumes_only_retry_recommended_receipt(self) -> None:
+        td, repo, key = make_repo()
+        try:
+            receipt_path = write_receipt(repo, key, "RETRY_RECOMMENDED")
+            fake_result = {
+                "retry_attempt": 2,
+                "retry_disposition": "NO_ACTION",
+                "original_receipt_path": receipt_path,
+                "retry_receipt_path": repo / ".airlock" / "retry.json",
+                "retry_record_path": repo / ".airlock" / "retry-record.json",
+            }
+            with mock.patch("airlock.ci.record_run", return_value={"receipt_path": receipt_path, "receipt": json.loads(receipt_path.read_text())}), \
+                 mock.patch("airlock.ci_retry.bounded_retry", return_value=fake_result) as bounded, \
+                 mock.patch("airlock.entry.main") as frozen_nightshift:
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    rc = nightshift_ci.main(["--ci", "123", "--retry-ci", "--repo", str(repo)])
+            self.assertEqual(rc, 0)
+            bounded.assert_called_once()
+            frozen_nightshift.assert_not_called()
+            self.assertIn("Retry submitted: YES", out.getvalue())
+            self.assertIn("Retry budget remaining: 0", out.getvalue())
+            self.assertIn("Hermes started: NO", out.getvalue())
+        finally:
+            td.cleanup()
 
+    def test_retry_flag_never_overrides_report_only(self) -> None:
+        td, repo, key = make_repo()
+        try:
+            receipt_path = write_receipt(repo, key, "REPORT_ONLY")
+            with mock.patch("airlock.ci.record_run", return_value={"receipt_path": receipt_path}), \
+                 mock.patch("airlock.ci_retry.bounded_retry") as bounded, \
+                 mock.patch("airlock.entry.main") as frozen_nightshift:
+                out = io.StringIO()
+                with contextlib.redirect_stdout(out):
+                    rc = nightshift_ci.main(["--ci", "123", "--retry-ci", "--repo", str(repo)])
+            self.assertEqual(rc, 0)
+            bounded.assert_not_called()
+            frozen_nightshift.assert_not_called()
+            self.assertIn("Retry submitted: NO", out.getvalue())
+        finally:
+            td.cleanup()
+
+    def test_retry_flag_requires_ci(self) -> None:
+        err = io.StringIO()
+        with contextlib.redirect_stderr(err):
+            rc = nightshift_ci.main(["--retry-ci"])
+        self.assertEqual(rc, 3)
+        self.assertIn("requires --ci", err.getvalue())
 
 
 if __name__ == "__main__":

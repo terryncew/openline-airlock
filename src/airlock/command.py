@@ -7,7 +7,7 @@ from . import entry
 
 CI_HELP_LINE = "  ci             Classify failed GitHub Actions evidence before anyone repairs it."
 CI_START_LINE = "  airlock ci <github-actions-run-url-or-id>"
-NIGHTSHIFT_CI_START_LINE = "  airlock nightshift --ci <github-actions-run-url-or-id>"
+NIGHTSHIFT_CI_START_LINE = "  airlock nightshift --ci <github-actions-run-url-or-id> [--retry-ci]"
 
 
 def _help_text() -> str:
@@ -45,7 +45,7 @@ def main(argv: list[str] | None = None) -> int:
         return ci_main(raw[1:])
 
     if raw[0] == "nightshift" and any(
-        token == "--ci" or token.startswith("--ci=") for token in raw[1:]
+        token == "--ci" or token.startswith("--ci=") or token == "--retry-ci" for token in raw[1:]
     ):
         from .nightshift_ci import main as nightshift_ci_main
         return nightshift_ci_main(raw[1:])

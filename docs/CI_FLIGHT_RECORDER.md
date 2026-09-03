@@ -61,4 +61,14 @@ airlock nightshift --ci https://github.com/OWNER/REPO/actions/runs/123456789
 
 This integration is routing-only. `CODE_REPAIR_ALLOWED`, `RETRY_RECOMMENDED`, and `REPORT_ONLY` all stop Nightshift before worker contact and preserve the sealed Recorder receipt as the authority for the next process. `NO_ACTION` is the only disposition that allows ordinary Nightshift work to continue.
 
-This build deliberately does **not** retry CI and does **not** turn `CODE_REPAIR_ALLOWED` into a repair attempt. Bounded retry and CI Doctor remain separate follow-on capabilities. Recorder receipts remain local evidence artifacts under `.airlock/ci/`.
+By default this remains routing-only. A retry is a separate explicit action and still requires the sealed route to be `RETRY_RECOMMENDED`:
+
+```bash
+airlock nightshift --ci https://github.com/OWNER/REPO/actions/runs/123456789 --retry-ci
+```
+
+That command may submit **one** GitHub Actions failed-job rerun for the exact sealed source attempt. Airlock writes a durable reservation before the provider mutation, so a crash, timeout, duplicate invocation, or ambiguous provider response cannot create an automatic retry loop. The retry budget is exactly one; it cannot be refreshed by a failed retry.
+
+Airlock preserves the original Recorder receipt, waits for the one new attempt, seals a second Recorder receipt for that exact attempt, and writes a signed retry record under `.airlock/ci/retries/` binding both receipt hashes. Hermes does not start during the bounded-retry process. The retry result does not grant merge, deployment, baseline-change, workflow-repair, or code-repair authority.
+
+A receipt other than `RETRY_RECOMMENDED` produces no provider write even when `--retry-ci` is present. `CODE_REPAIR_ALLOWED` remains a separate future process; CI Doctor is still deferred.
