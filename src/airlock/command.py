@@ -48,7 +48,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if raw[0] == "ci":
-        from .ci import main as ci_main
+        from .ci_github import main as ci_main
         return ci_main(raw[1:])
 
     if raw[0] == "doctor":

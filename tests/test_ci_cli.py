@@ -19,7 +19,7 @@ class CIRecorderCLITests(unittest.TestCase):
         with contextlib.redirect_stdout(out):
             self.assertEqual(command.main(["--help"]), 0)
         self.assertIn("airlock ci <github-actions-run-url-or-id>", out.getvalue())
-        with mock.patch("airlock.ci.main", return_value=7) as ci_main:
+        with mock.patch("airlock.ci_github.main", return_value=7) as ci_main:
             self.assertEqual(command.main(["ci", "123"]), 7)
             ci_main.assert_called_once_with(["123"])
 
