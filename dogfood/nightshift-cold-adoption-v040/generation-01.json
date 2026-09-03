@@ -1,0 +1,487 @@
+{
+  "alg": "HMAC-SHA256",
+  "payload": {
+    "base_commit": "ff87849839d61f97afff771aebf319c7a540257a",
+    "baseline": {
+      "command_sha256": "fe1dfd531354955ebbea2d4e49ecae1b410e2e3ca432fa41458f82230852483f",
+      "commit": "ff87849839d61f97afff771aebf319c7a540257a",
+      "direction": "minimize",
+      "maximum": "2423",
+      "median": "2423",
+      "minimum": "2423",
+      "records": [
+        {
+          "argv": [
+            "python",
+            ".airlock/objectives/measure-source-lines.py"
+          ],
+          "duration_seconds": 0.019209,
+          "exit_code": 0,
+          "repeat": 1,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "d523566dae10d8493e71693a6b644b0681ef21b22e77261fd36327df675a3f1a",
+          "stdout_tail": "{\"value\": 2423}\n",
+          "timed_out": false
+        }
+      ],
+      "status": "MEASURED",
+      "unit": "lines",
+      "values": [
+        "2423"
+      ]
+    },
+    "candidates": [
+      {
+        "candidate_id": "candidate-01",
+        "commit": "a60589b1ddc8f641d038b8f50e4467501da5d676",
+        "conservative_gain": "2",
+        "diff": {
+          "binary_files": 0,
+          "changed_files": 1,
+          "changed_lines": 4,
+          "lines_added": 1,
+          "lines_deleted": 3
+        },
+        "disposition": "ELIGIBLE",
+        "equivalent_candidate_ids": [
+          "candidate-01"
+        ],
+        "measurement": {
+          "command_sha256": "fe1dfd531354955ebbea2d4e49ecae1b410e2e3ca432fa41458f82230852483f",
+          "commit": "a60589b1ddc8f641d038b8f50e4467501da5d676",
+          "direction": "minimize",
+          "maximum": "2421",
+          "median": "2421",
+          "minimum": "2421",
+          "records": [
+            {
+              "argv": [
+                "python",
+                ".airlock/objectives/measure-source-lines.py"
+              ],
+              "duration_seconds": 0.019312,
+              "exit_code": 0,
+              "repeat": 1,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "87073182629e330e428e7d133f55da7ba4833a6ce641bdf71373f462856c79e8",
+              "stdout_tail": "{\"value\": 2421}\n",
+              "timed_out": false
+            }
+          ],
+          "status": "MEASURED",
+          "unit": "lines",
+          "values": [
+            "2421"
+          ]
+        },
+        "net_gain_score": "2",
+        "reason": "OBJECTIVE_CLEARED",
+        "reported_cost_usd": null,
+        "tree": "a57aa4c0eefa4cdf9b0d8c50a8b6c448707f63ff",
+        "worker": {
+          "agent_execution": {
+            "argv": [
+              "hermes",
+              "-z",
+              "Airlock bounded improvement generation 1.\n\nOperator-owned objective: OpenLine OTEL source-line reduction\nGoal: Reduce Python source lines in src/openline_otel while preserving all existing tests and protected files.\nCurrent measured utility: 2423 lines\nDirection: minimize\n\nPropose and implement one small, reversible improvement. Touch at most 1 files and 40 lines. Do not edit tests, workflows, Airlock rules, the objective, or evaluator configuration. Airlock will run repository checks and the operator-owned measurement independently. You do not decide whether this change is promoted."
+            ],
+            "duration_seconds": 86.331384,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "8557365716b5b28dd610771d47296de9d72369a2ca7e36eecdd528fc17e88c5b",
+            "stdout_tail": "Implemented in src/openline_otel/processor.py:\n\n- Unified identical tuple/list normalization branches.\n- Source lines reduced from 2423 to 2421.\n- Scope: 1 file, 1 insertion, 3 deletions.\n- Verified: 32 tests passed; git diff check passed.\n",
+            "timed_out": false
+          },
+          "agent_report": {},
+          "hermes_profile": null,
+          "model": "hermes"
+        }
+      }
+    ],
+    "config_sha256": "e5130faf2598e24c5301712b25033e4d77f9e0c704246543a9ea0aa52a65aed9",
+    "decision": "UNIQUE_WINNER",
+    "evaluator_fingerprint": {
+      "files": [
+        {
+          "path": ".airlock/objective.json",
+          "sha256": "f05debf1e5f749fb155059a8ccd72504c3cd602685c3e75c0b7c223f060dc258"
+        },
+        {
+          "path": ".airlock/objectives/measure-source-lines.py",
+          "sha256": "df3b3b9ff8226f274f44cb20059255e94a582e201a87f29b00f689f9fb2089f8"
+        }
+      ],
+      "root_sha256": "8861ba434182a0494769daa9942bc466f3efd537da74884f3b1a568766a18ca5"
+    },
+    "generation": 1,
+    "objective_sha256": "f05debf1e5f749fb155059a8ccd72504c3cd602685c3e75c0b7c223f060dc258",
+    "parent_generation_receipt_sha256": null,
+    "promoted_commit": "a60589b1ddc8f641d038b8f50e4467501da5d676",
+    "run_context": {
+      "attempts_per_generation": 1,
+      "authority_boundary": "Hermes may mutate its own profile and candidate worktree; Airlock keeps the committed objective, repository checks, signed receipts, harness fingerprinting, and promotion decision outside that mutable worker state.",
+      "commands": [
+        [
+          "hermes",
+          "-z",
+          "{prompt}"
+        ]
+      ],
+      "harness_fingerprint_schema": "airlock.hermes-harness-fingerprint.v1",
+      "harness_lineage": [
+        {
+          "after": {
+            "fingerprint_sha256": "423e15a7888559215fe9770e6c05ad24bcbfee7c8c4c36e1885fafe5d1f77524",
+            "schema": "airlock.hermes-harness-set.v1",
+            "workers": [
+              {
+                "adapter_command": [
+                  "hermes",
+                  "-z",
+                  "{prompt}"
+                ],
+                "adapter_pass_env": [
+                  "HERMES_HOME"
+                ],
+                "airlock_model": "hermes",
+                "claim_boundary": "This fingerprint binds deterministic non-secret Hermes runtime/config/instruction/skill/tool/memory state, including requested model routing and the tracked tool registry. It deliberately excludes credentials, session transcripts, logs, caches, databases, checkpoints, and profile HOME.",
+                "excluded_surfaces": {
+                  "credential_files": [
+                    ".env",
+                    "auth.json",
+                    "*token*",
+                    "*secret*",
+                    "*credential*",
+                    "*.key",
+                    "*.pem"
+                  ],
+                  "databases_and_runtime_state": [
+                    "state.db",
+                    "*.db",
+                    "*.sqlite",
+                    "*.sqlite3"
+                  ],
+                  "transient_directories": [
+                    ".cache",
+                    "__pycache__",
+                    "backups",
+                    "cache",
+                    "checkpoints",
+                    "home",
+                    "logs",
+                    "sessions",
+                    "state-snapshots",
+                    "tmp"
+                  ]
+                },
+                "fingerprint_sha256": "7f15ac3a2ee4354f83227609f045b2f99630492b83b618b8131688ba0824f119",
+                "hermes_profile": "default",
+                "routing": {
+                  "adapter_command": [
+                    "hermes",
+                    "-z",
+                    "{prompt}"
+                  ],
+                  "effective_model_note": "The requested model is configuration state. The effective model is recorded per attempt from post-execution worker evidence when available; absence is preserved as unknown.",
+                  "fingerprint_sha256": "7fe8f9e1f10e8d1aedec5671680ff12272a630a9aa4c70f5b1abffa4db7920d2",
+                  "requested_model": null,
+                  "requested_model_source": null,
+                  "tool_registry": {
+                    "fingerprint_sha256": "602e35a92eec4bc0a2ec6ae113f07bfc6933322fb69fe8dee416e5a67217e2a2",
+                    "tracked_tool_files": 0
+                  },
+                  "tool_registry_sha256": "602e35a92eec4bc0a2ec6ae113f07bfc6933322fb69fe8dee416e5a67217e2a2"
+                },
+                "runtime": {
+                  "executable_name": "hermes",
+                  "executable_sha256": "8e96fdb028918022252cddbe031d407c6a8cb1f7b6ede7415baa5ae0011ce0c1",
+                  "source_commit": "29112bef099274229cadff79cdff7bf7b99c4b77",
+                  "source_commit_declared_by_environment": "29112bef099274229cadff79cdff7bf7b99c4b77",
+                  "source_commit_observed_from_git": false,
+                  "version": null
+                },
+                "schema": "airlock.hermes-harness-fingerprint.v1",
+                "state_root_present": true,
+                "tracked_bytes": 819,
+                "tracked_file_count": 2,
+                "tracked_files": [
+                  {
+                    "kind": "file",
+                    "path": "SOUL.md",
+                    "sha256": "36c1f5a2e92cd1d018311eaf4c8f1e8886672eae78212e033c681d0e3d5d506f",
+                    "size_bytes": 667
+                  },
+                  {
+                    "kind": "file",
+                    "normalization": "yaml-comments-removed-secret-values-redacted",
+                    "path": "config.yaml",
+                    "sha256": "281491125f4fb08f362d8ce07b8a56be466ae5e055026aa3d25130653d6311ca",
+                    "size_bytes": 152
+                  }
+                ],
+                "tracked_surfaces": {
+                  "directories": [
+                    "skills",
+                    "tools",
+                    "memories",
+                    "hooks",
+                    "context"
+                  ],
+                  "root_files": [
+                    "config.yaml",
+                    "SOUL.md"
+                  ]
+                },
+                "worker": "hermes"
+              }
+            ]
+          },
+          "after_fingerprint_sha256": "423e15a7888559215fe9770e6c05ad24bcbfee7c8c4c36e1885fafe5d1f77524",
+          "attempts": [
+            {
+              "airlock_model": "hermes",
+              "candidate_id": "candidate-01",
+              "harness_fingerprint_sha256": "f209aaeaf3d8c5fe7cc7dc24c60a8aab48af19fe2a47c52bd743b60ca6eab4aa",
+              "model_route": {
+                "effective_model_observation": "UNAVAILABLE",
+                "effective_model_observed": null,
+                "matches_requested": null,
+                "requested_model": null,
+                "requested_model_source": null,
+                "routing_fingerprint_sha256": "7fe8f9e1f10e8d1aedec5671680ff12272a630a9aa4c70f5b1abffa4db7920d2",
+                "tool_registry_fingerprint_sha256": "602e35a92eec4bc0a2ec6ae113f07bfc6933322fb69fe8dee416e5a67217e2a2"
+              }
+            }
+          ],
+          "before_fingerprint_sha256": "37596863f7a0a131646d5f01a0623f8a3512e7dc50095ba73df96ee7ab9ca4c6",
+          "changed": true,
+          "continuity_from_prior": true,
+          "effective_model_observation_complete": false,
+          "generation": 1,
+          "parent_harness_fingerprint_sha256": "37596863f7a0a131646d5f01a0623f8a3512e7dc50095ba73df96ee7ab9ca4c6",
+          "source_tournament_run_id": "20260903-181610-b1c88c",
+          "worker_fingerprints_before": {
+            "hermes": "f209aaeaf3d8c5fe7cc7dc24c60a8aab48af19fe2a47c52bd743b60ca6eab4aa"
+          }
+        }
+      ],
+      "harness_lineage_complete": true,
+      "models": [
+        "hermes"
+      ],
+      "parallel_profile_rule": "single worker identity",
+      "pass_env": [
+        [
+          "HERMES_HOME"
+        ]
+      ],
+      "persistent_worker_state": true,
+      "profiles": [
+        "default"
+      ],
+      "schema": "airlock.nightshift.context.v1",
+      "scripted_interface": "-z",
+      "starting_harness": {
+        "fingerprint_sha256": "37596863f7a0a131646d5f01a0623f8a3512e7dc50095ba73df96ee7ab9ca4c6",
+        "schema": "airlock.hermes-harness-set.v1",
+        "workers": [
+          {
+            "adapter_command": [
+              "hermes",
+              "-z",
+              "{prompt}"
+            ],
+            "adapter_pass_env": [
+              "HERMES_HOME"
+            ],
+            "airlock_model": "hermes",
+            "claim_boundary": "This fingerprint binds deterministic non-secret Hermes runtime/config/instruction/skill/tool/memory state, including requested model routing and the tracked tool registry. It deliberately excludes credentials, session transcripts, logs, caches, databases, checkpoints, and profile HOME.",
+            "excluded_surfaces": {
+              "credential_files": [
+                ".env",
+                "auth.json",
+                "*token*",
+                "*secret*",
+                "*credential*",
+                "*.key",
+                "*.pem"
+              ],
+              "databases_and_runtime_state": [
+                "state.db",
+                "*.db",
+                "*.sqlite",
+                "*.sqlite3"
+              ],
+              "transient_directories": [
+                ".cache",
+                "__pycache__",
+                "backups",
+                "cache",
+                "checkpoints",
+                "home",
+                "logs",
+                "sessions",
+                "state-snapshots",
+                "tmp"
+              ]
+            },
+            "fingerprint_sha256": "f209aaeaf3d8c5fe7cc7dc24c60a8aab48af19fe2a47c52bd743b60ca6eab4aa",
+            "hermes_profile": "default",
+            "routing": {
+              "adapter_command": [
+                "hermes",
+                "-z",
+                "{prompt}"
+              ],
+              "effective_model_note": "The requested model is configuration state. The effective model is recorded per attempt from post-execution worker evidence when available; absence is preserved as unknown.",
+              "fingerprint_sha256": "7fe8f9e1f10e8d1aedec5671680ff12272a630a9aa4c70f5b1abffa4db7920d2",
+              "requested_model": null,
+              "requested_model_source": null,
+              "tool_registry": {
+                "fingerprint_sha256": "602e35a92eec4bc0a2ec6ae113f07bfc6933322fb69fe8dee416e5a67217e2a2",
+                "tracked_tool_files": 0
+              },
+              "tool_registry_sha256": "602e35a92eec4bc0a2ec6ae113f07bfc6933322fb69fe8dee416e5a67217e2a2"
+            },
+            "runtime": {
+              "executable_name": "hermes",
+              "executable_sha256": "8e96fdb028918022252cddbe031d407c6a8cb1f7b6ede7415baa5ae0011ce0c1",
+              "source_commit": "29112bef099274229cadff79cdff7bf7b99c4b77",
+              "source_commit_declared_by_environment": "29112bef099274229cadff79cdff7bf7b99c4b77",
+              "source_commit_observed_from_git": false,
+              "version": null
+            },
+            "schema": "airlock.hermes-harness-fingerprint.v1",
+            "state_root_present": true,
+            "tracked_bytes": 152,
+            "tracked_file_count": 1,
+            "tracked_files": [
+              {
+                "kind": "file",
+                "normalization": "yaml-comments-removed-secret-values-redacted",
+                "path": "config.yaml",
+                "sha256": "281491125f4fb08f362d8ce07b8a56be466ae5e055026aa3d25130653d6311ca",
+                "size_bytes": 152
+              }
+            ],
+            "tracked_surfaces": {
+              "directories": [
+                "skills",
+                "tools",
+                "memories",
+                "hooks",
+                "context"
+              ],
+              "root_files": [
+                "config.yaml",
+                "SOUL.md"
+              ]
+            },
+            "worker": "hermes"
+          }
+        ]
+      },
+      "time_boundary": "This software gate covers measured candidate standing and repository-state promotion. It is not a sub-second live feasibility controller for physical actuators.",
+      "worker": "hermes",
+      "worker_state_controls_evaluator": false,
+      "worker_state_controls_objective": false,
+      "worker_state_controls_promotion": false
+    },
+    "run_id": "20260903-181610-b7a8e6",
+    "schema": "airlock.improvement.generation.v1",
+    "selection": {
+      "eligible": 1,
+      "status": "UNIQUE_WINNER",
+      "winner": {
+        "candidate_id": "candidate-01",
+        "commit": "a60589b1ddc8f641d038b8f50e4467501da5d676",
+        "conservative_gain": "2",
+        "diff": {
+          "binary_files": 0,
+          "changed_files": 1,
+          "changed_lines": 4,
+          "lines_added": 1,
+          "lines_deleted": 3
+        },
+        "disposition": "ELIGIBLE",
+        "equivalent_candidate_ids": [
+          "candidate-01"
+        ],
+        "measurement": {
+          "command_sha256": "fe1dfd531354955ebbea2d4e49ecae1b410e2e3ca432fa41458f82230852483f",
+          "commit": "a60589b1ddc8f641d038b8f50e4467501da5d676",
+          "direction": "minimize",
+          "maximum": "2421",
+          "median": "2421",
+          "minimum": "2421",
+          "records": [
+            {
+              "argv": [
+                "python",
+                ".airlock/objectives/measure-source-lines.py"
+              ],
+              "duration_seconds": 0.019312,
+              "exit_code": 0,
+              "repeat": 1,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "87073182629e330e428e7d133f55da7ba4833a6ce641bdf71373f462856c79e8",
+              "stdout_tail": "{\"value\": 2421}\n",
+              "timed_out": false
+            }
+          ],
+          "status": "MEASURED",
+          "unit": "lines",
+          "values": [
+            "2421"
+          ]
+        },
+        "net_gain_score": "2",
+        "reason": "OBJECTIVE_CLEARED",
+        "reported_cost_usd": null,
+        "tree": "a57aa4c0eefa4cdf9b0d8c50a8b6c448707f63ff",
+        "worker": {
+          "agent_execution": {
+            "argv": [
+              "hermes",
+              "-z",
+              "Airlock bounded improvement generation 1.\n\nOperator-owned objective: OpenLine OTEL source-line reduction\nGoal: Reduce Python source lines in src/openline_otel while preserving all existing tests and protected files.\nCurrent measured utility: 2423 lines\nDirection: minimize\n\nPropose and implement one small, reversible improvement. Touch at most 1 files and 40 lines. Do not edit tests, workflows, Airlock rules, the objective, or evaluator configuration. Airlock will run repository checks and the operator-owned measurement independently. You do not decide whether this change is promoted."
+            ],
+            "duration_seconds": 86.331384,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "8557365716b5b28dd610771d47296de9d72369a2ca7e36eecdd528fc17e88c5b",
+            "stdout_tail": "Implemented in src/openline_otel/processor.py:\n\n- Unified identical tuple/list normalization branches.\n- Source lines reduced from 2423 to 2421.\n- Scope: 1 file, 1 insertion, 3 deletions.\n- Verified: 32 tests passed; git diff check passed.\n",
+            "timed_out": false
+          },
+          "agent_report": {},
+          "hermes_profile": null,
+          "model": "hermes"
+        }
+      }
+    },
+    "tournament": {
+      "elapsed_seconds": 87.531,
+      "models": [
+        "hermes"
+      ],
+      "reported_cost": {
+        "complete": false,
+        "known_candidates": 0,
+        "reported_cost_usd_total": "0",
+        "unknown_candidates": 1
+      },
+      "requested_agents": 1,
+      "run_id": "20260903-181610-b1c88c",
+      "status": "READY",
+      "survivor_count": 1,
+      "verification_sha256": "436207be5021ebd313eb8666b922cef617dadcbaffd6584938334f26c307c31f"
+    },
+    "what_this_record_means": "The operator-owned objective, repository checks, and bounded scoring rule either identified one compounding candidate or stopped the loop."
+  },
+  "signature": "dfc8872212a723ce22c759c332c77d2c90957bc914a4a99532fe898cab1ad30b"
+}
