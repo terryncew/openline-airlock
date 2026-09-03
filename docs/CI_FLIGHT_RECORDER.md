@@ -50,3 +50,15 @@ The receipt's HMAC proves only that the local Airlock installation sealed these 
 A named failing test with a concrete deterministic code signal can route to `CODE_REPAIR_ALLOWED`; Airlock may then let a worker generate an isolated candidate, but existing protected paths and independent checks still decide whether it deserves review.
 
 The frozen runner-filesystem fixture modeled on the PR #60 incident routes to `ENVIRONMENT / RUNNER_FILESYSTEM`. When a later equivalent attempt passes, the receipt reports `TRANSIENT` and `RETRY_RECOMMENDED`; it grants no code-repair authority and makes no claim that the patch is safe.
+
+## Nightshift routing boundary
+
+Nightshift can ask Recorder to classify one completed GitHub Actions run before any Hermes worker starts:
+
+```bash
+airlock nightshift --ci https://github.com/OWNER/REPO/actions/runs/123456789
+```
+
+This integration is routing-only. `CODE_REPAIR_ALLOWED`, `RETRY_RECOMMENDED`, and `REPORT_ONLY` all stop Nightshift before worker contact and preserve the sealed Recorder receipt as the authority for the next process. `NO_ACTION` is the only disposition that allows ordinary Nightshift work to continue.
+
+This build deliberately does **not** retry CI and does **not** turn `CODE_REPAIR_ALLOWED` into a repair attempt. Bounded retry and CI Doctor remain separate follow-on capabilities. Recorder receipts remain local evidence artifacts under `.airlock/ci/`.

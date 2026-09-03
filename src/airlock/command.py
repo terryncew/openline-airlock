@@ -7,6 +7,7 @@ from . import entry
 
 CI_HELP_LINE = "  ci             Classify failed GitHub Actions evidence before anyone repairs it."
 CI_START_LINE = "  airlock ci <github-actions-run-url-or-id>"
+NIGHTSHIFT_CI_START_LINE = "  airlock nightshift --ci <github-actions-run-url-or-id>"
 
 
 def _help_text() -> str:
@@ -25,8 +26,9 @@ def _help_text() -> str:
     try:
         review_index = next(i for i, line in enumerate(lines) if line.strip() == "airlock review")
         lines.insert(review_index + 1, CI_START_LINE)
+        lines.insert(review_index + 2, NIGHTSHIFT_CI_START_LINE)
     except StopIteration:
-        lines.extend(["", "CI evidence", CI_START_LINE])
+        lines.extend(["", "CI evidence", CI_START_LINE, NIGHTSHIFT_CI_START_LINE])
     return "\n".join(lines)
 
 
@@ -41,6 +43,12 @@ def main(argv: list[str] | None = None) -> int:
     if raw[0] == "ci":
         from .ci import main as ci_main
         return ci_main(raw[1:])
+
+    if raw[0] == "nightshift" and any(
+        token == "--ci" or token.startswith("--ci=") for token in raw[1:]
+    ):
+        from .nightshift_ci import main as nightshift_ci_main
+        return nightshift_ci_main(raw[1:])
 
     return entry.main(raw)
 

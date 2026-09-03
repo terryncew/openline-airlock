@@ -872,27 +872,54 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
+def record_run(
+    run: str,
+    *,
+    repo_arg: str | None = None,
+    cwd: Path | None = None,
+    out: str | Path | None = None,
+    client: GitHubActionsReadClient | None = None,
+) -> dict[str, Any]:
+    """Seal one completed GitHub Actions attempt and return the verified receipt.
+
+    This is the programmatic boundary used by Nightshift.  It performs the same
+    read-only retrieval and sealing work as ``airlock ci`` without routing through
+    terminal text or granting any new authority.
+    """
+    target = resolve_target(run, repo_arg, cwd=cwd)
+    reader = client or GitHubActionsReadClient(token=_token_from_environment(target.local_repo))
+    bundle = build_source_bundle(reader, target.repo, target.run_id, target.attempt)
+    key_path = _key_path(target)
+    key = ensure_key(key_path)
+    receipt = analyze_bundle(bundle, key=key)
+    if not verify_ci_receipt(receipt, key)["valid"]:
+        raise RetrievalIncomplete("Recorder could not verify its sealed receipt")
+    attempt = int(receipt["payload"]["run"]["run_attempt"])
+    output_path = Path(out).expanduser().resolve() if out is not None else _default_output_path(target, attempt)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    encoded = canonical_json_bytes(receipt) + b"\n"
+    output_path.write_bytes(encoded)
+    return {
+        "target": target,
+        "receipt": receipt,
+        "receipt_path": output_path,
+        "receipt_sha256": sha256_bytes(encoded.rstrip(b"\n")),
+        "source_bundle": bundle,
+        "key_path": key_path,
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     try:
-        target = resolve_target(args.run, args.repo)
-        client = GitHubActionsReadClient(token=_token_from_environment(target.local_repo))
-        bundle = build_source_bundle(client, target.repo, target.run_id, target.attempt)
-        key_path = _key_path(target)
-        key = ensure_key(key_path)
-        receipt = analyze_bundle(bundle, key=key)
-        if not verify_ci_receipt(receipt, key)["valid"]:
-            raise RetrievalIncomplete("Recorder could not verify its sealed receipt")
-        attempt = int(receipt["payload"]["run"]["run_attempt"])
-        out = Path(args.out).expanduser().resolve() if args.out else _default_output_path(target, attempt)
-        out.parent.mkdir(parents=True, exist_ok=True)
+        recorded = record_run(args.run, repo_arg=args.repo, out=args.out)
+        receipt = recorded["receipt"]
         encoded = canonical_json_bytes(receipt) + b"\n"
-        out.write_bytes(encoded)
         if args.format == "json":
             sys.stdout.buffer.write(encoded)
         else:
             print(render_text(receipt))
-            print(f"Canonical JSON: {out}")
+            print(f"Canonical JSON: {recorded['receipt_path']}")
         return 0
     except CIRecorderError as exc:
         print(f"ERROR: {_safe_error_text(exc)}", file=sys.stderr)
