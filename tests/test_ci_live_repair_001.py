@@ -73,12 +73,12 @@ class CILiveRepair001Tests(unittest.TestCase):
         for forbidden in ("contents: write", "actions: write", "pull-requests: write", "git push", "gh pr create", "gh pr merge"):
             self.assertNotIn(forbidden, text)
 
-    def test_consumer_uses_committed_receiver_rules_without_dirtying_the_failed_base(self) -> None:
+    def test_consumer_installs_receiver_rules_only_in_ignored_airlock_metadata(self) -> None:
         text = DOGFOOD_WORKFLOW.read_text()
-        self.assertIn("Verify committed dogfood-only receiver rules", text)
-        self.assertIn("cmp -s dogfood/ci-live-repair-001/config.json .airlock/config.json", text)
-        self.assertIn('test -z "$(git status --porcelain --untracked-files=all)"', text)
-        self.assertNotIn("cp dogfood/ci-live-repair-001/config.json .airlock/config.json", text)
+        self.assertIn("cp dogfood/ci-live-repair-001/config.json .airlock/config.json", text)
+        self.assertIn("if not path.startswith('.airlock/')", text)
+        self.assertIn("assert not outside_airlock", text)
+        self.assertNotIn("cmp -s dogfood/ci-live-repair-001/config.json .airlock/config.json", text)
 
     def test_consumer_runs_exactly_one_explicit_doctor_path(self) -> None:
         text = DOGFOOD_WORKFLOW.read_text()
@@ -91,6 +91,15 @@ class CILiveRepair001Tests(unittest.TestCase):
         self.assertIn("SOURCE_RUN_ID: ${{ github.event.workflow_run.id }}", text)
         self.assertIn("SOURCE_RUN_ATTEMPT: ${{ github.event.workflow_run.run_attempt }}", text)
         self.assertIn("SOURCE_HEAD_SHA: ${{ github.event.workflow_run.head_sha }}", text)
+
+    def test_live_artifact_keeps_doctor_reason_and_receipt(self) -> None:
+        text = DOGFOOD_WORKFLOW.read_text()
+        self.assertIn("Expose bounded Doctor disposition", text)
+        self.assertIn("Doctor reason:", text)
+        self.assertIn("find .airlock/doctor", text)
+        self.assertIn("-name 'doctor.json'", text)
+        self.assertIn("-name 'prompt.txt'", text)
+        self.assertIn("-name 'agent-report.json'", text)
 
     def test_real_worker_is_pinned_and_secret_is_not_forwarded_as_worker_env(self) -> None:
         text = DOGFOOD_WORKFLOW.read_text()
