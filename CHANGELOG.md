@@ -1,18 +1,6 @@
 # Changelog
 
-## 0.3.0 — Autonomous work loop
-
-- Makes `airlock init → solve → autopilot → inbox → review` the canonical product loop.
-- Adds `airlock solve` as the one-command path from a GitHub issue or prompt to bounded multi-round agent search under existing Starter Rules.
-- Adds `airlock autopilot --label ...` for bounded maintainer-authorized issue queues with unchanged-work deduplication and fail-closed environment handling.
-- Adds `airlock inbox` to keep normal machine dead ends out of the human to-do list while surfacing review, choice, baseline, environment, and record work.
-- Adds `airlock review` to re-verify a signed survivor record and reduce it to the evidence a human needs without rerunning candidate code.
-- Makes top-level `airlock --help` show the normal loop first while preserving `swarm`, `run`, and `verify` as advanced controls.
-- Freezes the existing v1 record names for the 0.3.x line; incompatible meaning changes require a new schema name.
-- Keeps budget semantics honest: requested budget remains a provider hint unless the provider enforces it, and missing reported economics remain unknown.
-- Keeps the public outside-fork GitHub contribution path as a separate evidence boundary; v0.3 does not convert local autonomous-search results into a claim that the live public-fork path has passed.
-
-## Unreleased — Governed continuous improvement
+## 0.4.0 — Governed continuous improvement
 
 - Repairs AIRLOCK-SELF-001 after its first dispatch stopped before worker contact: infrastructure failure is now distinct from a valid negative result, the full baseline is proven in the prerequisite job, the local opportunity is single-file, shared Hermes attempts are serial, and every conclusion is rendered in the GitHub job summary.
 - Adds `airlock nightshift`, a Hermes-specific surface over the same protected objective/check/receipt chain.
@@ -27,7 +15,22 @@
 - Preserves normal issue-solving semantics: multiple ordinary survivors remain multiple. Only a protected objective contract can identify a unique improvement winner; ambiguity stops the loop.
 - Writes signed, hash-chained generation receipts and a final report that can be verified without running candidate code.
 - Leaves `main` untouched and makes every accepted generation a normal reversible Git commit.
-- Does not claim that a local metric captures total product value or that a local benchmark improvement survives production.
+- Adds the deterministic CI Flight Recorder and the bounded `nightshift --ci ... --repair-ci` handoff from a failed GitHub Actions run to exactly one CI Doctor attempt.
+- Freezes `CI-LIVE-REPAIR-001` after a real failed GitHub Actions run earned `CODE_REPAIR_ALLOWED → READY_FOR_REVIEW`; the independent verifier returned `LIVE_CODE_REPAIR_PATH_EARNED`.
+- Keeps GitHub write, PR, merge, deployment, workflow-repair, retry, and baseline-change authority outside the CI repair path.
+- Does not claim that a local metric captures total product value, that every CI failure is repairable, or that a local benchmark improvement survives production.
+
+## 0.3.0 — Autonomous work loop
+
+- Makes `airlock init → solve → autopilot → inbox → review` the canonical product loop.
+- Adds `airlock solve` as the one-command path from a GitHub issue or prompt to bounded multi-round agent search under existing Starter Rules.
+- Adds `airlock autopilot --label ...` for bounded maintainer-authorized issue queues with unchanged-work deduplication and fail-closed environment handling.
+- Adds `airlock inbox` to keep normal machine dead ends out of the human to-do list while surfacing review, choice, baseline, environment, and record work.
+- Adds `airlock review` to re-verify a signed survivor record and reduce it to the evidence a human needs without rerunning candidate code.
+- Makes top-level `airlock --help` show the normal loop first while preserving `swarm`, `run`, and `verify` as advanced controls.
+- Freezes the existing v1 record names for the 0.3.x line; incompatible meaning changes require a new schema name.
+- Keeps budget semantics honest: requested budget remains a provider hint unless the provider enforces it, and missing reported economics remain unknown.
+- Keeps the public outside-fork GitHub contribution path as a separate evidence boundary; v0.3 does not convert local autonomous-search results into a claim that the live public-fork path has passed.
 
 ## 0.2.2 — Candidate-bound checks
 

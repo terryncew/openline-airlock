@@ -7,7 +7,7 @@ import sys
 import tomllib
 
 
-EXPECTED_VERSION = "0.3.0"
+FROZEN_VERSION = (0, 3, 0)
 CANONICAL = ("init", "solve", "autopilot", "inbox", "review")
 SCHEMAS = (
     "airlock.config.v1",
@@ -21,20 +21,39 @@ SCHEMAS = (
 )
 
 
+def _version_tuple(value: str | None) -> tuple[int, int, int] | None:
+    if not isinstance(value, str):
+        return None
+    match = re.fullmatch(r"(\d+)\.(\d+)\.(\d+)", value)
+    if not match:
+        return None
+    return tuple(int(part) for part in match.groups())
+
+
 def verify(root: Path) -> list[str]:
     root = root.resolve()
     errors: list[str] = []
 
     pyproject = tomllib.loads((root / "pyproject.toml").read_text())
     package_version = pyproject.get("project", {}).get("version")
-    if package_version != EXPECTED_VERSION:
-        errors.append(f"pyproject version is {package_version!r}, expected {EXPECTED_VERSION!r}")
 
     init_text = (root / "src" / "airlock" / "__init__.py").read_text()
     match = re.search(r'__version__\s*=\s*"([^"]+)"', init_text)
     init_version = match.group(1) if match else None
-    if init_version != EXPECTED_VERSION:
-        errors.append(f"airlock.__version__ is {init_version!r}, expected {EXPECTED_VERSION!r}")
+
+    if package_version != init_version:
+        errors.append(
+            f"package version {package_version!r} does not match "
+            f"airlock.__version__ {init_version!r}"
+        )
+
+    parsed = _version_tuple(package_version)
+    if parsed is None:
+        errors.append(f"package version is not a simple semantic version: {package_version!r}")
+    elif parsed < FROZEN_VERSION:
+        errors.append(
+            f"package version {package_version!r} predates frozen v0.3.0 contract"
+        )
 
     entry = (root / "src" / "airlock" / "entry.py").read_text()
     for command in CANONICAL:
@@ -53,8 +72,9 @@ def verify(root: Path) -> list[str]:
         errors.append("README canonical commands are not presented in workflow order")
 
     changelog = (root / "CHANGELOG.md").read_text()
-    if not changelog.startswith("# Changelog\n\n## 0.3.0 — Autonomous work loop\n"):
-        errors.append("CHANGELOG does not start with the 0.3.0 release entry")
+    frozen_heading = "## 0.3.0 — Autonomous work loop\n"
+    if frozen_heading not in changelog:
+        errors.append("CHANGELOG lost the frozen 0.3.0 release entry")
 
     release_doc = (root / "docs" / "AIRLOCK_V0_3_001.md").read_text()
     for schema in SCHEMAS:
@@ -74,11 +94,11 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     errors = verify(Path(args.repo))
     if errors:
-        print("AIRLOCK v0.3 release verification: FAIL", file=sys.stderr)
+        print("AIRLOCK v0.3 contract verification: FAIL", file=sys.stderr)
         for error in errors:
             print(f"- {error}", file=sys.stderr)
         return 1
-    print("AIRLOCK v0.3 release verification: PASS")
+    print("AIRLOCK v0.3 contract verification: PASS")
     return 0
 
 
