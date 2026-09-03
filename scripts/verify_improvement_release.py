@@ -20,10 +20,12 @@ REQUIRED = (
     "tests/test_improvement.py",
 )
 
-# These files are intentionally allowed to evolve after the original handoff.
-# The handoff still records their historical hashes; the verifier now checks
-# their current semantic obligations instead of requiring byte identity forever.
+# Historical handoffs retain the hashes that described the original release.
+# Release ledgers, release verifiers, and CI plumbing must be able to evolve in
+# later releases, so verify their current semantic obligations instead of
+# requiring permanent byte identity.
 MUTABLE_AFTER_HANDOFF = {
+    ".github/workflows/ci.yml",
     "CHANGELOG.md",
     "scripts/verify_improvement_release.py",
 }
@@ -80,6 +82,15 @@ def verify(root: Path) -> list[str]:
     for marker in CHANGELOG_MARKERS:
         if marker not in changelog:
             errors.append(f"CHANGELOG lost continuous-improvement boundary: {marker}")
+
+    workflow = (root / ".github/workflows/ci.yml").read_text()
+    for marker in (
+        "verify_improvement_release.py",
+        "python -m unittest discover -s tests -v",
+        "airlock improve --help",
+    ):
+        if marker not in workflow:
+            errors.append(f"CI lost continuous-improvement release surface: {marker}")
 
     gitignore = (root / ".gitignore").read_text().splitlines()
     if ".airlock/improvements/" not in gitignore:

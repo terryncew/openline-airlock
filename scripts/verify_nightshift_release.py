@@ -19,11 +19,13 @@ REQUIRED = (
     "tests/test_hermes_provider.py",
 )
 
-# A historical handoff may bind the release ledger and the verifier that
-# enforced it at the time. Those historical hashes stay in the receipt, but
-# future releases must be allowed to append release history and repair the
-# verifier itself. All implementation/evaluator surfaces remain byte-bound.
+# Historical handoffs retain the hashes that described the original release.
+# Release ledgers, release verifiers, and CI plumbing must be able to evolve in
+# later releases, so verify their current semantic obligations instead of
+# requiring permanent byte identity. Implementation/evaluator surfaces remain
+# byte-bound.
 MUTABLE_AFTER_HANDOFF = {
+    ".github/workflows/ci.yml",
     "CHANGELOG.md",
     "scripts/verify_nightshift_release.py",
 }
