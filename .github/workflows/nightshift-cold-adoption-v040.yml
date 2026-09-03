@@ -1,0 +1,253 @@
+name: AIRLOCK-NIGHTSHIFT-COLD-ADOPTION-v0.4.0
+
+on:
+  push:
+    branches:
+      - "test/nightshift-cold-adoption-v040"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nightshift-cold-adoption-v040
+  cancel-in-progress: false
+
+jobs:
+  live-nightshift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      HERMES_HOME: /tmp/airlock-nightshift-cold-home
+      HERMES_INSTALL_DIR: /tmp/airlock-nightshift-cold-hermes
+      HERMES_COMMIT: 29112bef099274229cadff79cdff7bf7b99c4b77
+      HERMES_MODEL: gpt-5.6-sol
+      TARGET_SHA: 19bcef659e59704b71ed6f1ac910253a60f369ab
+
+    steps:
+      - name: Check out untouched outside target
+        uses: actions/checkout@v4
+        with:
+          repository: terryncew/openline-otel
+          ref: ${{ env.TARGET_SHA }}
+          path: target
+          fetch-depth: 1
+          persist-credentials: false
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install and prove outside target baseline
+        run: |
+          python -m pip install -e "./target[test]"
+          pytest -q target/tests
+          test -z "$(git -C target status --porcelain)"
+
+      - name: Install exact released Airlock
+        run: |
+          python -m pip install "git+https://github.com/terryncew/openline-airlock.git@v0.4.0"
+          test "$(airlock --version)" = "0.4.0"
+
+      - name: Cold init target again with no tuning
+        run: |
+          airlock init --repo target
+          test -f target/.airlock/config.json
+
+      - name: Install operator-owned deterministic objective
+        shell: bash
+        run: |
+          mkdir -p target/.airlock/objectives
+
+          cat > target/.airlock/objectives/measure-source-lines.py <<'PY'
+          from pathlib import Path
+          import json
+
+          total = 0
+          for path in sorted(Path("src/openline_otel").rglob("*.py")):
+              for raw in path.read_text(encoding="utf-8").splitlines():
+                  line = raw.strip()
+                  if line and not line.startswith("#"):
+                      total += 1
+          print(json.dumps({"value": total}))
+          PY
+
+          cat > target/.airlock/objective.json <<'JSON'
+          {
+            "schema": "airlock.objective.v1",
+            "name": "OpenLine OTEL source-line reduction",
+            "goal": "Reduce Python source lines in src/openline_otel while preserving all existing tests and protected files.",
+            "measure": {
+              "command": ["python", ".airlock/objectives/measure-source-lines.py"],
+              "direction": "minimize",
+              "unit": "lines",
+              "repeats": 1,
+              "timeout_seconds": 120,
+              "pass_env": [],
+              "protected_evaluator_paths": [".airlock/objectives/measure-source-lines.py"]
+            },
+            "bounds": {
+              "max_generations": 1,
+              "max_changed_files": 1,
+              "max_changed_lines": 40
+            },
+            "selection": {
+              "minimum_gain": "1",
+              "complexity_penalty_per_changed_line": "0",
+              "minimum_score_gap": "0"
+            }
+          }
+          JSON
+
+      - name: Require existing Airlock repo model credential
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::OPENAI_API_KEY is required for the live Nightshift compatibility gate."
+            exit 2
+          fi
+
+      - name: Install pinned real Hermes
+        shell: bash
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+          mkdir -p "$HERMES_HOME" "$HERMES_INSTALL_DIR"
+
+          ARCHIVE="$RUNNER_TEMP/hermes-${HERMES_COMMIT}.tar.gz"
+          curl --fail --location --silent --show-error \
+            --retry 5 --retry-delay 2 --retry-all-errors \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${GH_READ_TOKEN}" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            "https://api.github.com/repos/NousResearch/hermes-agent/tarball/${HERMES_COMMIT}" \
+            -o "$ARCHIVE"
+
+          tar -xzf "$ARCHIVE" --strip-components=1 -C "$HERMES_INSTALL_DIR"
+          python -m venv "$HERMES_INSTALL_DIR/venv"
+          "$HERMES_INSTALL_DIR/venv/bin/python" -m pip install \
+            --disable-pip-version-check \
+            --editable "$HERMES_INSTALL_DIR"
+
+          mkdir -p "$RUNNER_TEMP/hermes-bin"
+          ln -sf "$HERMES_INSTALL_DIR/venv/bin/hermes" "$RUNNER_TEMP/hermes-bin/hermes"
+          echo "$RUNNER_TEMP/hermes-bin" >> "$GITHUB_PATH"
+          printf '%s\n' "$HERMES_COMMIT" > "$RUNNER_TEMP/hermes-source-commit.txt"
+
+      - name: Prepare isolated Hermes home
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          umask 077
+          printf 'OPENAI_API_KEY=%s\n' "$OPENAI_API_KEY" > "$HERMES_HOME/.env"
+          cat > "$HERMES_HOME/config.yaml" <<EOF
+          model:
+            provider: openai-api
+            default: ${HERMES_MODEL}
+          terminal:
+            backend: local
+            cwd: "."
+            timeout: 180
+          approvals:
+            mode: off
+          agent:
+            max_turns: 60
+          EOF
+          chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
+
+      - name: Prove target is still unchanged outside receiver metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C target rev-parse HEAD)" = "$TARGET_SHA"
+          python - <<'PY'
+          import subprocess
+          rows = subprocess.check_output(
+              ["git", "-C", "target", "status", "--porcelain", "--untracked-files=all"],
+              text=True,
+          ).splitlines()
+          outside = []
+          for row in rows:
+              path = row[3:].strip() if len(row) >= 4 else row.strip()
+              if not path.startswith(".airlock/"):
+                  outside.append(row)
+          assert not outside, outside
+          PY
+
+      - name: Run one real Hermes Nightshift generation
+        id: nightshift
+        shell: bash
+        run: |
+          set +e
+          set -o pipefail
+          airlock nightshift \
+            --repo target \
+            --objective .airlock/objective.json \
+            --generations 1 \
+            --agents 1 \
+            --budget 0.50 \
+            2>&1 | tee "$RUNNER_TEMP/nightshift-cold-adoption-v040.log"
+          status=${PIPESTATUS[0]}
+          echo "exit_code=$status" >> "$GITHUB_OUTPUT"
+          # 0 = an improvement earned promotion.
+          # 3 = the real worker ran but no candidate earned promotion.
+          # Either is a valid compatibility result; infrastructure/config errors are not.
+          if [ "$status" -ne 0 ] && [ "$status" -ne 3 ]; then
+            exit "$status"
+          fi
+
+      - name: Verify real worker contact and authority boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("target/.airlock/improvements")
+          reports = sorted(root.glob("*/report.json"))
+          if not reports:
+              raise SystemExit("missing Nightshift report")
+
+          report = json.loads(reports[-1].read_text())
+          ctx = report.get("payload", report).get("run_context") or {}
+          if ctx.get("worker") != "hermes":
+              raise SystemExit(f"unexpected worker: {ctx.get('worker')!r}")
+          if ctx.get("worker_state_controls_objective") is not False:
+              raise SystemExit("worker gained objective control")
+          if ctx.get("worker_state_controls_evaluator") is not False:
+              raise SystemExit("worker gained evaluator control")
+          if ctx.get("worker_state_controls_promotion") is not False:
+              raise SystemExit("worker gained promotion control")
+
+          contacts = list(root.glob("*/worker-contact-*.json"))
+          generations = list(root.glob("*/generation-*.json"))
+          if not contacts and not generations:
+              raise SystemExit("no signed generation/worker-contact receipt")
+
+          print("NIGHTSHIFT-COLD-ADOPTION-v0.4.0: PASS")
+          print(f"status={report.get('payload', report).get('status')}")
+          print(f"accepted_generations={report.get('payload', report).get('accepted_generations')}")
+          print(f"attempted_generations={report.get('payload', report).get('attempted_generations')}")
+          PY
+
+      - name: Preserve Nightshift evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airlock-nightshift-cold-adoption-v040
+          path: |
+            ${{ runner.temp }}/nightshift-cold-adoption-v040.log
+            ${{ runner.temp }}/hermes-source-commit.txt
+            target/.airlock/config.json
+            target/.airlock/objective.json
+            target/.airlock/objectives/measure-source-lines.py
+            target/.airlock/improvements/
+          if-no-files-found: warn
+          include-hidden-files: true
+          retention-days: 30
