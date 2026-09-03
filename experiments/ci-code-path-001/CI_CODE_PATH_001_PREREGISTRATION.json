@@ -1,0 +1,42 @@
+{
+  "schema": "airlock.ci-code-path-001.preregistration.v1",
+  "experiment": "CI-CODE-PATH-001",
+  "product_base_commit": "bd44b59a63dab69bb05aeed39ff83d5186b21288",
+  "question": "Can the merged Recorder and Doctor carry a real, locally produced code failure through sealed CODE_REPAIR_ALLOWED authority, one isolated subprocess repair, and ordinary Airlock evaluation without changing the trusted baseline?",
+  "expected_route": [
+    "RECORDER",
+    "CODE_REPAIR_ALLOWED",
+    "DOCTOR",
+    "ISOLATED_CANDIDATE",
+    "ORDINARY_AIRLOCK_EVALUATION",
+    "READY_FOR_REVIEW"
+  ],
+  "required_outcomes": {
+    "recorder_disposition": "CODE_REPAIR_ALLOWED",
+    "recorder_primary_class": "CODE_REGRESSION",
+    "recorder_reason": "TEST_FAILURE",
+    "doctor_decision": "READY_FOR_REVIEW",
+    "changed_paths": [
+      "src/retry_policy.py"
+    ],
+    "ordinary_evaluation": "SURVIVED",
+    "trusted_baseline_unchanged": true,
+    "trusted_baseline_still_reproduces_failure": true,
+    "github_write_authority": false,
+    "merge_authority": false,
+    "deployment_authority": false
+  },
+  "falsifier": "Any route, receipt, authority, isolation, changed-path, baseline, or independent-evaluation assertion differs from required_outcomes.",
+  "frozen_sha256": {
+    "fixture_tree": "3e434b36cd7d9e61c8ee8c311203761d2ba1ce932a4951f1f4780c35d7191900",
+    "runner": "8e2f3198021129a8152de35b588d8aa25747d3739d8bcb8ce125685c2cfa2410",
+    "src/airlock/ci.py": "c164b3280fe0037038283d93bb4f5c57011973f2b174e12444e744d156172262",
+    "src/airlock/ci_doctor.py": "839025f5db3575ab982580462977b2a7d632039ad22a6883131d6f737d13add2",
+    "src/airlock/ci_rules.v1.json": "2b5c7c364274759ea0df406b0b06e1f8369120235bede8e3baf181e1fc7c3dd6",
+    "src/airlock/sieve.py": "704e80bd41260963668ae6c453b191f02a5493b3dfa9b72da231faf95bac1228"
+  },
+  "claim_boundary": {
+    "proved": "Control-path composition over a real Git repository, real failing test process, actual Recorder classification and signature, actual Doctor subprocess/isolation boundary, and ordinary Airlock Sieve checks.",
+    "not_proved": "Live GitHub log retrieval, model intelligence, Hermes repair quality, repair generality, or autonomous merge safety. The worker is a deterministic positive control and no GitHub write is attempted."
+  }
+}
