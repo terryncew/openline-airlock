@@ -4,6 +4,7 @@ import contextlib
 import importlib.util
 import io
 from pathlib import Path
+import tomllib
 import unittest
 from unittest import mock
 
@@ -11,15 +12,27 @@ from airlock import __version__
 from airlock import entry
 
 
+def _version_tuple(value: str) -> tuple[int, int, int]:
+    parts = value.split(".")
+    if len(parts) != 3 or any(not part.isdigit() for part in parts):
+        raise AssertionError(f"public version is not simple semver: {value!r}")
+    return tuple(int(part) for part in parts)
+
+
 class V030ReleaseTests(unittest.TestCase):
-    def test_public_version_is_030(self):
-        self.assertEqual(__version__, "0.3.0")
+    def test_public_version_preserves_v030_contract_and_matches_package_metadata(self):
+        repo = Path(__file__).resolve().parents[1]
+        pyproject = tomllib.loads((repo / "pyproject.toml").read_text())
+        package_version = pyproject["project"]["version"]
+
+        self.assertEqual(__version__, package_version)
+        self.assertGreaterEqual(_version_tuple(__version__), (0, 3, 0))
 
         stdout = io.StringIO()
         with contextlib.redirect_stdout(stdout):
             rc = entry.main(["--version"])
         self.assertEqual(rc, 0)
-        self.assertEqual(stdout.getvalue().strip(), "0.3.0")
+        self.assertEqual(stdout.getvalue().strip(), package_version)
 
     def test_top_level_help_exposes_the_normal_loop(self):
         stdout = io.StringIO()

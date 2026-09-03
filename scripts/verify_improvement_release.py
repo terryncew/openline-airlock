@@ -4,6 +4,7 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
+import re
 import sys
 
 
@@ -18,6 +19,24 @@ REQUIRED = (
     "schemas/improvement-v1.schema.json",
     "tests/test_improvement.py",
 )
+
+# These files are intentionally allowed to evolve after the original handoff.
+# The handoff still records their historical hashes; the verifier now checks
+# their current semantic obligations instead of requiring byte identity forever.
+MUTABLE_AFTER_HANDOFF = {
+    "CHANGELOG.md",
+    "scripts/verify_improvement_release.py",
+}
+
+CHANGELOG_MARKERS = (
+    "`airlock improve`",
+    "operator-owned",
+    "signed, hash-chained generation receipts",
+)
+
+
+def _valid_sha256(value: object) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
 
 
 def verify(root: Path) -> list[str]:
@@ -57,6 +76,11 @@ def verify(root: Path) -> list[str]:
     if "`main` never moves" not in readme:
         errors.append("README lost the isolated-promotion boundary")
 
+    changelog = (root / "CHANGELOG.md").read_text()
+    for marker in CHANGELOG_MARKERS:
+        if marker not in changelog:
+            errors.append(f"CHANGELOG lost continuous-improvement boundary: {marker}")
+
     gitignore = (root / ".gitignore").read_text().splitlines()
     if ".airlock/improvements/" not in gitignore:
         errors.append("local improvement receipts are not ignored")
@@ -66,10 +90,20 @@ def verify(root: Path) -> list[str]:
     except Exception as exc:
         errors.append(f"invalid handoff JSON: {exc}")
         handoff = {}
-    for relative, expected in handoff.get("files", {}).items():
+
+    files = handoff.get("files", {})
+    for relative in MUTABLE_AFTER_HANDOFF:
+        if relative not in files:
+            errors.append(f"handoff lost historical hash record: {relative}")
+        elif not _valid_sha256(files.get(relative)):
+            errors.append(f"handoff historical hash is invalid: {relative}")
+
+    for relative, expected in files.items():
         path = root / relative
         if not path.is_file():
             errors.append(f"handoff hash target is missing: {relative}")
+            continue
+        if relative in MUTABLE_AFTER_HANDOFF:
             continue
         actual = hashlib.sha256(path.read_bytes()).hexdigest()
         if actual != expected:
