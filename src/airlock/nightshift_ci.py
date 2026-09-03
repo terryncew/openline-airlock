@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from . import ci, entry
+from . import ci, ci_retry, entry
 from .gitops import root
 from .util import canonical_json_bytes, sha256_bytes
 
@@ -40,6 +40,19 @@ def _option_value(argv: list[str], name: str) -> tuple[str | None, list[str]]:
         out.append(token)
         index += 1
     return value, out
+
+
+def _flag(argv: list[str], name: str) -> tuple[bool, list[str]]:
+    seen = False
+    out: list[str] = []
+    for token in argv:
+        if token == name:
+            if seen:
+                raise ValueError(f"{name} may be supplied only once")
+            seen = True
+            continue
+        out.append(token)
+    return seen, out
 
 
 def _repo_argument(argv: list[str]) -> str:
@@ -121,7 +134,8 @@ def consume_receipt(repo: Path, receipt_path: Path) -> dict[str, Any]:
         },
         "boundary": (
             "Recorder classifies; Nightshift consumes the sealed route. "
-            "This build performs no CI retry and no CI-directed code repair."
+            "A retry occurs only with explicit --retry-ci and a sealed RETRY_RECOMMENDED receipt. "
+            "No CI-directed code repair occurs here."
         ),
     }
 
@@ -129,8 +143,11 @@ def consume_receipt(repo: Path, receipt_path: Path) -> dict[str, Any]:
 def main(argv: list[str] | None = None) -> int:
     raw = list(argv or [])
     try:
+        retry_requested, raw = _flag(raw, "--retry-ci")
         ci_run, delegated = _option_value(raw, "--ci")
         if ci_run is None:
+            if retry_requested:
+                raise ValueError("--retry-ci requires --ci")
             return entry.main(["nightshift", *raw])
         if "--verify" in delegated or any(row.startswith("--verify=") for row in delegated):
             raise ValueError("--ci cannot be combined with --verify")
@@ -138,7 +155,32 @@ def main(argv: list[str] | None = None) -> int:
         repo = root(Path(_repo_argument(delegated)).resolve())
         recorded = ci.record_run(ci_run, cwd=repo)
         route = consume_receipt(repo, Path(recorded["receipt_path"]))
+
+        if retry_requested:
+            if route["disposition"] != "RETRY_RECOMMENDED":
+                print("Airlock nightshift — bounded CI retry")
+                print(f"Disposition: {route['disposition']}")
+                print("Retry submitted: NO")
+                print("Hermes started: NO")
+                print(f"CI receipt: {route['receipt_path']}")
+                print("The sealed receipt did not authorize a bounded retry.")
+                return 0
+            retried = ci_retry.bounded_retry(repo, recorded)
+            print("Airlock nightshift — bounded CI retry")
+            print("Disposition: RETRY_RECOMMENDED")
+            print("Retry submitted: YES")
+            print(f"Retry attempt: {retried['retry_attempt']}")
+            print(f"Retry disposition: {retried['retry_disposition']}")
+            print("Hermes started: NO")
+            print(f"Original receipt: {retried['original_receipt_path']}")
+            print(f"Retry receipt: {retried['retry_receipt_path']}")
+            print(f"Retry record: {retried['retry_record_path']}")
+            print("Retry budget remaining: 0")
+            return 0
     except ci.CIRecorderError as exc:
+        print(f"ERROR: {ci._safe_error_text(exc)}", file=sys.stderr)
+        return exc.exit_code
+    except ci_retry.CIRetryError as exc:
         print(f"ERROR: {ci._safe_error_text(exc)}", file=sys.stderr)
         return exc.exit_code
     except Exception as exc:
