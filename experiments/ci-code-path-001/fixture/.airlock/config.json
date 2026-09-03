@@ -1,0 +1,58 @@
+{
+  "schema": "airlock.config.v1",
+  "parallelism": 1,
+  "protected_paths": [
+    ".github/**",
+    ".airlock/**",
+    "tests/**",
+    "tools/**"
+  ],
+  "verification": {
+    "target_commands": [
+      [
+        "python",
+        "-c",
+        "import sys; sys.path.insert(0, 'src'); from retry_policy import may_retry; assert not may_retry(1, 0)"
+      ]
+    ],
+    "static_commands": [
+      [
+        "python",
+        "-m",
+        "py_compile",
+        "src/retry_policy.py"
+      ]
+    ],
+    "test_commands": [
+      [
+        "python",
+        "-m",
+        "unittest",
+        "discover",
+        "-s",
+        "tests",
+        "-v"
+      ]
+    ],
+    "timeout_seconds": 30
+  },
+  "providers": {
+    "fixture-worker": {
+      "command": [
+        "python",
+        "tools/repair_worker.py"
+      ],
+      "pass_env": [
+        "GH_TOKEN",
+        "GITHUB_TOKEN",
+        "SSH_AUTH_SOCK",
+        "OPENLINE_RELEASE_KEY"
+      ],
+      "timeout_seconds": 30
+    }
+  },
+  "init_baseline": {
+    "green": false
+  }
+}
+
