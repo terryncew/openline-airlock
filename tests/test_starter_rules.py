@@ -302,7 +302,10 @@ class StarterRulesInitTests(unittest.TestCase):
         self.assertIn("tests/**", saved["protected_paths"])
 
     def test_suggested_release_version_is_exposed(self):
-        self.assertEqual(__version__, "0.3.0")
+        repo = Path(__file__).resolve().parents[1]
+        with (repo / "pyproject.toml").open("rb") as fh:
+            package_version = __import__("tomllib").load(fh)["project"]["version"]
+        self.assertEqual(__version__, package_version)
 
     def test_readme_and_show_hn_use_install_init_read_then_swarm(self):
         repo = Path(__file__).resolve().parents[1]
