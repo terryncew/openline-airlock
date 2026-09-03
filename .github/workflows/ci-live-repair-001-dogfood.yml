@@ -46,11 +46,11 @@ jobs:
       - name: Install this Airlock commit
         run: python -m pip install .
 
-      - name: Freeze dogfood-only receiver rules
+      - name: Verify committed dogfood-only receiver rules
         shell: bash
         run: |
           set -euo pipefail
-          cp dogfood/ci-live-repair-001/config.json .airlock/config.json
+          cmp -s dogfood/ci-live-repair-001/config.json .airlock/config.json
           python - <<'PY'
           import json
           from pathlib import Path
@@ -60,6 +60,7 @@ jobs:
           assert cfg['verification']['test_commands']
           assert 'experiments/ci-code-path-001/fixture/tests/**' in cfg['protected_paths']
           PY
+          test -z "$(git status --porcelain --untracked-files=all)"
 
       - name: Require the single delegated model credential
         shell: bash

@@ -73,11 +73,18 @@ class CILiveRepair001Tests(unittest.TestCase):
         for forbidden in ("contents: write", "actions: write", "pull-requests: write", "git push", "gh pr create", "gh pr merge"):
             self.assertNotIn(forbidden, text)
 
+    def test_consumer_uses_committed_receiver_rules_without_dirtying_the_failed_base(self) -> None:
+        text = DOGFOOD_WORKFLOW.read_text()
+        self.assertIn("Verify committed dogfood-only receiver rules", text)
+        self.assertIn("cmp -s dogfood/ci-live-repair-001/config.json .airlock/config.json", text)
+        self.assertIn('test -z "$(git status --porcelain --untracked-files=all)"', text)
+        self.assertNotIn("cp dogfood/ci-live-repair-001/config.json .airlock/config.json", text)
+
     def test_consumer_runs_exactly_one_explicit_doctor_path(self) -> None:
         text = DOGFOOD_WORKFLOW.read_text()
         self.assertIn("airlock nightshift", text)
         self.assertIn("--repair-ci", text)
-        self.assertIn("--budget \"$AIRLOCK_DOCTOR_BUDGET_USD\"", text)
+        self.assertIn('--budget "$AIRLOCK_DOCTOR_BUDGET_USD"', text)
         self.assertNotIn("--retry-ci", text)
         self.assertNotIn("--agents", text)
         self.assertNotIn("--profiles", text)
