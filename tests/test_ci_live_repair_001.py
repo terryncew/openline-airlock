@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import subprocess
+import tempfile
 import unittest
+
+from airlock.gitops import ensure_clean
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -13,6 +16,17 @@ CONFIG = ROOT / "dogfood/ci-live-repair-001/config.json"
 VERIFIER = ROOT / "scripts/verify_ci_live_repair_001.py"
 FIXTURE_TEST = ROOT / "experiments/ci-code-path-001/fixture/tests/test_retry_policy.py"
 HERMES_COMMIT = "29112bef099274229cadff79cdff7bf7b99c4b77"
+
+
+def _git(repo: Path, *args: str) -> str:
+    cp = subprocess.run(
+        ["git", "-C", str(repo), *args],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        check=True,
+    )
+    return cp.stdout
 
 
 class CILiveRepair001Tests(unittest.TestCase):
@@ -33,7 +47,10 @@ class CILiveRepair001Tests(unittest.TestCase):
         self.assertEqual(config["schema"], "airlock.config.v1")
         self.assertEqual(config["parallelism"], 1)
         self.assertEqual(config["providers"]["hermes"]["pass_env"], ["HERMES_HOME"])
-        self.assertEqual(config["providers"]["hermes"]["command"], ["hermes", "-z", "{prompt}"])
+        self.assertEqual(
+            config["providers"]["hermes"]["command"],
+            ["hermes", "-z", "{prompt}", "--toolsets", "terminal,file"],
+        )
         protected = config["protected_paths"]
         for required in (
             ".github/**",
@@ -45,9 +62,33 @@ class CILiveRepair001Tests(unittest.TestCase):
             "experiments/ci-code-path-001/fixture/tools/**",
         ):
             self.assertIn(required, protected)
+        self.assertNotIn("experiments/ci-code-path-001/fixture/src/**", protected)
         command = config["verification"]["test_commands"][0]
         self.assertIn("experiments/ci-code-path-001/fixture/tests", command)
         self.assertEqual(config["verification"]["target_commands"], config["verification"]["test_commands"])
+
+    def test_receiver_local_tracked_config_is_not_false_repo_dirt(self) -> None:
+        with tempfile.TemporaryDirectory() as td:
+            repo = Path(td)
+            _git(repo, "init", "-b", "main")
+            _git(repo, "config", "user.name", "Airlock Test")
+            _git(repo, "config", "user.email", "airlock@example.invalid")
+            (repo / ".airlock").mkdir()
+            config_path = repo / ".airlock/config.json"
+            config_path.write_text('{"kind":"production"}\n')
+            tracked = repo / "tracked.txt"
+            tracked.write_text("sealed\n")
+            _git(repo, "add", ".")
+            _git(repo, "commit", "-m", "sealed")
+
+            config_path.write_text('{"kind":"receiver-local"}\n')
+            raw = _git(repo, "status", "--porcelain", "--untracked-files=all")
+            self.assertEqual(raw, " M .airlock/config.json\n")
+            ensure_clean(repo)
+
+            tracked.write_text("ordinary dirt\n")
+            with self.assertRaisesRegex(RuntimeError, "working tree is dirty"):
+                ensure_clean(repo)
 
     def test_failure_workflow_is_isolated_and_read_only(self) -> None:
         text = FIXTURE_WORKFLOW.read_text()
