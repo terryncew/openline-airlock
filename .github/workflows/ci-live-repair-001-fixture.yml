@@ -1,0 +1,33 @@
+name: AIRLOCK-CI-LIVE-REPAIR-001 expected code failure
+
+on:
+  push:
+    branches:
+      - "dogfood/ci-live-repair-*"
+    paths:
+      - "dogfood/CI_LIVE_REPAIR_001_START.txt"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  code-regression:
+    name: expected retry-policy code regression
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout exact dogfood commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run frozen retry-policy regression
+        run: python -m unittest discover -s experiments/ci-code-path-001/fixture/tests -p test_retry_policy.py -v
