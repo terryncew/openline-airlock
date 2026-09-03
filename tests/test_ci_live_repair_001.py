@@ -147,7 +147,7 @@ class CILiveRepair001Tests(unittest.TestCase):
         self.assertIn(f"HERMES_COMMIT: {HERMES_COMMIT}", text)
         self.assertIn("HERMES_MODEL: gpt-5.6-sol", text)
         self.assertIn("OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}", text)
-        self.assertIn("printf 'OPENAI_API_KEY=%s\\\\n' \"$OPENAI_API_KEY\" > \"$HERMES_HOME/.env\"", text)
+        self.assertIn("printf 'OPENAI_API_KEY=%s\\n' \"$OPENAI_API_KEY\" > \"$HERMES_HOME/.env\"", text)
         config = json.loads(CONFIG.read_text())
         self.assertNotIn("OPENAI_API_KEY", config["providers"]["hermes"]["pass_env"])
 
