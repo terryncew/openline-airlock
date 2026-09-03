@@ -1,51 +1,63 @@
 {
   "schema": "airlock.config.v1",
-  "parallelism": 4,
+  "parallelism": 1,
   "protected_paths": [
     ".github/**",
     ".airlock/**",
+    "src/**",
     "tests/**",
+    "docs/**",
+    "examples/**",
+    "schemas/**",
+    "scripts/**",
+    "dogfood/**",
+    "experiments/airlock-search-001/**",
+    "experiments/airlock-search-001b/**",
+    "experiments/airlock-search-001c/**",
+    "experiments/airlock-search-002/**",
+    "experiments/airlock-search-003/**",
+    "experiments/airlock-search-004/**",
+    "experiments/airlock-self-001/**",
+    "experiments/far-003/**",
+    "experiments/ci-code-path-001/CI_*",
+    "experiments/ci-code-path-001/README.md",
+    "experiments/ci-code-path-001/run_ci_code_path_001.py",
+    "experiments/ci-code-path-001/fixture/.airlock/**",
+    "experiments/ci-code-path-001/fixture/.github/**",
+    "experiments/ci-code-path-001/fixture/.gitignore",
+    "experiments/ci-code-path-001/fixture/tests/**",
+    "experiments/ci-code-path-001/fixture/tools/**",
+    "AIRLOCK_*",
+    "BUILD_RECEIPT*.json",
+    "README.md",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "RELEASE_CHECKLIST.md",
+    "SHOW_HN_DRAFT.md",
     "pyproject.toml",
-    "src/airlock/runner.py"
+    "LICENSE",
+    ".gitignore"
   ],
   "verification": {
+    "target_commands": [
+      ["python", "-m", "unittest", "discover", "-s", "experiments/ci-code-path-001/fixture/tests", "-p", "test_retry_policy.py", "-v"]
+    ],
     "static_commands": [],
     "test_commands": [
-      [
-        "python",
-        "-m",
-        "unittest",
-        "discover",
-        "-s",
-        "tests",
-        "-v"
-      ]
+      ["python", "-m", "unittest", "discover", "-s", "experiments/ci-code-path-001/fixture/tests", "-p", "test_retry_policy.py", "-v"]
     ],
-    "target_commands": [
-      [
-        "python",
-        ".airlock/checks/init_next_step.py"
-      ]
-    ],
-    "timeout_seconds": 1200,
-    "coverage_mode": "changed-module-reference"
+    "timeout_seconds": 120,
+    "coverage_mode": "explicit-target"
   },
   "providers": {
     "hermes": {
-      "command": [
-        "python",
-        ".airlock/checks/hermes_live_001_worker.py",
-        "{prompt}"
-      ],
-      "pass_env": [
-        "HERMES_HOME"
-      ],
-      "timeout_seconds": 2700
+      "command": ["hermes", "-z", "{prompt}"],
+      "pass_env": ["HERMES_HOME"],
+      "timeout_seconds": 1800
     }
   },
   "init_baseline": {
-    "commit": "1c10931d6453e6377219475db816e4423366f6e3",
-    "commands": [],
-    "green": true
+    "green": false,
+    "purpose": "CI-LIVE-REPAIR-001 intentionally starts from the sealed red CI commit"
   }
 }
