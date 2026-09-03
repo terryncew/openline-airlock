@@ -48,7 +48,7 @@ jobs:
           python -m pip install "git+https://github.com/terryncew/openline-airlock.git@v0.4.0"
           test "$(airlock --version)" = "0.4.0"
 
-      - name: Cold init target again with no tuning
+      - name: Cold init target with no tuning
         run: |
           airlock init --repo target
           test -f target/.airlock/config.json
@@ -97,6 +97,25 @@ jobs:
             }
           }
           JSON
+
+      - name: Commit operator-owned Airlock adoption state
+        shell: bash
+        run: |
+          set -euo pipefail
+          git -C target config user.name "Airlock Cold Adoption"
+          git -C target config user.email "cold-adoption@airlock.local"
+
+          # `airlock init` keeps receiver metadata out of normal status. Nightshift
+          # intentionally requires the operator-owned rules/objective to be
+          # committed before worker contact, so force-add only those three files.
+          git -C target add -f \
+            .airlock/config.json \
+            .airlock/objective.json \
+            .airlock/objectives/measure-source-lines.py
+
+          git -C target commit -m "test: accept generated Airlock starter rules"
+          test "$(git -C target rev-parse HEAD^)" = "$TARGET_SHA"
+          test -z "$(git -C target status --porcelain)"
 
       - name: Require existing Airlock repo model credential
         shell: bash
@@ -160,24 +179,12 @@ jobs:
           EOF
           chmod 600 "$HERMES_HOME/.env" "$HERMES_HOME/config.yaml"
 
-      - name: Prove target is still unchanged outside receiver metadata
+      - name: Prove adoption commit is clean before worker contact
         shell: bash
         run: |
           set -euo pipefail
-          test "$(git -C target rev-parse HEAD)" = "$TARGET_SHA"
-          python - <<'PY'
-          import subprocess
-          rows = subprocess.check_output(
-              ["git", "-C", "target", "status", "--porcelain", "--untracked-files=all"],
-              text=True,
-          ).splitlines()
-          outside = []
-          for row in rows:
-              path = row[3:].strip() if len(row) >= 4 else row.strip()
-              if not path.startswith(".airlock/"):
-                  outside.append(row)
-          assert not outside, outside
-          PY
+          test "$(git -C target rev-parse HEAD^)" = "$TARGET_SHA"
+          test -z "$(git -C target status --porcelain)"
 
       - name: Run one real Hermes Nightshift generation
         id: nightshift
@@ -214,8 +221,9 @@ jobs:
           if not reports:
               raise SystemExit("missing Nightshift report")
 
-          report = json.loads(reports[-1].read_text())
-          ctx = report.get("payload", report).get("run_context") or {}
+          record = json.loads(reports[-1].read_text())
+          report = record.get("payload", record)
+          ctx = report.get("run_context") or {}
           if ctx.get("worker") != "hermes":
               raise SystemExit(f"unexpected worker: {ctx.get('worker')!r}")
           if ctx.get("worker_state_controls_objective") is not False:
@@ -231,9 +239,9 @@ jobs:
               raise SystemExit("no signed generation/worker-contact receipt")
 
           print("NIGHTSHIFT-COLD-ADOPTION-v0.4.0: PASS")
-          print(f"status={report.get('payload', report).get('status')}")
-          print(f"accepted_generations={report.get('payload', report).get('accepted_generations')}")
-          print(f"attempted_generations={report.get('payload', report).get('attempted_generations')}")
+          print(f"status={report.get('status')}")
+          print(f"accepted_generations={report.get('accepted_generations')}")
+          print(f"attempted_generations={report.get('attempted_generations')}")
           PY
 
       - name: Preserve Nightshift evidence
