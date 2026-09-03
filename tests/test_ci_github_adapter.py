@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import http.server
 import json
+import threading
 from pathlib import Path
 import tempfile
 import unittest
@@ -102,6 +104,56 @@ class GitHubAdapterTests(unittest.TestCase):
         self.assertIn(b"AssertionError", result["bytes"])
         self.assertEqual(client.request_methods, ["GET"])
         self.assertEqual(seen[0].headers.get("Accept"), "application/vnd.github+json")
+
+
+    def test_job_log_redirect_strips_github_authorization_before_signed_blob_fetch(self):
+        observed = {"api_auth": None, "blob_auth": None, "api_accept": None}
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_GET(self):
+                if self.path.endswith("/actions/jobs/123/logs"):
+                    observed["api_auth"] = self.headers.get("Authorization")
+                    observed["api_accept"] = self.headers.get("Accept")
+                    self.send_response(302)
+                    self.send_header("Location", f"http://127.0.0.1:{self.server.server_port}/signed-log")
+                    self.end_headers()
+                    return
+                if self.path == "/signed-log":
+                    observed["blob_auth"] = self.headers.get("Authorization")
+                    if observed["blob_auth"]:
+                        self.send_response(401)
+                        self.end_headers()
+                        return
+                    self.send_response(200)
+                    self.end_headers()
+                    self.wfile.write(b"tests/test_x.py::test_x FAILED\nAssertionError\n")
+                    return
+                self.send_response(404)
+                self.end_headers()
+
+            def log_message(self, format, *args):
+                return
+
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        thread = threading.Thread(target=server.serve_forever, daemon=True)
+        thread.start()
+        try:
+            client = ci_github.GitHubActionsReadClient(
+                token="read-only-token",
+                api_base=f"http://127.0.0.1:{server.server_port}",
+            )
+            result = client.job_log("example/widget", 123)
+        finally:
+            server.shutdown()
+            server.server_close()
+            thread.join(timeout=2)
+
+        self.assertTrue(result["available"])
+        self.assertIn(b"AssertionError", result["bytes"])
+        self.assertEqual(observed["api_auth"], "Bearer read-only-token")
+        self.assertEqual(observed["api_accept"], "application/vnd.github+json")
+        self.assertIsNone(observed["blob_auth"])
+        self.assertEqual(client.request_methods, ["GET"])
 
     def test_authoritative_missing_job_log_is_preserved_as_missing_evidence(self):
         req = mock.Mock(full_url="https://api.github.com/repos/example/widget/actions/jobs/1/logs")
