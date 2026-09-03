@@ -2,11 +2,21 @@
 
 CI Doctor turns a sealed `CODE_REPAIR_ALLOWED` CI Recorder receipt into at most one isolated repair candidate.
 
+Direct Doctor use:
+
 ```console
 airlock doctor .airlock/ci/OWNER-REPO-RUN-attempt-N.json --budget 2
 ```
 
 Use `--model NAME` to select a configured Airlock adapter. The default is `hermes`.
+
+The one-command Nightshift handoff keeps classification and repair authority separate while removing the manual receipt-routing step:
+
+```console
+airlock nightshift --ci https://github.com/OWNER/REPO/actions/runs/RUN_ID --repair-ci --budget 2
+```
+
+`--repair-ci` is explicit local repair authority. It requires `--ci` and a positive budget, is mutually exclusive with `--retry-ci`, and always runs exactly one Doctor attempt. A single `--profiles PROFILE` value is preserved as `hermes@PROFILE`; multi-agent or multi-profile repair is refused instead of silently choosing a worker. If Recorder returns anything other than `CODE_REPAIR_ALLOWED`, Doctor does not start and ordinary Nightshift does not start.
 
 Doctor fails closed in this order:
 
