@@ -9,7 +9,7 @@ import tempfile
 import unittest
 from unittest import mock
 
-from airlock import ci, ci_retry, command, nightshift_ci
+from airlock import ci, ci_doctor, ci_retry, command, nightshift_ci
 from airlock.ci import PROVIDER, SCHEMA_VERSION
 from airlock.util import canonical_json_bytes, sha256_bytes
 from airlock.verification import sign
@@ -65,12 +65,16 @@ def write_receipt(repo: Path, key: bytes, disposition: str, *, tamper: bool = Fa
 
 class NightshiftCIIntegrationTests(unittest.TestCase):
     def test_command_router_intercepts_only_nightshift_ci_surface(self) -> None:
+        self.assertIn("--repair-ci", command._help_text())
         with mock.patch("airlock.nightshift_ci.main", return_value=7) as integration:
             self.assertEqual(command.main(["nightshift", "--ci", "123"]), 7)
             integration.assert_called_once_with(["--ci", "123"])
         with mock.patch("airlock.nightshift_ci.main", return_value=8) as integration:
             self.assertEqual(command.main(["nightshift", "--retry-ci"]), 8)
             integration.assert_called_once_with(["--retry-ci"])
+        with mock.patch("airlock.nightshift_ci.main", return_value=6) as integration:
+            self.assertEqual(command.main(["nightshift", "--repair-ci"]), 6)
+            integration.assert_called_once_with(["--repair-ci"])
         with mock.patch("airlock.entry.main", return_value=9) as frozen:
             self.assertEqual(command.main(["nightshift", "--budget", "2"]), 9)
             frozen.assert_called_once_with(["nightshift", "--budget", "2"])
@@ -187,6 +191,124 @@ class NightshiftCIIntegrationTests(unittest.TestCase):
             rc = nightshift_ci.main(["--retry-ci"])
         self.assertEqual(rc, 3)
         self.assertIn("requires --ci", err.getvalue())
+
+    # Nightshift -> Doctor handoff. Five tests keep this integration additive to
+    # the frozen Recorder, Doctor, and CI-CODE-PATH-001 proof.
+    def test_repair_mode_invokes_one_doctor_attempt_and_stops_at_ready_branch(self) -> None:
+        td, repo, key = make_repo()
+        try:
+            receipt_path = write_receipt(repo, key, "CODE_REPAIR_ALLOWED")
+            doctor_result = {
+                "decision": "READY_FOR_REVIEW",
+                "worker_started": True,
+                "ready_branch": "airlock/doctor-ready/demo",
+                "receipt_path": repo / ".airlock" / "doctor.json",
+            }
+            out = io.StringIO()
+            with mock.patch("airlock.ci.record_run", return_value={"receipt_path": receipt_path}), \
+                 mock.patch("airlock.ci_doctor.run_doctor", return_value=doctor_result) as doctor, \
+                 mock.patch("airlock.ci_retry.bounded_retry") as bounded, \
+                 mock.patch("airlock.entry.main") as frozen_nightshift, \
+                 contextlib.redirect_stdout(out):
+                rc = nightshift_ci.main([
+                    "--ci", "123", "--repair-ci", "--repo", str(repo), "--budget", "2",
+                ])
+            self.assertEqual(rc, 0)
+            doctor.assert_called_once_with(repo.resolve(), receipt_path.resolve(), model="hermes", budget=2.0)
+            bounded.assert_not_called()
+            frozen_nightshift.assert_not_called()
+            self.assertIn("Doctor decision: READY_FOR_REVIEW", out.getvalue())
+            self.assertIn("Ready for review: airlock/doctor-ready/demo", out.getvalue())
+            self.assertIn("Ordinary Nightshift started: NO", out.getvalue())
+            self.assertIn("GitHub write authority: NO", out.getvalue())
+
+            err = io.StringIO()
+            with mock.patch("airlock.ci.record_run", return_value={"receipt_path": receipt_path}), \
+                 mock.patch("airlock.ci_doctor.run_doctor", side_effect=ci_doctor.DoctorNotAuthorized("repair base mismatch")), \
+                 contextlib.redirect_stderr(err):
+                rc = nightshift_ci.main([
+                    "--ci", "123", "--repair-ci", "--repo", str(repo), "--budget", "2",
+                ])
+            self.assertEqual(rc, 2)
+            self.assertIn("repair base mismatch", err.getvalue())
+        finally:
+            td.cleanup()
+
+    def test_repair_mode_requires_explicit_ci_budget_and_excludes_retry(self) -> None:
+        for argv, message in (
+            (["--repair-ci", "--budget", "1"], "requires --ci"),
+            (["--ci", "123", "--repair-ci"], "requires --budget"),
+            (["--ci", "123", "--repair-ci", "--budget", "0"], "positive finite"),
+            (["--ci", "123", "--repair-ci", "--retry-ci", "--budget", "1"], "mutually exclusive"),
+        ):
+            with self.subTest(argv=argv):
+                err = io.StringIO()
+                with mock.patch("airlock.ci.record_run") as record, \
+                     mock.patch("airlock.ci_doctor.run_doctor") as doctor, \
+                     contextlib.redirect_stderr(err):
+                    rc = nightshift_ci.main(argv)
+                self.assertEqual(rc, 3)
+                record.assert_not_called()
+                doctor.assert_not_called()
+                self.assertIn(message, err.getvalue())
+
+    def test_repair_mode_preserves_one_selected_hermes_profile(self) -> None:
+        td, repo, key = make_repo()
+        try:
+            receipt_path = write_receipt(repo, key, "CODE_REPAIR_ALLOWED")
+            doctor_result = {
+                "decision": "NO_PATCH_READY",
+                "worker_started": True,
+                "ready_branch": None,
+                "receipt_path": repo / ".airlock" / "doctor.json",
+            }
+            with mock.patch("airlock.ci.record_run", return_value={"receipt_path": receipt_path}), \
+                 mock.patch("airlock.ci_doctor.run_doctor", return_value=doctor_result) as doctor:
+                rc = nightshift_ci.main([
+                    "--ci", "123", "--repair-ci", "--repo", str(repo), "--budget", "1.25",
+                    "--profiles", "fixer",
+                ])
+            self.assertEqual(rc, 0)
+            doctor.assert_called_once_with(repo.resolve(), receipt_path.resolve(), model="hermes@fixer", budget=1.25)
+        finally:
+            td.cleanup()
+
+    def test_repair_mode_refuses_multi_worker_ambiguity_before_provider_read(self) -> None:
+        for extra in (["--agents", "2"], ["-n", "2"], ["--profiles", "a,b"]):
+            with self.subTest(extra=extra):
+                err = io.StringIO()
+                with mock.patch("airlock.ci.record_run") as record, \
+                     mock.patch("airlock.ci_doctor.run_doctor") as doctor, \
+                     contextlib.redirect_stderr(err):
+                    rc = nightshift_ci.main(["--ci", "123", "--repair-ci", "--budget", "1", *extra])
+                self.assertEqual(rc, 3)
+                record.assert_not_called()
+                doctor.assert_not_called()
+                self.assertTrue("exactly one" in err.getvalue() or "at most one" in err.getvalue())
+
+    def test_explicit_repair_mode_never_falls_through_on_non_code_or_no_action(self) -> None:
+        for disposition in ("RETRY_RECOMMENDED", "REPORT_ONLY", "NO_ACTION"):
+            with self.subTest(disposition=disposition):
+                td, repo, key = make_repo()
+                try:
+                    receipt_path = write_receipt(repo, key, disposition)
+                    out = io.StringIO()
+                    with mock.patch("airlock.ci.record_run", return_value={"receipt_path": receipt_path}), \
+                         mock.patch("airlock.ci_doctor.run_doctor") as doctor, \
+                         mock.patch("airlock.ci_retry.bounded_retry") as retry, \
+                         mock.patch("airlock.entry.main") as frozen_nightshift, \
+                         contextlib.redirect_stdout(out):
+                        rc = nightshift_ci.main([
+                            "--ci", "123", "--repair-ci", "--repo", str(repo), "--budget", "1",
+                        ])
+                    self.assertEqual(rc, 0)
+                    doctor.assert_not_called()
+                    retry.assert_not_called()
+                    frozen_nightshift.assert_not_called()
+                    self.assertIn("Doctor submitted: NO", out.getvalue())
+                    self.assertIn("Ordinary Nightshift started: NO", out.getvalue())
+                finally:
+                    td.cleanup()
 
 
 if __name__ == "__main__":

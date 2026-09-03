@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import json
+import math
 from pathlib import Path
 import sys
 from typing import Any
 
-from . import ci, ci_retry, entry
+from . import ci, ci_doctor, ci_retry, entry
 from .gitops import root
 from .util import canonical_json_bytes, sha256_bytes
 
@@ -72,6 +73,43 @@ def _repo_argument(argv: list[str]) -> str:
     return value
 
 
+def _doctor_budget(argv: list[str]) -> float:
+    raw, _ = _option_value(argv, "--budget")
+    if raw is None:
+        raise ValueError("--repair-ci requires --budget for one bounded Doctor attempt")
+    try:
+        value = float(raw)
+    except ValueError as exc:
+        raise ValueError("--budget must be a positive finite amount") from exc
+    if not math.isfinite(value) or value <= 0:
+        raise ValueError("--budget must be a positive finite amount")
+    return value
+
+
+def _doctor_model(argv: list[str]) -> str:
+    """Bind the one Doctor attempt to the one Nightshift worker identity the operator selected."""
+    long_agents, _ = _option_value(argv, "--agents")
+    short_agents, _ = _option_value(argv, "-n")
+    if long_agents is not None and short_agents is not None:
+        raise ValueError("--agents/-n may be supplied only once")
+    raw_agents = long_agents if long_agents is not None else short_agents
+    if raw_agents is None:
+        agents = 1
+    else:
+        try:
+            agents = int(raw_agents)
+        except ValueError as exc:
+            raise ValueError("--agents must be an integer") from exc
+    if agents != 1:
+        raise ValueError("--repair-ci runs exactly one Doctor attempt; --agents must be 1")
+
+    raw_profiles, _ = _option_value(argv, "--profiles")
+    profiles = [row.strip() for row in (raw_profiles or "").split(",") if row.strip()]
+    if len(profiles) > 1:
+        raise ValueError("--repair-ci accepts at most one Hermes profile")
+    return "hermes" if not profiles else f"hermes@{profiles[0]}"
+
+
 def consume_receipt(repo: Path, receipt_path: Path) -> dict[str, Any]:
     """Verify a Recorder receipt and reduce it to a no-side-effect Nightshift route."""
     repo = repo.resolve()
@@ -135,22 +173,51 @@ def consume_receipt(repo: Path, receipt_path: Path) -> dict[str, Any]:
         "boundary": (
             "Recorder classifies; Nightshift consumes the sealed route. "
             "A retry occurs only with explicit --retry-ci and a sealed RETRY_RECOMMENDED receipt. "
-            "No CI-directed code repair occurs here."
+            "A Doctor attempt occurs only with explicit --repair-ci, a positive budget, and a sealed CODE_REPAIR_ALLOWED receipt."
         ),
     }
+
+
+def _print_doctor_result(route: dict[str, Any], result: dict[str, Any]) -> None:
+    print("Airlock nightshift — CI Doctor")
+    print(f"Disposition: {route['disposition']}")
+    print(f"Doctor decision: {result['decision']}")
+    print(f"Doctor worker started: {'YES' if result.get('worker_started') else 'NO'}")
+    print("Ordinary Nightshift started: NO")
+    if result.get("ready_branch"):
+        print(f"Ready for review: {result['ready_branch']}")
+    else:
+        print("Ready for review: 0")
+    print(f"CI receipt: {route['receipt_path']}")
+    print(f"Doctor receipt: {result['receipt_path']}")
+    print("GitHub write authority: NO")
+    print("Merge authority: NO")
 
 
 def main(argv: list[str] | None = None) -> int:
     raw = list(argv or [])
     try:
         retry_requested, raw = _flag(raw, "--retry-ci")
+        repair_requested, raw = _flag(raw, "--repair-ci")
+        if retry_requested and repair_requested:
+            raise ValueError("--retry-ci and --repair-ci are mutually exclusive")
+
         ci_run, delegated = _option_value(raw, "--ci")
         if ci_run is None:
             if retry_requested:
                 raise ValueError("--retry-ci requires --ci")
+            if repair_requested:
+                raise ValueError("--repair-ci requires --ci")
             return entry.main(["nightshift", *raw])
         if "--verify" in delegated or any(row.startswith("--verify=") for row in delegated):
             raise ValueError("--ci cannot be combined with --verify")
+
+        doctor_budget = None
+        doctor_model = None
+        if repair_requested:
+            # Validate the spend and one-worker boundary before any provider read.
+            doctor_budget = _doctor_budget(delegated)
+            doctor_model = _doctor_model(delegated)
 
         repo = root(Path(_repo_argument(delegated)).resolve())
         recorded = ci.record_run(ci_run, cwd=repo)
@@ -177,10 +244,33 @@ def main(argv: list[str] | None = None) -> int:
             print(f"Retry record: {retried['retry_record_path']}")
             print("Retry budget remaining: 0")
             return 0
+
+        if repair_requested:
+            if route["disposition"] != "CODE_REPAIR_ALLOWED":
+                print("Airlock nightshift — CI Doctor")
+                print(f"Disposition: {route['disposition']}")
+                print("Doctor submitted: NO")
+                print("Doctor worker started: NO")
+                print("Ordinary Nightshift started: NO")
+                print(f"CI receipt: {route['receipt_path']}")
+                print("The sealed receipt did not authorize a code-repair attempt.")
+                return 0
+            assert doctor_budget is not None and doctor_model is not None
+            repaired = ci_doctor.run_doctor(
+                repo,
+                Path(route["receipt_path"]),
+                model=doctor_model,
+                budget=doctor_budget,
+            )
+            _print_doctor_result(route, repaired)
+            return 0
     except ci.CIRecorderError as exc:
         print(f"ERROR: {ci._safe_error_text(exc)}", file=sys.stderr)
         return exc.exit_code
     except ci_retry.CIRetryError as exc:
+        print(f"ERROR: {ci._safe_error_text(exc)}", file=sys.stderr)
+        return exc.exit_code
+    except ci_doctor.CIDoctorError as exc:
         print(f"ERROR: {ci._safe_error_text(exc)}", file=sys.stderr)
         return exc.exit_code
     except Exception as exc:

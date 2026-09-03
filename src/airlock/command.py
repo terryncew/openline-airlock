@@ -9,7 +9,10 @@ CI_HELP_LINE = "  ci             Classify failed GitHub Actions evidence before 
 DOCTOR_HELP_LINE = "  doctor         Generate one isolated repair from a sealed code-repair receipt."
 CI_START_LINE = "  airlock ci <github-actions-run-url-or-id>"
 DOCTOR_START_LINE = "  airlock doctor <ci-receipt.json> --budget <usd> [--model hermes]"
-NIGHTSHIFT_CI_START_LINE = "  airlock nightshift --ci <github-actions-run-url-or-id> [--retry-ci]"
+NIGHTSHIFT_CI_START_LINE = (
+    "  airlock nightshift --ci <github-actions-run-url-or-id> "
+    "[--repair-ci --budget <usd> | --retry-ci]"
+)
 
 
 def _help_text() -> str:
@@ -37,7 +40,7 @@ def _help_text() -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    """Add the post-v0.3 CI Recorder while delegating every frozen command unchanged."""
+    """Add the post-v0.3 CI control surface while delegating frozen commands unchanged."""
     raw = list(sys.argv[1:] if argv is None else argv)
 
     if not raw or raw[0] in {"-h", "--help"}:
@@ -53,7 +56,10 @@ def main(argv: list[str] | None = None) -> int:
         return doctor_main(raw[1:])
 
     if raw[0] == "nightshift" and any(
-        token == "--ci" or token.startswith("--ci=") or token == "--retry-ci" for token in raw[1:]
+        token == "--ci"
+        or token.startswith("--ci=")
+        or token in {"--retry-ci", "--repair-ci"}
+        for token in raw[1:]
     ):
         from .nightshift_ci import main as nightshift_ci_main
         return nightshift_ci_main(raw[1:])
