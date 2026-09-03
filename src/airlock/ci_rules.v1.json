@@ -1,0 +1,146 @@
+{
+  "rule_set_version": "airlock.ci.rules.v1",
+  "rules": [
+    {
+      "class": "WORKFLOW_CONFIG",
+      "id": "CI-WORKFLOW-001",
+      "patterns": [
+        "Invalid workflow file",
+        "The workflow is not valid",
+        "workflow is not valid"
+      ],
+      "reason": "WORKFLOW_SYNTAX"
+    },
+    {
+      "class": "WORKFLOW_CONFIG",
+      "id": "CI-WORKFLOW-002",
+      "patterns": [
+        "Error evaluating expression",
+        "Unrecognized named-value",
+        "Input required and not supplied"
+      ],
+      "reason": "EXPRESSION_OR_ACTION_CONFIG"
+    },
+    {
+      "class": "WORKFLOW_CONFIG",
+      "id": "CI-WORKFLOW-003",
+      "patterns": [
+        "Resource not accessible by integration",
+        "secret is not set",
+        "permission denied to github-actions"
+      ],
+      "reason": "PERMISSION_OR_SECRET_CONFIG"
+    },
+    {
+      "class": "ENVIRONMENT",
+      "id": "CI-ENV-001",
+      "patterns": [
+        "No space left on device",
+        "Input/output error",
+        "failed to copy.*\\.git/objects",
+        "unable to copy.*\\.git/objects",
+        "unable to create.*\\.git/objects",
+        "git object copy failed"
+      ],
+      "reason": "RUNNER_FILESYSTEM"
+    },
+    {
+      "class": "ENVIRONMENT",
+      "id": "CI-ENV-002",
+      "patterns": [
+        "runner has received a shutdown signal",
+        "lost communication with the server",
+        "hosted runner.*lost communication",
+        "runner was abandoned"
+      ],
+      "reason": "RUNNER_CAPACITY"
+    },
+    {
+      "class": "ENVIRONMENT",
+      "id": "CI-ENV-003",
+      "patterns": [
+        "disk quota exceeded",
+        "cannot allocate memory",
+        "out of memory",
+        "oom killed"
+      ],
+      "reason": "DISK_OR_RESOURCE_EXHAUSTION"
+    },
+    {
+      "class": "EXTERNAL_SERVICE",
+      "id": "CI-EXT-001",
+      "patterns": [
+        "HTTP[^\\n]*429",
+        "429 Too Many Requests",
+        "Too Many Requests",
+        "rate limit exceeded"
+      ],
+      "reason": "RATE_LIMIT"
+    },
+    {
+      "class": "EXTERNAL_SERVICE",
+      "id": "CI-EXT-002",
+      "patterns": [
+        "HTTP[^\\n]*50[0234]",
+        "502 Bad Gateway",
+        "503 Service Unavailable",
+        "504 Gateway Timeout",
+        "500 Internal Server Error"
+      ],
+      "reason": "REMOTE_5XX"
+    },
+    {
+      "class": "EXTERNAL_SERVICE",
+      "id": "CI-EXT-003",
+      "patterns": [
+        "Could not resolve host",
+        "Temporary failure in name resolution",
+        "TLS handshake",
+        "certificate verify failed",
+        "Connection timed out",
+        "ETIMEDOUT",
+        "ECONNRESET",
+        "network is unreachable"
+      ],
+      "reason": "DNS_TLS_OR_NETWORK"
+    },
+    {
+      "class": "CODE_REGRESSION",
+      "id": "CI-CODE-001",
+      "patterns": [
+        "FAILED [^\\n]+::[^\\n]+",
+        "AssertionError",
+        "assert [^\\n]+ == [^\\n]+",
+        "tests? failed"
+      ],
+      "reason": "TEST_FAILURE"
+    },
+    {
+      "class": "CODE_REGRESSION",
+      "id": "CI-CODE-002",
+      "patterns": [
+        "\\b[A-Z][0-9]{3}\\b",
+        "error: [^\\n]+ \\[[a-z0-9-]+\\]",
+        "Found [1-9][0-9]* errors? in [1-9][0-9]* files?"
+      ],
+      "reason": "LINT_OR_TYPE_FAILURE"
+    },
+    {
+      "class": "CODE_REGRESSION",
+      "id": "CI-CODE-003",
+      "patterns": [
+        "compilation terminated",
+        "compiler error",
+        "error\\[E[0-9]{4}\\]",
+        "BUILD FAILED.*compil"
+      ],
+      "reason": "COMPILE_OR_BUILD_FAILURE"
+    },
+    {
+      "class": "UNRESOLVED",
+      "id": "CI-UNRESOLVED-001",
+      "patterns": [],
+      "reason": "INSUFFICIENT_EVIDENCE"
+    }
+  ]
+}
