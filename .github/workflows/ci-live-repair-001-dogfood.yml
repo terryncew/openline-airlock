@@ -46,21 +46,33 @@ jobs:
       - name: Install this Airlock commit
         run: python -m pip install .
 
-      - name: Verify committed dogfood-only receiver rules
+      - name: Install dogfood-only receiver rules as local Airlock metadata
         shell: bash
         run: |
           set -euo pipefail
-          cmp -s dogfood/ci-live-repair-001/config.json .airlock/config.json
+          cp dogfood/ci-live-repair-001/config.json .airlock/config.json
           python - <<'PY'
           import json
+          import subprocess
           from pathlib import Path
+
           cfg = json.loads(Path('.airlock/config.json').read_text())
           assert cfg['schema'] == 'airlock.config.v1'
           assert cfg['providers']['hermes']['pass_env'] == ['HERMES_HOME']
           assert cfg['verification']['test_commands']
           assert 'experiments/ci-code-path-001/fixture/tests/**' in cfg['protected_paths']
+
+          rows = subprocess.check_output(
+              ['git', 'status', '--porcelain', '--untracked-files=all'],
+              text=True,
+          ).splitlines()
+          outside_airlock = []
+          for row in rows:
+              path = row[3:].strip() if len(row) >= 4 else row.strip()
+              if not path.startswith('.airlock/'):
+                  outside_airlock.append(row)
+          assert not outside_airlock, outside_airlock
           PY
-          test -z "$(git status --porcelain --untracked-files=all)"
 
       - name: Require the single delegated model credential
         shell: bash
@@ -161,6 +173,28 @@ jobs:
           echo "exit_code=$status" >> "$GITHUB_OUTPUT"
           exit "$status"
 
+      - name: Expose bounded Doctor disposition
+        if: ${{ steps.repair.outcome == 'success' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          receipts = sorted(Path('.airlock/doctor').glob('*/doctor.json'))
+          if not receipts:
+              raise SystemExit('Doctor receipt missing after successful repair command')
+          receipt = json.loads(receipts[-1].read_text())
+          payload = receipt['payload']
+          print(f"Doctor decision: {payload.get('decision')}")
+          print(f"Doctor reason: {payload.get('reason')}")
+          print(f"Doctor changed paths: {payload.get('changed_paths')}")
+          execution = payload.get('agent_execution') or {}
+          print(f"Agent exit code: {execution.get('exit_code')}")
+          print(f"Agent timed out: {execution.get('timed_out')}")
+          PY
+
       - name: Independently verify admitted candidate
         id: verify
         if: ${{ steps.repair.outcome == 'success' }}
@@ -205,6 +239,16 @@ jobs:
           test -f "$RUNNER_TEMP/hermes-source-commit.txt" && cp "$RUNNER_TEMP/hermes-source-commit.txt" "$ARTIFACT_DIR/hermes-source-commit.txt" || true
           test -f "$RUNNER_TEMP/ci-live-repair-console.log" && cp "$RUNNER_TEMP/ci-live-repair-console.log" "$ARTIFACT_DIR/console.log" || true
           test -f "$RUNNER_TEMP/ci-live-repair-verifier.log" && cp "$RUNNER_TEMP/ci-live-repair-verifier.log" "$ARTIFACT_DIR/verifier.log" || true
+
+          if [ -d .airlock/ci ]; then
+            mkdir -p "$ARTIFACT_DIR/ci"
+            find .airlock/ci -maxdepth 1 -type f -name '*.json' -exec cp {} "$ARTIFACT_DIR/ci/" \;
+          fi
+          if [ -d .airlock/doctor ]; then
+            mkdir -p "$ARTIFACT_DIR/doctor"
+            find .airlock/doctor -type f \( -name 'doctor.json' -o -name 'doctor.sha256' -o -name 'prompt.txt' -o -name 'agent-report.json' \) \
+              -exec cp {} "$ARTIFACT_DIR/doctor/" \;
+          fi
 
       - name: Upload live proof receipt
         if: always()
