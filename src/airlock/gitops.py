@@ -23,7 +23,16 @@ def root(start: Path) -> Path:
 
 
 def ensure_clean(repo: Path) -> None:
-    rows = [line for line in git(repo, "status", "--porcelain", "--untracked-files=all").splitlines() if line.strip()]
+    # Do not route porcelain output through ``git()``: that helper strips
+    # leading whitespace, but the first two columns of porcelain status are
+    # semantic. In particular, `` M .airlock/config.json`` would become
+    # ``M .airlock/config.json`` and the path parser would lose the leading
+    # dot, falsely treating receiver-local metadata as ordinary repo dirt.
+    result = run(["git", "status", "--porcelain", "--untracked-files=all"], repo)
+    if result["exit_code"] != 0:
+        raise RuntimeError(f"git status failed: {result['stderr'].strip()}")
+    rows = [line for line in result["stdout"].splitlines() if line.strip()]
+
     # .airlock/ is receiver-local metadata and is hashed separately into each run.
     dirty = []
     for line in rows:
