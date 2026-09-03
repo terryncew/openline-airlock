@@ -184,6 +184,42 @@ class UnattendedTests(unittest.TestCase):
         self.assertTrue((out / "survivor.patch").exists())
         self.assertTrue(unattended.verify_result(out / "result.json", out / "survivor.patch")["valid"])
 
+    def test_evaluator_clone_forces_transport_instead_of_local_object_copy(self):
+        repo, base = init_repo(candidate_count=1)
+        artifact = make_artifact(repo, base, "01", content="def value():\n    return 2\n")
+        candidates = Path(tempfile.mkdtemp(prefix="candidates-"))
+        target = candidates / "airlock-candidate-01"
+        target.mkdir()
+        for name in ("candidate.json", "candidate.patch"):
+            (target / name).write_bytes((artifact / name).read_bytes())
+
+        original_run = unattended._run
+        clone_argv = []
+
+        def tracing_run(argv, cwd, **kwargs):
+            if argv[:2] == ["git", "clone"]:
+                clone_argv.append(list(argv))
+            return original_run(argv, cwd, **kwargs)
+
+        unattended._run = tracing_run
+        try:
+            result = unattended.evaluate_candidates(
+                repo,
+                base=base,
+                issue_number=17,
+                candidates_root=candidates,
+                out_dir=Path(tempfile.mkdtemp(prefix="result-")),
+                workflow_run_id="clone-transport-test",
+                command_runner=success_runner,
+            )
+        finally:
+            unattended._run = original_run
+
+        self.assertEqual(result["decision"], "READY_FOR_REVIEW")
+        self.assertEqual(len(clone_argv), 1)
+        self.assertIn("--no-local", clone_argv[0])
+        self.assertNotIn("--no-hardlinks", clone_argv[0])
+
     def test_protected_change_is_blocked_before_commands(self):
         repo, base = init_repo(candidate_count=1)
         git(repo, "reset", "--hard", base)

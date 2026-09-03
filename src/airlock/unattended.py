@@ -385,7 +385,7 @@ def evaluate_candidates(
                 continue
 
             wt = temp_root / str(manifest["candidate_id"])
-            clone = _run(["git", "clone", "--no-hardlinks", "--quiet", str(repo), str(wt)], repo, timeout=120)
+            clone = _run(["git", "clone", "--no-local", "--quiet", str(repo), str(wt)], repo, timeout=120)
             if clone["exit_code"] != 0:
                 raise RuntimeError(str(clone["stderr"]).strip() or "could not create isolated evaluator clone")
             _git(wt, "checkout", "--detach", base)
