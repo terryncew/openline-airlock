@@ -6,7 +6,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-from . import ci, ci_doctor, ci_retry, entry
+from . import ci, ci_doctor, ci_github, ci_retry, entry
 from .gitops import root
 from .util import canonical_json_bytes, sha256_bytes
 
@@ -220,7 +220,7 @@ def main(argv: list[str] | None = None) -> int:
             doctor_model = _doctor_model(delegated)
 
         repo = root(Path(_repo_argument(delegated)).resolve())
-        recorded = ci.record_run(ci_run, cwd=repo)
+        recorded = ci_github.record_run(ci_run, cwd=repo)
         route = consume_receipt(repo, Path(recorded["receipt_path"]))
 
         if retry_requested:
@@ -232,7 +232,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"CI receipt: {route['receipt_path']}")
                 print("The sealed receipt did not authorize a bounded retry.")
                 return 0
-            retried = ci_retry.bounded_retry(repo, recorded)
+            retried = ci_retry.bounded_retry(
+                repo,
+                recorded,
+                recorder=ci_github.record_run,
+                read_client_factory=lambda token: ci_github.GitHubActionsReadClient(token=token),
+            )
             print("Airlock nightshift — bounded CI retry")
             print("Disposition: RETRY_RECOMMENDED")
             print("Retry submitted: YES")

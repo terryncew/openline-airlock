@@ -7,6 +7,7 @@ import unittest
 import urllib.error
 from unittest import mock
 
+from airlock import ci_github
 from airlock.ci import (
     GitHubActionsReadClient,
     ProviderFailure,
@@ -94,7 +95,7 @@ class GitHubAdapterTests(unittest.TestCase):
                 raise urllib.error.HTTPError(req.full_url, 415, "unsupported media type", {}, None)
             return _Response(b"tests/test_x.py::test_x FAILED\nAssertionError\n")
 
-        client = GitHubActionsReadClient(token="read-only-token", opener=opener)
+        client = ci_github.GitHubActionsReadClient(token="read-only-token", opener=opener)
         result = client.job_log("example/widget", 123)
 
         self.assertTrue(result["available"])
