@@ -1,0 +1,54 @@
+{
+  "handoff": "AIRLOCK-HYDRAFUSION-001",
+  "status": "PREREGISTERED_DESIGN_NO_WORKER_RUNS",
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "0df391a1c9c6ad66f10d600033ca4e237cc4f5dd",
+  "branch": "research/airlock-hydrafusion-001-prereg",
+  "trigger": {
+    "event": "GitHub Project HydraFusion research preview",
+    "date": "2026-09-04",
+    "reason": "External market event: runtime multi-model orchestration makes replaceable-worker judgment neutrality directly testable."
+  },
+  "question": "Can worker identity and orchestration change while one receiver-owned Airlock scoreboard remains fixed?",
+  "claim_under_test": "Worker identity may change. Judgment does not.",
+  "stages": [
+    {
+      "id": "A",
+      "name": "producer-label invariance",
+      "rule": "Evaluate one identical candidate three times while changing only producer metadata: hydrafusion, opus, codex.",
+      "pass": "Substantive decision, reason codes, measured result, protected-surface result, and evaluator/config hash remain invariant."
+    },
+    {
+      "id": "B",
+      "name": "live worker tournament",
+      "workers": [
+        "hydrafusion",
+        "opus",
+        "codex"
+      ],
+      "rule": "Same frozen repo, base, first-turn task, checks, protected paths, objective, threshold, and evaluator for every worker.",
+      "note": "Different candidate patches may correctly receive different dispositions."
+    }
+  ],
+  "falsifier": "Any provider-specific judgment logic or any substantive Stage A decision change caused only by producer identity.",
+  "allowed_adapter_difference": "Thin launcher/output normalization needed to obtain a standard candidate patch.",
+  "forbidden": [
+    "provider-specific thresholds",
+    "provider-specific protected-path exceptions",
+    "provider identity in scoring",
+    "post-hoc evaluator changes after seeing worker output",
+    "changing task/objective between workers",
+    "treating UNKNOWN cost as zero"
+  ],
+  "outcomes": [
+    "WORKER_NEUTRALITY_EARNED",
+    "WORKER_NEUTRALITY_FAILED",
+    "INCONCLUSIVE_HOST_LIMITATION"
+  ],
+  "sequencing": "Freeze result, stop Airlock again, return to RUNTIME-CONTRACT-001.",
+  "next_required_artifact": "A separate merged task-freeze receipt before any Stage B worker invocation.",
+  "changed_files": [
+    "AIRLOCK_HYDRAFUSION_001_HANDOFF.json",
+    "docs/AIRLOCK_HYDRAFUSION_001.md"
+  ]
+}
