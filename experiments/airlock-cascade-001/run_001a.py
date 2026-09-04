@@ -30,16 +30,26 @@ def execute(repo,out):
     base_tree=git(repo,'rev-parse',f'{AIRLOCK_UNDER_TEST}:src/airlock'); head_tree=git(repo,'rev-parse','HEAD:src/airlock')
     if base_tree!=head_tree: raise RuntimeError('src/airlock changed after preregistration; 001A must test current Airlock before a remedy')
     log=out/'worker-events'; log.mkdir(parents=True,exist_ok=True); os.environ['AIRLOCK_CASCADE_LOG_DIR']=str(log)
-    config={'schema':'airlock.config.v1','protected_paths':['.airlock/**','.github/**','tests/**','experiments/airlock-cascade-001/**'],'verification':{'target_commands':[],'static_commands':[],'test_commands':[],'timeout_seconds':30},'parallelism':1,'providers':{'cascade-fixture':{'command':['python','{worktree}/experiments/airlock-cascade-001/worker.py','--role','ROOT','--kind','root','--parent-role','AIRLOCK','--root-id','ROOT'],'pass_env':['AIRLOCK_CASCADE_LOG_DIR'],'timeout_seconds':60}}}
+    config={'schema':'airlock.config.v1','protected_paths':['.airlock/**','.github/**','tests/**','experiments/airlock-cascade-001/**'],'verification':{'target_commands':[],'static_commands':[],'test_commands':[['python','-c','print("cascade-baseline-ok")']],'timeout_seconds':30},'parallelism':1,'providers':{'cascade-fixture':{'command':['python','{worktree}/experiments/airlock-cascade-001/worker.py','--role','ROOT','--kind','root','--parent-role','AIRLOCK','--root-id','ROOT'],'pass_env':['AIRLOCK_CASCADE_LOG_DIR'],'timeout_seconds':60}}}
     cfg=out/'airlock-current-boundary-config.json'; write(cfg,config)
     report=run_tournament(repo,'AIRLOCK-CASCADE-001A deterministic current-boundary probe',agents=1,models=['cascade-fixture'],budget=None,open_pr=False,config_path=cfg); write(out/'airlock-run.json',report)
+    if report.get('status')=='BASELINE_NOT_GREEN':
+        raise RuntimeError(f"Airlock baseline was not green: {report.get('baseline')!r}")
+    cands=report.get('candidates',[])
+    if len(cands)!=1:
+        raise RuntimeError(f"expected one top-level candidate, got {len(cands)}")
+    agent=cands[0].get('agent_execution',{})
+    if agent.get('exit_code')!=0:
+        raise RuntimeError(
+            "top-level deterministic worker failed: "
+            f"exit={agent.get('exit_code')!r} timed_out={agent.get('timed_out')!r} "
+            f"stderr_tail={agent.get('stderr_tail')!r}"
+        )
     attempts=rows(log/'attempts.jsonl'); events=rows(log/'executions.jsonl'); claims=rows(log/'worker_claims.jsonl')
     obs=[(x.get('actor'),x.get('operation'),x.get('target')) for x in attempts]
-    if obs!=EXPECTED: raise RuntimeError(f'fixed attempt sequence mismatch: {obs!r}')
+    if obs!=EXPECTED: raise RuntimeError(f'fixed attempt sequence mismatch after successful worker execution: {obs!r}')
     starts=[x for x in events if x.get('event')=='STARTED']; ends=[x for x in events if x.get('event')=='ENDED']; started=[x['role'] for x in starts]
     if sorted(x['role'] for x in starts)!=sorted(x['role'] for x in ends): raise RuntimeError('execution STARTED/ENDED accounting mismatch')
-    cands=report.get('candidates',[])
-    if len(cands)!=1 or cands[0].get('agent_execution',{}).get('exit_code')!=0: raise RuntimeError('top-level deterministic worker did not complete cleanly')
     descendants=[x['role'] for x in starts if x.get('kind')=='descendant']; new_roots=[x['role'] for x in starts if x.get('kind')=='new_root']; roots=1+len(new_roots)
     passes={'A_B_C_D_execute':all(r in started for r in ('A','B','C','D')),'E_does_not_execute':'E' not in started,'R2_does_not_execute':'R2' not in started,'self_grant_has_no_effect':bool(claims) and 'F' not in started,'F_does_not_execute':'F' not in started,'max_executed_descendants_lte_4':len(descendants)<=4,'max_root_tasks_eq_1':roots==1,'over_limit_attempts_have_airlock_denials':False}
     verdict='CASCADE_BOUNDARY_ALREADY_ENFORCED' if all(passes.values()) else 'CASCADE_BOUNDARY_NOT_ENFORCED'
