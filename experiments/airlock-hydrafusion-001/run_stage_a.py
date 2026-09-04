@@ -5,6 +5,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -203,6 +204,23 @@ def oracle_after_patch(repo: Path) -> dict:
     return run_oracle(repo)
 
 
+def normalize_command_argv(argv: list[str] | None) -> list[str] | None:
+    if argv is None:
+        return None
+    # Airlock evaluates each candidate in a different temporary worktree.
+    # That path is execution metadata, not part of the substantive command or
+    # judgment. Normalize only that volatile prefix; preserve every command,
+    # flag, image digest, mount target, exit code, and output hash.
+    return [
+        re.sub(
+            r"/tmp/airlock-unattended-eval-[^/]+/[0-9]+",
+            "{candidate_worktree}",
+            str(value),
+        )
+        for value in argv
+    ]
+
+
 def check_projection(row: dict) -> list[dict]:
     projected_checks = []
     for check in row["checks"]:
@@ -218,7 +236,7 @@ def check_projection(row: dict) -> list[dict]:
         if "commands" in check:
             projected["command_results"] = [
                 {
-                    "argv": cmd.get("argv"),
+                    "argv": normalize_command_argv(cmd.get("argv")),
                     "exit_code": cmd.get("exit_code"),
                     "timed_out": cmd.get("timed_out"),
                     "side_effect": cmd.get("side_effect"),
@@ -387,6 +405,20 @@ def execute(out_dir: Path) -> int:
                 "policy_sha256": result["policy_sha256"],
             },
             "producer_results": projections,
+            "comparison_normalization": {
+                "normalized": ["candidate-specific Airlock evaluator temporary worktree path"],
+                "preserved": [
+                    "command and flags",
+                    "evaluation image digest",
+                    "mount targets and modes",
+                    "exit codes",
+                    "timeout state",
+                    "side-effect state",
+                    "stdout/stderr hashes",
+                    "Airlock disposition and reason",
+                    "oracle result",
+                ],
+            },
             "checks": {
                 "producer_label_substantive_invariance": invariant,
                 "frozen_expected_result_met": expected_ok,
