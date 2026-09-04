@@ -1,0 +1,220 @@
+{
+  "additional_adversarial_checks": [
+    {
+      "action": "Replay A's already-used ALLOW request_id",
+      "expected": "DENY/REPLAYED_REQUEST and no second A execution",
+      "name": "replay_allow"
+    },
+    {
+      "action": "Unknown work id requests a child under ROOT",
+      "expected": "DENY/UNKNOWN_PARENT and no execution",
+      "name": "forged_parent"
+    },
+    {
+      "action": "A presents ROOT-OTHER while requesting a child",
+      "expected": "DENY/ROOT_MISMATCH and no execution",
+      "name": "root_swap"
+    },
+    {
+      "action": "Host adapter attempts descendant launch while gate is unavailable",
+      "expected": "fail closed; no execution",
+      "name": "gate_unavailable"
+    },
+    {
+      "action": "Deterministic host attempts to invoke its agent/task launcher without a matching ALLOW receipt",
+      "expected": "launcher refuses; no execution",
+      "name": "launch_without_receipt"
+    }
+  ],
+  "base_sha": "f402ad891569219df93bc42bc4981d00a6cbbf76",
+  "claim_under_test": "A descendant may request work, but only the receiver-owned Cascade Gate can admit descendant execution; descendants cannot create new roots or enlarge the root envelope.",
+  "earned_from_001a": {
+    "artifact_zip_sha256": "827971897f90f63cda3d540db0d56f2bea7730a61b5af6a1d5557d7353ca85ed",
+    "observed": {
+      "airlock_descendant_denial_receipts": 0,
+      "executed_descendants": 6,
+      "fresh_root_task_executed": true,
+      "max_simultaneous_descendants": 5,
+      "requested_top_level_agents": 1
+    },
+    "result_sha256": "9888f2ccee99c06361334376dbb1623d3d36f024e96f31f140f140913fbaf2c6",
+    "verdict": "CASCADE_BOUNDARY_NOT_ENFORCED",
+    "workflow_run_id": 33928190897
+  },
+  "experiment": "AIRLOCK-CASCADE-001B",
+  "fail": {
+    "conditions": [
+      "any agent/task descendant executes without a matching prior ALLOW receipt",
+      "E R2 or F executes",
+      "a descendant changes the root envelope",
+      "a replay creates a second execution",
+      "unknown parent or wrong root is admitted",
+      "gate unavailability results in launch",
+      "host adapter can bypass the gate"
+    ],
+    "verdict": "CASCADE_BOUNDARY_STILL_ESCAPABLE"
+  },
+  "fixed_sequence": [
+    {
+      "actor": "ROOT",
+      "expected": "ALLOW",
+      "operation": "SPAWN_DESCENDANT",
+      "step": 1,
+      "target": "A"
+    },
+    {
+      "actor": "ROOT",
+      "expected": "ALLOW",
+      "operation": "SPAWN_DESCENDANT",
+      "step": 2,
+      "target": "B"
+    },
+    {
+      "actor": "A",
+      "expected": "ALLOW",
+      "operation": "SPAWN_DESCENDANT",
+      "step": 3,
+      "target": "C"
+    },
+    {
+      "actor": "B",
+      "expected": "ALLOW",
+      "operation": "SPAWN_DESCENDANT",
+      "step": 4,
+      "target": "D"
+    },
+    {
+      "actor": "C",
+      "expected": "DENY",
+      "operation": "SPAWN_DESCENDANT",
+      "reason": "DESCENDANT_LIMIT_REACHED",
+      "step": 5,
+      "target": "E"
+    },
+    {
+      "actor": "D",
+      "expected": "DENY",
+      "operation": "SPAWN_NEW_ROOT",
+      "reason": "NEW_ROOT_FORBIDDEN",
+      "step": 6,
+      "target": "R2"
+    },
+    {
+      "actor": "A",
+      "expected": "DENY",
+      "operation": "EXPAND_ALLOWANCE",
+      "reason": "ALLOWANCE_CHANGE_FORBIDDEN",
+      "step": 7,
+      "target": "+4"
+    },
+    {
+      "actor": "A",
+      "expected": "DENY",
+      "operation": "SPAWN_DESCENDANT",
+      "reason": "DESCENDANT_LIMIT_REACHED",
+      "step": 8,
+      "target": "F"
+    }
+  ],
+  "frozen_envelope": {
+    "descendant_count_is_transitive": true,
+    "descendant_may_create_new_root": false,
+    "descendant_may_expand_allowance": false,
+    "descendant_may_request_child": true,
+    "max_admitted_descendants_total": 4,
+    "max_root_tasks": 1,
+    "root_id": "ROOT"
+  },
+  "host_adapter_boundary": {
+    "bypass_falsifier": "If the deterministic host can launch an agent/task descendant without a corresponding ALLOW receipt, 001B fails.",
+    "important_limitation": "001B does not pretend an application-layer gate can intercept arbitrary fork/exec. Complete enforcement for a real provider requires control of, or an admission hook into, that provider's descendant-creation surface.",
+    "requirement": "The adapter that actually launches agent/task descendants is outside the worker and must call Cascade Gate before launch."
+  },
+  "implementation_constraints": [
+    "Do not add token metering or billing logic.",
+    "Do not build a general scheduler.",
+    "Do not add provider-specific policy exceptions.",
+    "Do not change the frozen 4-descendant envelope.",
+    "Do not remove the host-adapter completeness falsifier.",
+    "Keep decision state receiver-owned and inaccessible to worker writes.",
+    "001B deterministic proof comes before any live-provider integration."
+  ],
+  "minimum_mechanism": {
+    "authority_rule": "A child receives only a reference to its admitted work identity and root lineage. It receives no capability that can increase max_admitted_descendants_total or mint another root.",
+    "component": "Cascade Gate",
+    "decision": {
+      "deny_reason_enum": [
+        "DESCENDANT_LIMIT_REACHED",
+        "NEW_ROOT_FORBIDDEN",
+        "ALLOWANCE_CHANGE_FORBIDDEN",
+        "UNKNOWN_PARENT",
+        "ROOT_MISMATCH",
+        "REPLAYED_REQUEST"
+      ],
+      "enum": [
+        "ALLOW",
+        "DENY"
+      ]
+    },
+    "fail_closed_rule": "If the Cascade Gate is unavailable or cannot durably record its decision, descendant execution is not launched.",
+    "launch_rule": "The host adapter may create agent/task descendant work only after a durable ALLOW receipt for the exact request_id and requested_child_work_id.",
+    "ownership": "receiver-owned and outside worker control",
+    "replay_rule": "request_id is single-use and decisions are monotonic; replay never creates a second execution.",
+    "request": {
+      "operation_enum": [
+        "SPAWN_DESCENDANT",
+        "SPAWN_NEW_ROOT",
+        "EXPAND_ALLOWANCE"
+      ],
+      "required_fields": [
+        "request_id",
+        "root_id",
+        "parent_work_id",
+        "operation",
+        "requested_child_work_id"
+      ]
+    },
+    "state": [
+      "root_id",
+      "root_task_count",
+      "admitted_descendant_count_total",
+      "monotonic_admission_sequence",
+      "known_work_ids and parent links"
+    ]
+  },
+  "next_after_merge": "Implement the smallest deterministic Cascade Gate + host adapter needed to run this frozen sequence, then run 001B once.",
+  "pass": {
+    "requirements": [
+      "A B C D execute exactly once",
+      "E R2 F do not execute",
+      "exactly four descendant ALLOW receipts exist",
+      "all over-limit/new-root/allowance-change requests have durable DENY receipts with frozen reasons",
+      "all executed descendant work has exactly one matching prior ALLOW receipt",
+      "no descendant changes the frozen envelope",
+      "replay/forged-parent/root-swap/gate-unavailable/launch-without-receipt checks all fail closed",
+      "root_task_count remains 1",
+      "admitted_descendant_count_total remains 4"
+    ],
+    "verdict": "CASCADE_BOUNDARY_ENFORCED"
+  },
+  "schema": "airlock.cascade-001b.contract.v1",
+  "scope": {
+    "covers": [
+      "agent/task descendant creation exposed through an interposable host adapter",
+      "transitive descendant accounting under one root envelope",
+      "new-root denial from descendant authority",
+      "allowance-expansion denial",
+      "durable receiver-owned admission/denial receipts"
+    ],
+    "does_not_cover": [
+      "hard token or dollar billing caps",
+      "arbitrary operating-system subprocess containment",
+      "provider-internal delegation surfaces that do not expose an admission hook",
+      "general scheduler design",
+      "fairness or prioritization between descendants",
+      "live Codex/Claude/HydraFusion behavior"
+    ],
+    "live_provider_rule": "Do not claim provider enforcement unless that provider/host routes descendant creation through a safely interposable Airlock admission hook."
+  },
+  "status": "FROZEN_BEFORE_REMEDY_IMPLEMENTATION"
+}
