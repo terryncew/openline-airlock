@@ -1,0 +1,56 @@
+name: AIRLOCK-CASCADE-001B — enforced boundary
+
+on:
+  pull_request:
+    paths:
+      - "src/airlock/cascade.py"
+      - "tests/test_cascade.py"
+      - "experiments/airlock-cascade-001/run_001b.py"
+      - "experiments/airlock-cascade-001/worker_001b.py"
+      - ".github/workflows/airlock-cascade-001b.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  enforced-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Airlock
+        run: python -m pip install .
+
+      - name: Unit-test Cascade Gate
+        run: python -m unittest tests.test_cascade -v
+
+      - name: Initialize evidence directory
+        run: mkdir -p "$RUNNER_TEMP/cascade-001b-evidence"
+
+      - name: Run frozen 001B proof
+        run: |
+          timeout --signal=KILL 60s \
+            python experiments/airlock-cascade-001/run_001b.py \
+              --repo "$GITHUB_WORKSPACE" \
+              --out "$RUNNER_TEMP/cascade-001b-evidence"
+
+      - name: Show verdict
+        run: |
+          cat "$RUNNER_TEMP/cascade-001b-evidence/AIRLOCK_CASCADE_001B_RESULT.json"
+          cat "$RUNNER_TEMP/cascade-001b-evidence/AIRLOCK_CASCADE_001B_RESULT.sha256"
+
+      - name: Freeze 001B evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-cascade-001b
+          path: ${{ runner.temp }}/cascade-001b-evidence/
+          if-no-files-found: error
+          retention-days: 30
