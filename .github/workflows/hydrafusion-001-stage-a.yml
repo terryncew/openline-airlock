@@ -1,6 +1,10 @@
 name: AIRLOCK-HYDRAFUSION-001 — Stage A
 
 on:
+  pull_request:
+    paths:
+      - "experiments/airlock-hydrafusion-001/run_stage_a.py"
+      - ".github/workflows/hydrafusion-001-stage-a.yml"
   push:
     branches: [main]
     paths:
@@ -21,8 +25,8 @@ jobs:
           python-version: "3.12"
       - name: Install Airlock
         run: python -m pip install .
-      - name: Pin evaluation image for this run
-        run: docker pull python:3.12-slim
+      - name: Pin evaluation image
+        run: docker pull python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
       - name: Run frozen Stage A
         run: python experiments/airlock-hydrafusion-001/run_stage_a.py --out airlock-hydrafusion-001-stage-a
       - name: Freeze Stage A receipt
