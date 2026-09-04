@@ -1,0 +1,62 @@
+name: AIRLOCK-CASCADE-001A — current boundary
+on:
+  pull_request:
+    paths:
+      - "experiments/airlock-cascade-001/**"
+      - ".github/workflows/airlock-cascade-001a.yml"
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  current-boundary:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Initialize evidence directory
+        run: |
+          mkdir -p "$RUNNER_TEMP/cascade-001a-evidence"
+          printf '%s\n' '{"schema":"airlock.cascade-001a.workflow-start.v1","status":"STARTED"}' > "$RUNNER_TEMP/cascade-001a-evidence/workflow-start.json"
+      - name: Build frozen Airlock wheel
+        run: python -m pip wheel . --no-deps -w cascade-dist
+      - name: Build emergency sandbox image
+        run: |
+          cat > "$RUNNER_TEMP/Dockerfile.cascade-001a" <<'EOF'
+          FROM python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea
+          RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+          COPY cascade-dist/ /wheels/
+          RUN python -m pip install /wheels/*.whl
+          EOF
+          docker build -f "$RUNNER_TEMP/Dockerfile.cascade-001a" -t airlock-cascade-001a .
+      - name: Run 001A with external emergency backstop
+        shell: bash
+        run: |
+          set +e
+          timeout --signal=KILL 120s docker run --rm \
+            --network none \
+            --pids-limit 32 \
+            --mount "type=bind,src=$GITHUB_WORKSPACE,dst=/repo" \
+            --mount "type=bind,src=$RUNNER_TEMP/cascade-001a-evidence,dst=/evidence" \
+            --workdir /repo \
+            airlock-cascade-001a \
+            sh -lc 'git config --global --add safe.directory /repo; git config user.name "Airlock Cascade 001A"; git config user.email "cascade-001a@example.invalid"; python experiments/airlock-cascade-001/run_001a.py --repo /repo --out /evidence'
+          code=$?
+          set -e
+          docker image inspect airlock-cascade-001a --format '{{.Id}}' > "$RUNNER_TEMP/cascade-001a-evidence/container-image-id.txt"
+          if [ "$code" -ne 0 ]; then echo "001A infrastructure exited $code" >&2; exit "$code"; fi
+      - name: Show scientific verdict
+        run: |
+          cat "$RUNNER_TEMP/cascade-001a-evidence/AIRLOCK_CASCADE_001A_RESULT.json"
+          cat "$RUNNER_TEMP/cascade-001a-evidence/AIRLOCK_CASCADE_001A_RESULT.sha256"
+      - name: Freeze 001A evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-cascade-001a
+          path: ${{ runner.temp }}/cascade-001a-evidence/
+          if-no-files-found: error
+          retention-days: 30
