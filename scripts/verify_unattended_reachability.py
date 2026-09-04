@@ -196,6 +196,41 @@ def evaluate_arm(repo: Path, base: str, replacement: str, name: str) -> dict:
         shutil.rmtree(out, ignore_errors=True)
 
 
+def candidate_diagnostics(rows: list[dict]) -> list[dict]:
+    diagnostics: list[dict] = []
+    for row in rows:
+        failed_checks: list[dict] = []
+        for check in row.get("checks", []):
+            if check.get("status") == "PASS":
+                continue
+            commands = []
+            for command in check.get("commands", []):
+                commands.append(
+                    {
+                        "argv": command.get("argv"),
+                        "exit_code": command.get("exit_code"),
+                        "timed_out": command.get("timed_out"),
+                        "side_effect": command.get("side_effect"),
+                    }
+                )
+            failed_checks.append(
+                {
+                    "rule": check.get("rule"),
+                    "status": check.get("status"),
+                    "commands": commands,
+                }
+            )
+        diagnostics.append(
+            {
+                "candidate_id": row.get("candidate_id"),
+                "disposition": row.get("disposition"),
+                "reason": row.get("reason"),
+                "failed_checks": failed_checks,
+            }
+        )
+    return diagnostics
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--repo", type=Path, default=Path("."))
@@ -237,12 +272,14 @@ def main() -> int:
             "survivor_count": good.get("survivor_count"),
             "unique_survivor_count": good.get("unique_survivor_count"),
             "candidate_dispositions": [row.get("disposition") for row in good.get("candidates", [])],
+            "candidates": candidate_diagnostics(good.get("candidates", [])),
         },
         "known_bad": {
             "edit": 'airlock swarm "fix issue #417" -> airlock solve "fix issue #417"',
             "decision": bad.get("decision"),
             "survivor_count": bad.get("survivor_count"),
             "candidate_reasons": bad_reasons,
+            "candidates": candidate_diagnostics(bad.get("candidates", [])),
         },
         "claim": "KNOWN_GOOD_REACHABLE_AND_KNOWN_BAD_REJECTED" if not errors else "REACHABILITY_PROOF_FAILED",
         "errors": errors,
