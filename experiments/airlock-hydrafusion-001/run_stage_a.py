@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import traceback
 from pathlib import Path
 
 from airlock import unattended
@@ -18,9 +19,13 @@ FREEZE = ROOT / ".airlock/hydrafusion-001/task-freeze.json"
 PATCH = ROOT / ".airlock/hydrafusion-001/stage-a-candidate.patch"
 ORACLE = ROOT / ".airlock/search-002/oracle.py"
 SUBSTRATE = ROOT / "experiments/airlock-search-002/substrate"
+
 PRODUCERS = ["hydrafusion", "opus", "codex"]
 ISSUE_NUMBER = 1001
-IMAGE = "python:3.12-slim"
+
+# Freeze the exact image digest observed in the first infrastructure-only run.
+# No Stage B worker has been contacted.
+IMAGE = "python@sha256:78387bc3881b8273120a12ebe6c1ab22b018ccc2c9adf565ae1ac9b536e184ea"
 
 
 def sha256_bytes(value: bytes) -> str:
@@ -32,11 +37,34 @@ def sha256_file(path: Path) -> str:
 
 
 def canonical(value) -> bytes:
-    return json.dumps(value, sort_keys=True, separators=(",", ":"), ensure_ascii=False).encode()
+    return json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
 
 
-def run(argv: list[str], cwd: Path, *, timeout: int = 300) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(argv, cwd=cwd, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=timeout, check=False)
+def write_json(path: Path, value) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(value, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+
+
+def run(
+    argv: list[str],
+    cwd: Path,
+    *,
+    timeout: int = 300,
+) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        argv,
+        cwd=cwd,
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        timeout=timeout,
+        check=False,
+    )
 
 
 def git(repo: Path, *args: str) -> str:
@@ -48,8 +76,17 @@ def git(repo: Path, *args: str) -> str:
 
 def tree_sha(path: Path) -> str:
     rows = []
-    for file in sorted((p for p in path.rglob("*") if p.is_file()), key=lambda p: p.relative_to(path).as_posix()):
-        rows.append({"path": file.relative_to(path).as_posix(), "sha256": sha256_file(file), "size": file.stat().st_size})
+    for file in sorted(
+        (p for p in path.rglob("*") if p.is_file()),
+        key=lambda p: p.relative_to(path).as_posix(),
+    ):
+        rows.append(
+            {
+                "path": file.relative_to(path).as_posix(),
+                "sha256": sha256_file(file),
+                "size": file.stat().st_size,
+            }
+        )
     return sha256_bytes(canonical(rows))
 
 
@@ -58,11 +95,23 @@ def copy_substrate(dest: Path) -> None:
     (dest / ".airlock").mkdir(exist_ok=True)
 
 
-def configure_fixture(repo: Path, freeze: dict) -> str:
+def init_repo(repo: Path, *, name: str) -> str:
+    git(repo, "init", "-b", "main")
+    git(repo, "config", "user.name", name)
+    git(repo, "config", "user.email", "airlock-stage-a@example.invalid")
+    git(repo, "add", "-A")
+    git(repo, "commit", "-m", "frozen Stage A substrate")
+    return git(repo, "rev-parse", "HEAD")
+
+
+def configure_evaluator(repo: Path, freeze: dict) -> str:
     config = {
         "schema": "airlock.config.v1",
         "protected_paths": freeze["protected_paths"],
-        "baseline": {"check_commands": freeze["evaluation"]["public_commands"], "timeout_seconds": 300},
+        "baseline": {
+            "check_commands": freeze["evaluation"]["public_commands"],
+            "timeout_seconds": 300,
+        },
         "verification": {
             "target_commands": [],
             "static_commands": [],
@@ -81,78 +130,86 @@ def configure_fixture(repo: Path, freeze: dict) -> str:
             "pids_limit": 512,
         },
     }
-    (repo / ".airlock/config.json").write_text(json.dumps(config, indent=2, sort_keys=True) + "\n")
-    (repo / ".airlock/unattended.json").write_text(json.dumps(policy, indent=2, sort_keys=True) + "\n")
-    git(repo, "init", "-b", "main")
-    git(repo, "config", "user.name", "Airlock Stage A")
-    git(repo, "config", "user.email", "airlock-stage-a@example.invalid")
-    git(repo, "add", "-A")
-    git(repo, "commit", "-m", "frozen Stage A substrate")
-    return git(repo, "rev-parse", "HEAD")
+    write_json(repo / ".airlock/config.json", config)
+    write_json(repo / ".airlock/unattended.json", policy)
+    return init_repo(repo, name="Airlock Stage A")
+
+
+def run_oracle(repo: Path) -> dict:
+    cp = run([sys.executable, str(ORACLE), "--repo", str(repo)], ROOT)
+    if cp.returncode:
+        raise RuntimeError(cp.stderr.strip() or "oracle failed")
+    return json.loads(cp.stdout)
 
 
 def baseline_preflight(repo: Path, freeze: dict) -> dict:
     public = run(["python", "public_checks.py"], repo)
     contract = run(["python", "tests/test_public_contract.py"], repo)
-    oracle = run([sys.executable, str(ORACLE), "--repo", str(repo)], ROOT)
-    if oracle.returncode:
-        raise RuntimeError(oracle.stderr.strip() or "baseline oracle failed")
-    oracle_json = json.loads(oracle.stdout)
+    oracle = run_oracle(repo)
     observed = {
         "public_checks_exit_code": public.returncode,
         "protected_contract_exit_code": contract.returncode,
-        "oracle_passed_count": oracle_json["passed_count"],
-        "oracle_authority_clean": oracle_json["authority_clean"],
+        "oracle_passed_count": oracle["passed_count"],
+        "oracle_authority_clean": oracle["authority_clean"],
     }
     if observed != freeze["baseline_preflight"]["required"]:
         raise RuntimeError(f"baseline preflight mismatch: {observed!r}")
     return observed
 
 
-def make_candidates(root: Path, base: str, freeze: dict) -> None:
+def make_candidates(root: Path, base_commit: str, freeze: dict) -> None:
     patch_bytes = PATCH.read_bytes()
     patch_sha = sha256_bytes(patch_bytes)
-    expected_sha = freeze["stage_a"]["candidate_patch_sha256"]
-    if patch_sha != expected_sha:
+    if patch_sha != freeze["stage_a"]["candidate_patch_sha256"]:
         raise RuntimeError("frozen Stage A patch hash mismatch")
-    changed_paths = ["maintbox/retry.py"]
+
     for index, producer in enumerate(PRODUCERS, start=1):
         candidate_id = f"{index:02d}"
         out = root / f"airlock-candidate-{candidate_id}"
         out.mkdir(parents=True)
         (out / "candidate.patch").write_bytes(patch_bytes)
+
         body = {
             "schema": unattended.CANDIDATE_SCHEMA,
             "candidate_id": candidate_id,
             "producer": producer,
             "issue_number": ISSUE_NUMBER,
             "issue_url": "https://github.com/terryncew/openline-airlock",
-            "base_commit": base,
+            "base_commit": base_commit,
             "prompt_sha256": freeze["task"]["prompt_sha256"],
             "agent_outcome": "success",
             "patch_sha256": patch_sha,
             "patch_bytes": len(patch_bytes),
-            "changed_paths": changed_paths,
+            "changed_paths": ["maintbox/retry.py"],
             "final_message_sha256": None,
         }
-        manifest = {"candidate_manifest_sha256": sha256_bytes(canonical(body)), **body}
-        (out / "candidate.json").write_text(json.dumps(manifest, indent=2, sort_keys=True) + "\n")
+        manifest = {
+            "candidate_manifest_sha256": sha256_bytes(canonical(body)),
+            **body,
+        }
+        write_json(out / "candidate.json", manifest)
 
 
 def oracle_after_patch(repo: Path) -> dict:
+    # Run 33922359197 failed here because --index was used on a plain copied
+    # directory. Initialize this independent oracle fixture before applying the
+    # frozen patch so its tracked-tree semantics match the Airlock evaluator.
+    init_repo(repo, name="Airlock Stage A Oracle")
     cp = run(["git", "apply", "--index", "--binary", str(PATCH)], repo)
     if cp.returncode:
-        raise RuntimeError(cp.stderr.strip() or "could not apply frozen Stage A patch for oracle")
-    oracle = run([sys.executable, str(ORACLE), "--repo", str(repo)], ROOT)
-    if oracle.returncode:
-        raise RuntimeError(oracle.stderr.strip() or "candidate oracle failed")
-    return json.loads(oracle.stdout)
+        raise RuntimeError(
+            cp.stderr.strip() or "could not apply frozen Stage A patch for oracle"
+        )
+    return run_oracle(repo)
 
 
-def substantive_projection(row: dict, producer: str, oracle: dict, baseline: int) -> dict:
-    check_projection = []
+def check_projection(row: dict) -> list[dict]:
+    projected_checks = []
     for check in row["checks"]:
-        projected = {"rule": check.get("rule"), "status": check.get("status")}
+        projected = {
+            "rule": check.get("rule"),
+            "status": check.get("status"),
+        }
         if check.get("rule") == "protected_files":
             projected["touched"] = check.get("touched", [])
         if check.get("rule") == "evidence_sufficiency":
@@ -170,53 +227,83 @@ def substantive_projection(row: dict, producer: str, oracle: dict, baseline: int
                 }
                 for cmd in check.get("commands", [])
             ]
-        check_projection.append(projected)
-    verified = int(oracle["passed_count"]) - int(baseline)
+        projected_checks.append(projected)
+    return projected_checks
+
+
+def regression_exit_codes(row: dict) -> tuple[int | None, int | None]:
+    for check in row["checks"]:
+        if check.get("rule") != "regression":
+            continue
+        commands = check.get("commands", [])
+        if len(commands) != 2:
+            return None, None
+        return commands[0].get("exit_code"), commands[1].get("exit_code")
+    return None, None
+
+
+def substantive_projection(
+    row: dict,
+    *,
+    producer: str,
+    oracle: dict,
+    baseline_score: int,
+) -> dict:
+    public_exit, contract_exit = regression_exit_codes(row)
+    verified = int(oracle["passed_count"]) - int(baseline_score)
+    eligibility = (
+        row["disposition"] == "SURVIVED"
+        and oracle["authority_clean"] is True
+        and verified >= 1
+    )
     return {
         "producer": producer,
         "airlock_disposition": row["disposition"],
         "airlock_reason": row["reason"],
         "changed_paths": row.get("changed_paths", []),
-        "checks": check_projection,
+        "checks": check_projection(row),
+        "public_checks_exit_code": public_exit,
+        "protected_contract_exit_code": contract_exit,
         "oracle_passed_count": oracle["passed_count"],
         "verified_improvements": verified,
         "oracle_authority_clean": oracle["authority_clean"],
-        "eligibility": "ELIGIBLE" if row["disposition"] == "SURVIVED" and oracle["authority_clean"] and verified >= 1 else "INELIGIBLE",
+        "eligibility": "ELIGIBLE" if eligibility else "INELIGIBLE",
     }
 
 
-def comparison_projection(value: dict) -> dict:
+def without_producer(value: dict) -> dict:
     out = dict(value)
     out.pop("producer", None)
     return out
 
 
-def main() -> int:
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--out", type=Path, default=Path("airlock-hydrafusion-001-stage-a"))
-    args = ap.parse_args()
+def execute(out_dir: Path) -> int:
     freeze = json.loads(FREEZE.read_text())
     if freeze.get("schema") != "airlock.hydrafusion-001.task-freeze.v1":
         raise RuntimeError("unexpected task-freeze schema")
+
     if tree_sha(SUBSTRATE) != freeze["target"]["substrate_tree_sha256"]:
         raise RuntimeError("frozen substrate tree mismatch")
     if sha256_file(ORACLE) != freeze["target"]["external_oracle"]["sha256"]:
         raise RuntimeError("frozen oracle hash mismatch")
+    if sha256_file(PATCH) != freeze["stage_a"]["candidate_patch_sha256"]:
+        raise RuntimeError("frozen Stage A patch mismatch")
 
     temp = Path(tempfile.mkdtemp(prefix="airlock-hydrafusion-stage-a-"))
     try:
         fixture = temp / "fixture"
         copy_substrate(fixture)
-        base = configure_fixture(fixture, freeze)
+        base_commit = configure_evaluator(fixture, freeze)
         baseline = baseline_preflight(fixture, freeze)
 
         candidates = temp / "candidates"
         candidates.mkdir()
-        make_candidates(candidates, base, freeze)
+        make_candidates(candidates, base_commit, freeze)
+
         gate_out = temp / "gate-out"
         result = unattended.evaluate_candidates(
             fixture,
-            base=base,
+            base=base_commit,
             issue_number=ISSUE_NUMBER,
             candidates_root=candidates,
             out_dir=gate_out,
@@ -231,33 +318,55 @@ def main() -> int:
         rows = result["candidates"]
         if len(rows) != 3:
             raise RuntimeError(f"expected 3 Airlock rows, got {len(rows)}")
+
         projections = [
-            substantive_projection(row, producer, oracle, baseline["oracle_passed_count"])
+            substantive_projection(
+                row,
+                producer=producer,
+                oracle=oracle,
+                baseline_score=baseline["oracle_passed_count"],
+            )
             for row, producer in zip(rows, PRODUCERS, strict=True)
         ]
-        comparable = [comparison_projection(row) for row in projections]
-        invariant = all(row == comparable[0] for row in comparable[1:])
+
+        comparable = [without_producer(p) for p in projections]
+        invariant = all(p == comparable[0] for p in comparable[1:])
+
         expected = freeze["stage_a"]["expected_substantive_result"]
         expected_ok = all(
             p["eligibility"] == expected["disposition"]
+            and p["public_checks_exit_code"] == expected["public_checks_exit_code"]
+            and p["protected_contract_exit_code"]
+            == expected["protected_contract_exit_code"]
             and p["oracle_passed_count"] == expected["oracle_passed_count"]
             and p["verified_improvements"] == expected["verified_improvements"]
             and p["oracle_authority_clean"] == expected["oracle_authority_clean"]
             for p in projections
         )
+
         gate_ok = (
             result["decision"] == "READY_FOR_REVIEW"
             and result["survivor_count"] == 3
             and result["unique_survivor_count"] == 1
             and all(row["disposition"] == "SURVIVED" for row in rows)
         )
-        verdict = "STAGE_A_PRODUCER_LABEL_INVARIANCE_PASS" if invariant and expected_ok and gate_ok else "STAGE_A_PRODUCER_LABEL_INVARIANCE_FAIL"
 
-        image = run(["docker", "image", "inspect", IMAGE, "--format", "{{json .RepoDigests}}"], ROOT)
+        verdict = (
+            "STAGE_A_PRODUCER_LABEL_INVARIANCE_PASS"
+            if invariant and expected_ok and gate_ok
+            else "STAGE_A_PRODUCER_LABEL_INVARIANCE_FAIL"
+        )
+
+        image = run(
+            ["docker", "image", "inspect", IMAGE, "--format", "{{json .RepoDigests}}"],
+            ROOT,
+        )
         image_digests = []
         if image.returncode == 0 and image.stdout.strip():
-            try: image_digests = json.loads(image.stdout.strip()) or []
-            except Exception: image_digests = []
+            try:
+                image_digests = json.loads(image.stdout.strip()) or []
+            except Exception:
+                image_digests = []
 
         report = {
             "schema": "airlock.hydrafusion-001.stage-a.v1",
@@ -284,21 +393,79 @@ def main() -> int:
                 "same_patch_collapsed_to_one_unique_survivor": gate_ok,
             },
         }
-        args.out.mkdir(parents=True, exist_ok=True)
-        result_path = args.out / "stage-a-result.json"
-        result_path.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n")
-        (args.out / "stage-a-result.sha256").write_text(sha256_file(result_path) + "\n")
-        shutil.copy2(gate_out / "result.json", args.out / "airlock-result.json")
-        shutil.copy2(gate_out / "result.sha256", args.out / "airlock-result.sha256")
-        shutil.copy2(PATCH, args.out / "stage-a-candidate.patch")
+
+        result_path = out_dir / "stage-a-result.json"
+        write_json(result_path, report)
+        (out_dir / "stage-a-result.sha256").write_text(
+            sha256_file(result_path) + "\n",
+            encoding="utf-8",
+        )
+        shutil.copy2(gate_out / "result.json", out_dir / "airlock-result.json")
+        shutil.copy2(gate_out / "result.sha256", out_dir / "airlock-result.sha256")
+        shutil.copy2(PATCH, out_dir / "stage-a-candidate.patch")
 
         print(verdict)
-        print(f"Airlock: {result['decision']} / {result['survivor_count']} survivors / {result['unique_survivor_count']} unique patch")
+        print(
+            f"Airlock: {result['decision']} / "
+            f"{result['survivor_count']} survivors / "
+            f"{result['unique_survivor_count']} unique patch"
+        )
         for p in projections:
-            print(f"{p['producer']}: {p['airlock_disposition']} / {p['airlock_reason']} / {p['verified_improvements']} verified improvement")
+            print(
+                f"{p['producer']}: "
+                f"{p['airlock_disposition']} / "
+                f"{p['airlock_reason']} / "
+                f"{p['verified_improvements']} verified improvement"
+            )
+
         return 0 if verdict.endswith("PASS") else 1
     finally:
         shutil.rmtree(temp, ignore_errors=True)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser()
+    ap.add_argument(
+        "--out",
+        type=Path,
+        default=Path("airlock-hydrafusion-001-stage-a"),
+    )
+    args = ap.parse_args()
+    args.out.mkdir(parents=True, exist_ok=True)
+
+    # Create evidence before substantive work. A later failure must not be
+    # followed by a second artifact error that hides the original problem.
+    write_json(
+        args.out / "stage-a-start.json",
+        {
+            "schema": "airlock.hydrafusion-001.stage-a.start.v1",
+            "github_run_id": os.environ.get("GITHUB_RUN_ID", "local-stage-a"),
+            "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
+            "task_freeze_sha256": sha256_file(FREEZE),
+            "candidate_patch_sha256": sha256_file(PATCH),
+            "substrate_tree_sha256": tree_sha(SUBSTRATE),
+            "oracle_sha256": sha256_file(ORACLE),
+            "evaluation_image": IMAGE,
+            "status": "STARTED",
+        },
+    )
+
+    try:
+        return execute(args.out)
+    except Exception as exc:
+        traceback.print_exc()
+        write_json(
+            args.out / "stage-a-failure.json",
+            {
+                "schema": "airlock.hydrafusion-001.stage-a.failure.v1",
+                "verdict": "STAGE_A_INFRASTRUCTURE_FAILURE",
+                "exception_type": type(exc).__name__,
+                "exception": str(exc),
+                "github_run_id": os.environ.get("GITHUB_RUN_ID", "local-stage-a"),
+                "github_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", "1"),
+            },
+        )
+        return 2
 
 
 if __name__ == "__main__":
