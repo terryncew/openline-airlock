@@ -1,0 +1,122 @@
+name: AIRLOCK-HYDRAFUSION-001 — Stage B host preflight
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  copilot-requests: write
+
+jobs:
+  resolve-hosts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      GITHUB_TOKEN: ${{ github.token }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Create preflight directories
+        shell: bash
+        run: |
+          mkdir -p "$RUNNER_TEMP/hydrafusion-001-host-preflight"
+          mkdir -p "$RUNNER_TEMP/hydrafusion-001-runtime"
+
+      - name: Require provider metadata credentials
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          if [[ -z "${OPENAI_API_KEY:-}" ]]; then
+            echo "::error::OPENAI_API_KEY repository secret is required."
+            missing=1
+          fi
+          if [[ -z "${ANTHROPIC_API_KEY:-}" ]]; then
+            echo "::error::ANTHROPIC_API_KEY repository secret is required."
+            missing=1
+          fi
+          if [[ "$missing" -ne 0 ]]; then exit 2; fi
+
+      - name: Install provider hosts
+        shell: bash
+        run: |
+          set -euo pipefail
+          npm install -g \
+            @anthropic-ai/claude-code@2.1.260 \
+            @openai/codex@0.153.0 \
+            @github/copilot@latest
+          {
+            echo "claude=$(claude --version 2>&1 | head -1)"
+            echo "codex=$(codex --version 2>&1 | head -1)"
+            echo "copilot=$(copilot --version 2>&1 | head -1)"
+          } | tee "$RUNNER_TEMP/hydrafusion-001-host-preflight/host-versions.txt"
+
+      - name: Install Copilot metadata SDK outside repo
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp experiments/airlock-hydrafusion-001/resolve_stage_b_hosts.mjs \
+            "$RUNNER_TEMP/hydrafusion-001-runtime/resolve_stage_b_hosts.mjs"
+          cd "$RUNNER_TEMP/hydrafusion-001-runtime"
+          npm init -y >/dev/null
+          npm install @github/copilot-sdk@latest
+          npm list --depth=0 @github/copilot-sdk \
+            | tee "$RUNNER_TEMP/hydrafusion-001-host-preflight/copilot-sdk-version.txt"
+
+      - name: Resolve exact Stage B hosts without task contact
+        shell: bash
+        env:
+          COPILOT_HOME: ${{ runner.temp }}/hydrafusion-001-copilot-home
+        run: |
+          set -euo pipefail
+          export AIRLOCK_REPO_ROOT="$GITHUB_WORKSPACE"
+          export COPILOT_CLI_PATH="$(command -v copilot)"
+
+          set +e
+          cd "$RUNNER_TEMP/hydrafusion-001-runtime"
+          node resolve_stage_b_hosts.mjs \
+            "$RUNNER_TEMP/hydrafusion-001-host-preflight"
+          code=$?
+          set -e
+
+          python - <<'PY'
+          import hashlib
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ["RUNNER_TEMP"]) / "hydrafusion-001-host-preflight"
+          result = root / "host-preflight.json"
+          if result.exists():
+              (root / "host-preflight.sha256").write_text(
+                  hashlib.sha256(result.read_bytes()).hexdigest() + "\n"
+              )
+          PY
+
+          exit "$code"
+
+      - name: Show preflight receipt
+        if: always()
+        shell: bash
+        run: |
+          test -f "$RUNNER_TEMP/hydrafusion-001-host-preflight/host-preflight.json" \
+            && cat "$RUNNER_TEMP/hydrafusion-001-host-preflight/host-preflight.json" \
+            || true
+          test -f "$RUNNER_TEMP/hydrafusion-001-host-preflight/host-preflight.sha256" \
+            && cat "$RUNNER_TEMP/hydrafusion-001-host-preflight/host-preflight.sha256" \
+            || true
+
+      - name: Freeze preflight evidence
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: airlock-hydrafusion-001-stage-b-host-preflight
+          path: ${{ runner.temp }}/hydrafusion-001-host-preflight/
+          if-no-files-found: error
+          retention-days: 30
