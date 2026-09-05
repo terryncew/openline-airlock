@@ -60,11 +60,22 @@ function errorText(error) {
   return String(error?.stack || error);
 }
 
+function copilotAuthLooksLikeHostLimitation(error) {
+  const text = errorText(error).toLowerCase();
+  return (
+    text.includes("not authenticated") ||
+    text.includes("server-to-server") ||
+    text.includes("resource not accessible by integration") ||
+    text.includes("copilot policy") ||
+    text.includes("requested model is unavailable")
+  );
+}
+
 async function resolveCopilot() {
-  const token = process.env.COPILOT_GITHUB_TOKEN;
+  const token = process.env.GITHUB_TOKEN;
   if (!token) {
     throw new Error(
-      "COPILOT_GITHUB_TOKEN is required for Copilot runtime authentication",
+      "GITHUB_TOKEN is required for GitHub Actions Copilot authentication",
     );
   }
   if (!process.env.COPILOT_HOME || !process.env.COPILOT_CLI_PATH) {
@@ -77,13 +88,20 @@ async function resolveCopilot() {
     JSON.stringify({ experimental: true }, null, 2) + "\n",
   );
 
-  // GitHub Actions GITHUB_TOKEN is a server-to-server installation token.
-  // Per GitHub's Copilot SDK auth contract, installation tokens MUST be
-  // supplied to the child runtime environment, not the SDK gitHubToken field.
+  // GitHub's Actions-specific auth path is deliberately different from the
+  // non-Actions server-to-server path:
+  //
+  //   GitHub Actions built-in token -> GITHUB_TOKEN
+  //   PAT / external installation token -> COPILOT_GITHUB_TOKEN
+  //
+  // COPILOT_GITHUB_TOKEN has higher precedence, so do not shadow the built-in
+  // Actions token with the same ghs_ value.
   const runtimeEnv = {
     ...process.env,
-    COPILOT_GITHUB_TOKEN: token,
+    GITHUB_TOKEN: token,
   };
+  delete runtimeEnv.COPILOT_GITHUB_TOKEN;
+  delete runtimeEnv.GH_TOKEN;
 
   const client = new CopilotClient({
     baseDirectory: process.env.COPILOT_HOME,
@@ -93,13 +111,25 @@ async function resolveCopilot() {
       path: process.env.COPILOT_CLI_PATH,
     }),
     env: runtimeEnv,
-    useLoggedInUser: false,
   });
 
   try {
     await client.start();
 
-    const models = await client.listModels();
+    let models;
+    try {
+      models = await client.listModels();
+    } catch (error) {
+      if (copilotAuthLooksLikeHostLimitation(error)) {
+        throw new HostLimitationError(
+          "Copilot SDK could not authenticate/list models through the documented " +
+          "GitHub Actions GITHUB_TOKEN path. Stage B cannot make a HydraFusion " +
+          `worker contact under the frozen host contract: ${errorText(error)}`,
+        );
+      }
+      throw error;
+    }
+
     fs.writeFileSync(
       path.join(outDir, "copilot-models.json"),
       JSON.stringify(models, null, 2) + "\n",
@@ -111,8 +141,7 @@ async function resolveCopilot() {
     const researchPreviewMatches = hydraMatches.filter((model) =>
       allStrings(model).some((value) => /research\s*preview/i.test(value))
     );
-
-    let matches = researchPreviewMatches.length
+    const matches = researchPreviewMatches.length
       ? researchPreviewMatches
       : hydraMatches;
 
@@ -134,9 +163,6 @@ async function resolveCopilot() {
       );
     }
 
-    // Validate that this exact ID can be selected programmatically, but do not
-    // send a message. If the host cannot create this session noninteractively,
-    // the frozen experiment requires INCONCLUSIVE_HOST_LIMITATION.
     let session;
     try {
       session = await client.createSession({
@@ -164,7 +190,8 @@ async function resolveCopilot() {
       resolved_model_id: model.id,
       model_info: model,
       metadata_source:
-        "Copilot SDK listModels() with experimental=true and runtime-env installation-token auth",
+        "Copilot SDK listModels() with experimental=true and Actions-native GITHUB_TOKEN auth",
+      auth_mode: "GITHUB_ACTIONS_BUILTIN_TOKEN",
       noninteractive_selection_without_prompt: true,
       task_prompt_sent: false,
     };
@@ -221,8 +248,6 @@ async function resolveAnthropic() {
     JSON.stringify(payload, null, 2) + "\n",
   );
 
-  // The frozen contract requires the Opus family, not a particular major
-  // version. Resolve the newest exact Opus ID actually exposed by Anthropic.
   const opus = (payload.data || []).filter((row) =>
     typeof row.id === "string" && /^claude-opus(?:-|$)/.test(row.id)
   );
@@ -266,7 +291,7 @@ async function capture(result, key, resolver) {
 
 async function main() {
   const result = {
-    schema: "airlock.hydrafusion-001.stage-b-host-preflight.v2",
+    schema: "airlock.hydrafusion-001.stage-b-host-preflight.v3",
     experiment: "AIRLOCK-HYDRAFUSION-001",
     status: "STARTED",
     started_at: new Date().toISOString(),
@@ -280,8 +305,6 @@ async function main() {
       "Metadata and empty-session selection only. All provider branches are checked before the run returns; no Stage B task prompt is submitted.",
   };
 
-  // Always inspect all three branches so one repaired blocker does not merely
-  // reveal another blocker on the next run.
   const failures = [];
   for (const [key, resolver] of [
     ["codex", resolveOpenAI],
@@ -305,8 +328,6 @@ async function main() {
       (failure) => failure.key,
     );
   } else if (hostLimitations.length) {
-    // This is a completed scientific outcome under the frozen preregistration,
-    // not broken CI. Stage B must stop before worker contact.
     result.status = "INCONCLUSIVE_HOST_LIMITATION";
     result.host_limitations = hostLimitations.map((failure) => failure.key);
   } else {
@@ -330,6 +351,8 @@ async function main() {
     console.log(`${key}: ${row?.status ?? "UNKNOWN"}${resolved}`);
   }
 
+  // Genuine host limitations are scientific completion under the frozen
+  // contract. Only broken infrastructure returns red CI.
   return result.status === "STAGE_B_HOST_PREFLIGHT_INFRA_FAILURE" ? 2 : 0;
 }
 

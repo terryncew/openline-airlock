@@ -14,10 +14,8 @@ jobs:
     env:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+      # GitHub's documented Actions-native Copilot auth path.
       GITHUB_TOKEN: ${{ github.token }}
-      # Installation/Actions tokens must reach the Copilot child runtime
-      # through the runtime auth environment, not SDK gitHubToken.
-      COPILOT_GITHUB_TOKEN: ${{ github.token }}
 
     steps:
       - uses: actions/checkout@v4
@@ -45,8 +43,8 @@ jobs:
             echo "::error::ANTHROPIC_API_KEY repository secret is required."
             missing=1
           fi
-          if [[ -z "${COPILOT_GITHUB_TOKEN:-}" ]]; then
-            echo "::error::GitHub Actions token is required for Copilot preflight."
+          if [[ -z "${GITHUB_TOKEN:-}" ]]; then
+            echo "::error::GitHub Actions GITHUB_TOKEN is required for Copilot preflight."
             missing=1
           fi
           if [[ "$missing" -ne 0 ]]; then exit 2; fi
