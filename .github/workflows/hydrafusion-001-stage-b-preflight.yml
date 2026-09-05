@@ -15,6 +15,9 @@ jobs:
       OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
       ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
       GITHUB_TOKEN: ${{ github.token }}
+      # Installation/Actions tokens must reach the Copilot child runtime
+      # through the runtime auth environment, not SDK gitHubToken.
+      COPILOT_GITHUB_TOKEN: ${{ github.token }}
 
     steps:
       - uses: actions/checkout@v4
@@ -42,23 +45,27 @@ jobs:
             echo "::error::ANTHROPIC_API_KEY repository secret is required."
             missing=1
           fi
+          if [[ -z "${COPILOT_GITHUB_TOKEN:-}" ]]; then
+            echo "::error::GitHub Actions token is required for Copilot preflight."
+            missing=1
+          fi
           if [[ "$missing" -ne 0 ]]; then exit 2; fi
 
-      - name: Install provider hosts
+      - name: Install pinned provider hosts
         shell: bash
         run: |
           set -euo pipefail
           npm install -g \
             @anthropic-ai/claude-code@2.1.260 \
             @openai/codex@0.153.0 \
-            @github/copilot@latest
+            @github/copilot@1.0.83
           {
             echo "claude=$(claude --version 2>&1 | head -1)"
             echo "codex=$(codex --version 2>&1 | head -1)"
             echo "copilot=$(copilot --version 2>&1 | head -1)"
           } | tee "$RUNNER_TEMP/hydrafusion-001-host-preflight/host-versions.txt"
 
-      - name: Install Copilot metadata SDK outside repo
+      - name: Install pinned Copilot metadata SDK outside repo
         shell: bash
         run: |
           set -euo pipefail
@@ -66,7 +73,7 @@ jobs:
             "$RUNNER_TEMP/hydrafusion-001-runtime/resolve_stage_b_hosts.mjs"
           cd "$RUNNER_TEMP/hydrafusion-001-runtime"
           npm init -y >/dev/null
-          npm install @github/copilot-sdk@latest
+          npm install @github/copilot-sdk@1.0.13
           npm list --depth=0 @github/copilot-sdk \
             | tee "$RUNNER_TEMP/hydrafusion-001-host-preflight/copilot-sdk-version.txt"
 
