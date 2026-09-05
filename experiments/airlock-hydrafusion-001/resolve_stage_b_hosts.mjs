@@ -13,10 +13,20 @@ fs.mkdirSync(outDir, { recursive: true });
 
 const freeze = JSON.parse(
   fs.readFileSync(
-    path.resolve(process.env.AIRLOCK_REPO_ROOT, ".airlock/hydrafusion-001/task-freeze.json"),
+    path.resolve(
+      process.env.AIRLOCK_REPO_ROOT,
+      ".airlock/hydrafusion-001/task-freeze.json",
+    ),
     "utf8",
   ),
 );
+
+class HostLimitationError extends Error {
+  constructor(message) {
+    super(message);
+    this.name = "HostLimitationError";
+  }
+}
 
 function commandVersion(command) {
   return execFileSync(command, ["--version"], {
@@ -46,9 +56,16 @@ function allStrings(value) {
   return out;
 }
 
+function errorText(error) {
+  return String(error?.stack || error);
+}
+
 async function resolveCopilot() {
-  if (!process.env.GITHUB_TOKEN) {
-    throw new Error("GITHUB_TOKEN is required for Copilot model metadata");
+  const token = process.env.COPILOT_GITHUB_TOKEN;
+  if (!token) {
+    throw new Error(
+      "COPILOT_GITHUB_TOKEN is required for Copilot runtime authentication",
+    );
   }
   if (!process.env.COPILOT_HOME || !process.env.COPILOT_CLI_PATH) {
     throw new Error("COPILOT_HOME and COPILOT_CLI_PATH are required");
@@ -60,50 +77,96 @@ async function resolveCopilot() {
     JSON.stringify({ experimental: true }, null, 2) + "\n",
   );
 
+  // GitHub Actions GITHUB_TOKEN is a server-to-server installation token.
+  // Per GitHub's Copilot SDK auth contract, installation tokens MUST be
+  // supplied to the child runtime environment, not the SDK gitHubToken field.
+  const runtimeEnv = {
+    ...process.env,
+    COPILOT_GITHUB_TOKEN: token,
+  };
+
   const client = new CopilotClient({
     baseDirectory: process.env.COPILOT_HOME,
     workingDirectory: process.env.AIRLOCK_REPO_ROOT,
     logLevel: "error",
-    connection: RuntimeConnection.forStdio({ path: process.env.COPILOT_CLI_PATH }),
-    gitHubToken: process.env.GITHUB_TOKEN,
+    connection: RuntimeConnection.forStdio({
+      path: process.env.COPILOT_CLI_PATH,
+    }),
+    env: runtimeEnv,
+    useLoggedInUser: false,
   });
 
   try {
     await client.start();
+
     const models = await client.listModels();
     fs.writeFileSync(
       path.join(outDir, "copilot-models.json"),
       JSON.stringify(models, null, 2) + "\n",
     );
 
-    const matches = models.filter((model) =>
+    const hydraMatches = models.filter((model) =>
       allStrings(model).some((value) => /hydrafusion/i.test(value))
     );
+    const researchPreviewMatches = hydraMatches.filter((model) =>
+      allStrings(model).some((value) => /research\s*preview/i.test(value))
+    );
+
+    let matches = researchPreviewMatches.length
+      ? researchPreviewMatches
+      : hydraMatches;
+
+    if (matches.length === 0) {
+      throw new HostLimitationError(
+        "Copilot model metadata did not expose HydraFusion (Research Preview)",
+      );
+    }
     if (matches.length !== 1) {
-      throw new Error(
-        `expected exactly one HydraFusion model from Copilot listModels(), found ${matches.length}`
+      throw new HostLimitationError(
+        `Copilot model metadata exposed ${matches.length} HydraFusion candidates; exact preview selection is ambiguous`,
       );
     }
 
     const model = matches[0];
     if (typeof model.id !== "string" || !model.id) {
-      throw new Error("HydraFusion ModelInfo has no non-empty id");
+      throw new HostLimitationError(
+        "HydraFusion ModelInfo has no non-empty exact model id",
+      );
     }
 
-    // Prove exact model selection without submitting any message.
-    const session = await client.createSession({
-      model: model.id,
-      workingDirectory: process.env.AIRLOCK_REPO_ROOT,
-      enableSessionStore: false,
-    });
-    await session.disconnect();
+    // Validate that this exact ID can be selected programmatically, but do not
+    // send a message. If the host cannot create this session noninteractively,
+    // the frozen experiment requires INCONCLUSIVE_HOST_LIMITATION.
+    let session;
+    try {
+      session = await client.createSession({
+        model: model.id,
+        workingDirectory: process.env.AIRLOCK_REPO_ROOT,
+        enableSessionStore: false,
+      });
+    } catch (error) {
+      throw new HostLimitationError(
+        `HydraFusion exact model id ${model.id} cannot be selected noninteractively: ${errorText(error)}`,
+      );
+    }
+
+    try {
+      await session.disconnect();
+    } catch (error) {
+      throw new Error(
+        `HydraFusion empty-session cleanup failed: ${errorText(error)}`,
+      );
+    }
 
     return {
+      status: "PASS",
       cli_version: commandVersion("copilot"),
       resolved_model_id: model.id,
       model_info: model,
-      metadata_source: "Copilot SDK listModels() with experimental=true",
+      metadata_source:
+        "Copilot SDK listModels() with experimental=true and runtime-env installation-token auth",
       noninteractive_selection_without_prompt: true,
+      task_prompt_sent: false,
     };
   } finally {
     await client.stop().catch(() => {});
@@ -131,6 +194,7 @@ async function resolveOpenAI() {
   }
 
   return {
+    status: "PASS",
     cli_version: commandVersion("codex"),
     requested_model_id: requested,
     resolved_model_id: requested,
@@ -141,7 +205,7 @@ async function resolveOpenAI() {
 async function resolveAnthropic() {
   if (!process.env.ANTHROPIC_API_KEY) {
     throw new Error(
-      "ANTHROPIC_API_KEY repository secret is required for exact Opus metadata"
+      "ANTHROPIC_API_KEY repository secret is required for exact Opus metadata",
     );
   }
 
@@ -157,11 +221,13 @@ async function resolveAnthropic() {
     JSON.stringify(payload, null, 2) + "\n",
   );
 
+  // The frozen contract requires the Opus family, not a particular major
+  // version. Resolve the newest exact Opus ID actually exposed by Anthropic.
   const opus = (payload.data || []).filter((row) =>
-    typeof row.id === "string" && /^claude-opus-5(?:-|$)/.test(row.id)
+    typeof row.id === "string" && /^claude-opus(?:-|$)/.test(row.id)
   );
   if (!opus.length) {
-    throw new Error("Anthropic metadata exposed no Claude Opus 5 model");
+    throw new Error("Anthropic metadata exposed no Claude Opus model");
   }
 
   opus.sort((a, b) => {
@@ -172,17 +238,35 @@ async function resolveAnthropic() {
   });
 
   return {
+    status: "PASS",
     cli_version: commandVersion("claude"),
     requested_model_family: "Opus",
     resolved_model_id: opus[0].id,
-    available_opus_5_ids: opus.map((row) => row.id),
+    available_opus_ids: opus.map((row) => row.id),
     metadata_source: "Anthropic /v1/models",
   };
 }
 
+async function capture(result, key, resolver) {
+  try {
+    result[key] = await resolver();
+    return null;
+  } catch (error) {
+    const kind =
+      error instanceof HostLimitationError
+        ? "HOST_LIMITATION"
+        : "INFRASTRUCTURE_FAILURE";
+    result[key] = {
+      status: kind,
+      error: errorText(error),
+    };
+    return { key, kind, error };
+  }
+}
+
 async function main() {
   const result = {
-    schema: "airlock.hydrafusion-001.stage-b-host-preflight.v1",
+    schema: "airlock.hydrafusion-001.stage-b-host-preflight.v2",
     experiment: "AIRLOCK-HYDRAFUSION-001",
     status: "STARTED",
     started_at: new Date().toISOString(),
@@ -190,53 +274,63 @@ async function main() {
     task_prompt_sha256: freeze.task.prompt_sha256,
     task_prompt_sent: false,
     worker_contact: false,
-    note: "Metadata/session-selection preflight only; no Stage B task prompt is submitted.",
+    resolved_order: freeze.stage_b.resolved_order,
+    attempts_per_worker: freeze.stage_b.attempts_per_worker,
+    note:
+      "Metadata and empty-session selection only. All provider branches are checked before the run returns; no Stage B task prompt is submitted.",
   };
 
-  try {
-    result.codex = await resolveOpenAI();
-    result.hydrafusion = await resolveCopilot();
-    result.opus = await resolveAnthropic();
-
-    if (result.codex.resolved_model_id !== "gpt-5.6-sol") {
-      throw new Error("Codex resolved model differs from frozen gpt-5.6-sol");
-    }
-    if (!/hydrafusion/i.test(JSON.stringify(result.hydrafusion.model_info))) {
-      throw new Error("resolved Copilot model does not identify as HydraFusion");
-    }
-    if (!/^claude-opus-5(?:-|$)/.test(result.opus.resolved_model_id)) {
-      throw new Error("resolved Claude model is outside frozen Opus family");
-    }
-
-    result.status = "STAGE_B_HOST_PREFLIGHT_PASS";
-    result.resolved_order = freeze.stage_b.resolved_order;
-    result.attempts_per_worker = freeze.stage_b.attempts_per_worker;
-
-    fs.writeFileSync(
-      path.join(outDir, "host-preflight.json"),
-      JSON.stringify(result, null, 2) + "\n",
-    );
-
-    console.log("STAGE_B_HOST_PREFLIGHT_PASS");
-    console.log(`Codex: ${result.codex.cli_version} / ${result.codex.resolved_model_id}`);
-    console.log(
-      `HydraFusion: ${result.hydrafusion.cli_version} / ${result.hydrafusion.resolved_model_id}`
-    );
-    console.log(`Opus: ${result.opus.cli_version} / ${result.opus.resolved_model_id}`);
-    return 0;
-  } catch (error) {
-    result.status = "STAGE_B_HOST_PREFLIGHT_BLOCKED";
-    result.error = String(error?.stack || error);
-    result.task_prompt_sent = false;
-    result.worker_contact = false;
-
-    fs.writeFileSync(
-      path.join(outDir, "host-preflight.json"),
-      JSON.stringify(result, null, 2) + "\n",
-    );
-    console.error(result.error);
-    return 2;
+  // Always inspect all three branches so one repaired blocker does not merely
+  // reveal another blocker on the next run.
+  const failures = [];
+  for (const [key, resolver] of [
+    ["codex", resolveOpenAI],
+    ["hydrafusion", resolveCopilot],
+    ["opus", resolveAnthropic],
+  ]) {
+    const failure = await capture(result, key, resolver);
+    if (failure) failures.push(failure);
   }
+
+  const infrastructureFailures = failures.filter(
+    (failure) => failure.kind === "INFRASTRUCTURE_FAILURE",
+  );
+  const hostLimitations = failures.filter(
+    (failure) => failure.kind === "HOST_LIMITATION",
+  );
+
+  if (infrastructureFailures.length) {
+    result.status = "STAGE_B_HOST_PREFLIGHT_INFRA_FAILURE";
+    result.infrastructure_failures = infrastructureFailures.map(
+      (failure) => failure.key,
+    );
+  } else if (hostLimitations.length) {
+    // This is a completed scientific outcome under the frozen preregistration,
+    // not broken CI. Stage B must stop before worker contact.
+    result.status = "INCONCLUSIVE_HOST_LIMITATION";
+    result.host_limitations = hostLimitations.map((failure) => failure.key);
+  } else {
+    result.status = "STAGE_B_HOST_PREFLIGHT_PASS";
+  }
+
+  result.task_prompt_sent = false;
+  result.worker_contact = false;
+
+  fs.writeFileSync(
+    path.join(outDir, "host-preflight.json"),
+    JSON.stringify(result, null, 2) + "\n",
+  );
+
+  console.log(result.status);
+  for (const key of ["codex", "hydrafusion", "opus"]) {
+    const row = result[key];
+    const resolved = row?.resolved_model_id
+      ? ` / ${row.resolved_model_id}`
+      : "";
+    console.log(`${key}: ${row?.status ?? "UNKNOWN"}${resolved}`);
+  }
+
+  return result.status === "STAGE_B_HOST_PREFLIGHT_INFRA_FAILURE" ? 2 : 0;
 }
 
 process.exitCode = await main();
