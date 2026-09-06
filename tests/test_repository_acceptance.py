@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -322,6 +323,191 @@ class RepositoryAcceptanceTests(unittest.TestCase):
                 for source in evidence["sources"]
             )
         )
+
+    def test_pr_workflow_carries_same_job_uv_sync_into_acceptance_context(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                ".github/workflows/python-test.yml": (
+                    "name: Python test\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  build:\n"
+                    "    steps:\n"
+                    "      - name: Install test dependencies\n"
+                    "        run: uv sync --extra test\n"
+                    "      - name: Test with pytest\n"
+                    "        run: uv run pytest\n"
+                ),
+            }
+        )
+        real_which = shutil.which
+        with mock.patch(
+            "airlock.acceptance.shutil.which",
+            side_effect=lambda name: "/usr/bin/uv" if name == "uv" else real_which(name),
+        ):
+            evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        self.assertEqual(evidence["schema"], "airlock.repository-acceptance.v1")
+        source = next(
+            row for row in evidence["sources"]
+            if row.get("argv") == ["uv", "run", "pytest"]
+        )
+        self.assertEqual(source["setup_commands"], [["uv", "sync", "--extra", "test"]])
+        self.assertNotIn(["uv", "sync", "--extra", "test"], evidence["commands"])
+
+    def test_uv_environment_preparation_is_not_itself_acceptance_evidence(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                ".github/workflows/code-quality.yml": (
+                    "name: Code Quality\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  lint:\n"
+                    "    steps:\n"
+                    "      - run: uv sync --extra test\n"
+                    "      - run: uv tool install ruff\n"
+                    "      - run: uvx ruff check .\n"
+                ),
+            }
+        )
+        real_which = shutil.which
+        with mock.patch(
+            "airlock.acceptance.shutil.which",
+            side_effect=lambda name: "/usr/bin/" + name if name in {"uv", "uvx"} else real_which(name),
+        ):
+            evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        self.assertNotIn(["uv", "tool", "install", "ruff"], evidence["commands"])
+        source = next(
+            row for row in evidence["sources"]
+            if row.get("argv") == ["uvx", "ruff", "check", "."]
+        )
+        self.assertEqual(source["setup_commands"], [["uv", "sync", "--extra", "test"]])
+
+    def test_workflow_setup_does_not_leak_between_jobs(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                ".github/workflows/python-test.yml": (
+                    "name: Python test\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  prepare:\n"
+                    "    steps:\n"
+                    "      - run: uv sync --extra test\n"
+                    "  test:\n"
+                    "    steps:\n"
+                    "      - run: uv run pytest\n"
+                ),
+            }
+        )
+        real_which = shutil.which
+        with mock.patch(
+            "airlock.acceptance.shutil.which",
+            side_effect=lambda name: "/usr/bin/uv" if name == "uv" else real_which(name),
+        ):
+            evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        source = next(
+            row for row in evidence["sources"]
+            if row.get("argv") == ["uv", "run", "pytest"]
+        )
+        self.assertEqual(source["setup_commands"], [])
+
+    @unittest.skipIf(os.name == "nt", "fake uv executable fixture uses POSIX execute bits")
+    def test_same_job_uv_sync_context_distinguishes_functional_passes(self):
+        acceptance_test = '''import unittest
+from src.value import MODE
+
+class RepoAcceptanceTests(unittest.TestCase):
+    def test_repo_acceptance_mode(self):
+        self.assertEqual(MODE, "strict")
+'''
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                "tests/test_acceptance.py": acceptance_test,
+                "tests/test_value.py": FUNCTIONAL_TEST,
+                ".github/workflows/python-test.yml": (
+                    "name: Python test\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  build:\n"
+                    "    steps:\n"
+                    "      - name: Install test dependencies\n"
+                    "        run: uv sync --extra test\n"
+                    "      - name: Repository acceptance\n"
+                    "        run: uv run python -S -m unittest discover -s tests -p test_acceptance.py -q\n"
+                ),
+            }
+        )
+
+        fake_bin = fixture.tmp / "bin"
+        fake_bin.mkdir()
+        fake_uv = fake_bin / "uv"
+        fake_uv.write_text(
+            "#!/usr/bin/env python3\n"
+            "from pathlib import Path\n"
+            "import subprocess, sys\n"
+            "args = sys.argv[1:]\n"
+            "if args and args[0] == 'sync':\n"
+            "    Path('.airlock-uv-context-ready').write_text('ready')\n"
+            "    raise SystemExit(0)\n"
+            "if args and args[0] == 'run':\n"
+            "    if not Path('.airlock-uv-context-ready').exists():\n"
+            "        raise SystemExit(91)\n"
+            "    raise SystemExit(subprocess.run(args[1:]).returncode)\n"
+            "raise SystemExit(92)\n"
+        )
+        fake_uv.chmod(0o755)
+        env_path = str(fake_bin) + os.pathsep + os.environ.get("PATH", "")
+
+        with mock.patch.dict(os.environ, {"PATH": env_path}):
+            fixture.candidate(
+                {"src/value.py": 'VALUE = 2\nMODE = "loose"\n'},
+                "bad with repo context",
+            )
+            bad = run_checks(
+                fixture.repo,
+                [["python", "-S", "-m", "unittest", "discover", "-s", "tests", "-p", "test_value.py", "-q"]],
+                timeout=30,
+                kind="regression",
+            )
+            self.assertEqual(bad["rule"], "repository_acceptance")
+            self.assertEqual(bad["status"], "FAIL")
+            self.assertEqual(bad["basis"], "acceptance_command_failed")
+            self.assertTrue(
+                any(row.get("kind") == "acceptance_setup" for row in bad["commands"])
+            )
+            self.assertTrue(
+                any(row.get("kind") == "acceptance_baseline_setup" for row in bad["baseline_commands"])
+            )
+
+            fixture.candidate(
+                {"src/value.py": 'VALUE = 2\nMODE = "strict"\n'},
+                "good with repo context",
+            )
+            good = run_checks(
+                fixture.repo,
+                [["python", "-S", "-m", "unittest", "discover", "-s", "tests", "-p", "test_value.py", "-q"]],
+                timeout=30,
+                kind="regression",
+            )
+            self.assertEqual(good["status"], "PASS")
+            self.assertEqual(good["repository_acceptance"]["status"], "PASS")
+            self.assertTrue(
+                any(row.get("kind") == "acceptance_setup" for row in good["commands"])
+            )
 
     def test_uvx_wrapper_does_not_authorize_unrecognized_tool(self):
         fixture = self.make_repo(
