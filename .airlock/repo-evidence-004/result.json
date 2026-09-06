@@ -1,0 +1,745 @@
+{
+  "case": {
+    "airlock": {
+      "compliant": {
+        "changed_paths": [
+          "src/emhass/__init__.py"
+        ],
+        "checks": [
+          {
+            "rule": "protected_files",
+            "status": "PASS",
+            "touched": []
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "python",
+                  "-c",
+                  "import importlib.util; p='src/emhass/__init__.py'; s=importlib.util.spec_from_file_location('airlock_emhass_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                ],
+                "duration_seconds": 0.017276,
+                "exit_code": 0,
+                "kind": "target",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "rule": "target",
+            "status": "PASS"
+          },
+          {
+            "baseline_commands": [
+              {
+                "argv": [
+                  "uv",
+                  "tool",
+                  "install",
+                  "ruff"
+                ],
+                "duration_seconds": 0.008695,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "38dc1b349d6f20380f941b95a1b88918462250ee957ce5c8fc81c3ecf35747cd",
+                "stderr_tail": "`ruff` is already installed\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "check",
+                  "--output-format=github",
+                  "."
+                ],
+                "duration_seconds": 0.063305,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "format",
+                  "--check",
+                  "--diff"
+                ],
+                "duration_seconds": 0.093221,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "c5a4909ec8a84e44730b4256783b14051126fb075707f5b49a7464277251ff97",
+                "stderr_tail": "118 files already formatted\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest"
+                ],
+                "duration_seconds": 0.799606,
+                "exit_code": 2,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "d80be5c1d34e5b87d6f4658d0814efbd1d49faec8d6afe5e3c01f721a9ebde70",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-emhass-pr-uvx-ruff-p4phre3b/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3.12\nCreating virtual environment at: .venv\n   Building emhass @ file:///tmp/airlock-acceptance-base-cqf_0btm\n      Built emhass @ file:///tmp/airlock-acceptance-base-cqf_0btm\nInstalled 90 packages in 101ms\nerror: Failed to spawn: `pytest`\n  Caused by: No such file or directory (os error 2)\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "basis": "acceptance_baseline_not_green",
+            "commands": [],
+            "restored_judge_paths": [],
+            "rule": "repository_acceptance",
+            "sources": [
+              {
+                "argv": [
+                  "uv",
+                  "tool",
+                  "install",
+                  "ruff"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/code-quality.yml",
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "check",
+                  "--output-format=github",
+                  "."
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/code-quality.yml",
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "format",
+                  "--check",
+                  "--diff"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/code-quality.yml",
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/python-test.yml",
+                "status": "replayable"
+              }
+            ],
+            "status": "FAIL"
+          }
+        ],
+        "commit": "67685381f08fc1b6e485a315b18b315a6bdfd8dd",
+        "disposition": "BLOCKED",
+        "label": "compliant",
+        "patch_sha256": "89776f269bf9d45284d433e054f6a416637102d4d352d9a1c33473333265921e",
+        "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+      },
+      "noncompliant": {
+        "changed_paths": [
+          "src/emhass/__init__.py"
+        ],
+        "checks": [
+          {
+            "rule": "protected_files",
+            "status": "PASS",
+            "touched": []
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "python",
+                  "-c",
+                  "import importlib.util; p='src/emhass/__init__.py'; s=importlib.util.spec_from_file_location('airlock_emhass_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                ],
+                "duration_seconds": 0.017113,
+                "exit_code": 0,
+                "kind": "target",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "rule": "target",
+            "status": "PASS"
+          },
+          {
+            "baseline_commands": [
+              {
+                "argv": [
+                  "uv",
+                  "tool",
+                  "install",
+                  "ruff"
+                ],
+                "duration_seconds": 0.013763,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "8e7db091016f35dd7c6c9f7fde97bcf5b5e9b34bb89563cac0bf7278b1e1426b",
+                "stderr_tail": "Resolved 1 package in 1ms\nInstalled 1 package in 1ms\n + ruff==0.16.6\nInstalled 1 executable: ruff\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "check",
+                  "--output-format=github",
+                  "."
+                ],
+                "duration_seconds": 0.10674,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "format",
+                  "--check",
+                  "--diff"
+                ],
+                "duration_seconds": 0.058763,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "c5a4909ec8a84e44730b4256783b14051126fb075707f5b49a7464277251ff97",
+                "stderr_tail": "118 files already formatted\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest"
+                ],
+                "duration_seconds": 2.386933,
+                "exit_code": 2,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "39f6b38ceda7bd94367c1c16d231f518c13b09ce6dff503bc089b41dd2f55854",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-emhass-pr-uvx-ruff-p4phre3b/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3.12\nCreating virtual environment at: .venv\n   Building emhass @ file:///tmp/airlock-acceptance-base-6h8qkw93\nDownloading pygments (1.2MiB)\nDownloading numba (3.7MiB)\nDownloading numpy (15.8MiB)\nDownloading plotly (8.6MiB)\nDownloading sqlalchemy (3.2MiB)\nDownloading pandas (10.5MiB)\nDownloading pvlib (18.5MiB)\nDownloading pydantic-core (2.0MiB)\nDownloading clarabel (1.1MiB)\nDownloading scipy (33.7MiB)\nDownloading h5py (5.2MiB)\nDownloading blosc2 (6.2MiB)\nDownloading llvmlite (57.1MiB)\nDownloading scikit-learn (8.7MiB)\nDownloading aiohttp (1.6MiB)\nDownloading cvxpy (1.2MiB)\nDownloading tables (6.9MiB)\nDownloading scs (41.2MiB)\nDownloading highspy (4.8MiB)\n      Built emhass @ file:///tmp/airlock-acceptance-base-6h8qkw93\n Downloaded pygments\n Downloaded cvxpy\n Downloaded clarabel\n Downloaded aiohttp\n Downloaded pydantic-core\n Downloaded sqlalchemy\n Downloaded numba\n Downloaded highspy\n Downloaded h5py\n Downloaded blosc2\n Downloaded tables\n Downloaded plotly\n Downloaded scikit-learn\n Downloaded pandas\n Downloaded numpy\n Downloaded pvlib\n Downloaded scipy\n Downloaded scs\n Downloaded llvmlite\nInstalled 90 packages in 123ms\nerror: Failed to spawn: `pytest`\n  Caused by: No such file or directory (os error 2)\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "basis": "acceptance_baseline_not_green",
+            "commands": [],
+            "restored_judge_paths": [],
+            "rule": "repository_acceptance",
+            "sources": [
+              {
+                "argv": [
+                  "uv",
+                  "tool",
+                  "install",
+                  "ruff"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/code-quality.yml",
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "check",
+                  "--output-format=github",
+                  "."
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/code-quality.yml",
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uvx",
+                  "ruff",
+                  "format",
+                  "--check",
+                  "--diff"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/code-quality.yml",
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/python-test.yml",
+                "status": "replayable"
+              }
+            ],
+            "status": "FAIL"
+          }
+        ],
+        "commit": "882a5a3df54355f17e0d1fb649d0fe1adc143139",
+        "disposition": "BLOCKED",
+        "label": "noncompliant",
+        "patch_sha256": "dfafda133eb916f864a4f904e15d6c85b689f8cdad2771d13c7a34d48c2dfc6f",
+        "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+      },
+      "protected_patterns": [
+        "tests/**",
+        ".github/**",
+        ".airlock/**",
+        ".pre-commit-config.yaml",
+        ".pre-commit-config.yml",
+        ".ruff.toml",
+        "Cargo.toml",
+        "GNUmakefile",
+        "Makefile",
+        "Taskfile.yaml",
+        "Taskfile.yml",
+        "go.mod",
+        "justfile",
+        "makefile",
+        "mypy.ini",
+        "noxfile.py",
+        "package.json",
+        "pyproject.toml",
+        "pytest.ini",
+        "ruff.toml",
+        "setup.cfg",
+        "tox.ini",
+        "tsconfig.json"
+      ]
+    },
+    "airlock_baseline_evidence": {
+      "base_commit": "12394d630c4f64332058255f5c0b7390f53fe234",
+      "commands": [
+        [
+          "uv",
+          "tool",
+          "install",
+          "ruff"
+        ],
+        [
+          "uvx",
+          "ruff",
+          "check",
+          "--output-format=github",
+          "."
+        ],
+        [
+          "uvx",
+          "ruff",
+          "format",
+          "--check",
+          "--diff"
+        ],
+        [
+          "uv",
+          "run",
+          "pytest"
+        ]
+      ],
+      "judge_paths": [
+        ".github/workflows/code-quality.yml",
+        ".github/workflows/codecov.yaml",
+        ".github/workflows/python-test.yml"
+      ],
+      "schema": "airlock.repository-acceptance.v1",
+      "sources": [
+        {
+          "argv": [
+            "uv",
+            "tool",
+            "install",
+            "ruff"
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/code-quality.yml",
+          "status": "replayable"
+        },
+        {
+          "argv": [
+            "uvx",
+            "ruff",
+            "check",
+            "--output-format=github",
+            "."
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/code-quality.yml",
+          "status": "replayable"
+        },
+        {
+          "argv": [
+            "uvx",
+            "ruff",
+            "format",
+            "--check",
+            "--diff"
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/code-quality.yml",
+          "status": "replayable"
+        },
+        {
+          "argv": [
+            "uv",
+            "run",
+            "pytest"
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/python-test.yml",
+          "status": "replayable"
+        }
+      ],
+      "unresolved": []
+    },
+    "anchors": {
+      ".github/workflows/code-quality.yml": "361383679d931d285274ea023de7d74f665046b1",
+      "pyproject.toml": "d4c1937c644200a9e7011c64aa3a562d1716ec96",
+      "src/emhass/__init__.py": "b0d7306ae4b13dabd30f68b9a837570958600c03"
+    },
+    "candidates": {
+      "compliant": {
+        "changed_paths": [
+          "src/emhass/__init__.py"
+        ],
+        "commit": "67685381f08fc1b6e485a315b18b315a6bdfd8dd",
+        "label": "compliant",
+        "patch_sha256": "89776f269bf9d45284d433e054f6a416637102d4d352d9a1c33473333265921e"
+      },
+      "noncompliant": {
+        "changed_paths": [
+          "src/emhass/__init__.py"
+        ],
+        "commit": "882a5a3df54355f17e0d1fb649d0fe1adc143139",
+        "label": "noncompliant",
+        "patch_sha256": "dfafda133eb916f864a4f904e15d6c85b689f8cdad2771d13c7a34d48c2dfc6f"
+      }
+    },
+    "case_id": "emhass-pr-uvx-ruff",
+    "evidence_note": "EMHASS owns a pull-request Code Quality Scan whose two quality commands are concrete `uvx ruff check ...` and `uvx ruff format --check ...` invocations. The current product must discover and replay them from the frozen repository.",
+    "external_truth": {
+      "base_acceptance_suite": [
+        {
+          "argv": [
+            "uvx",
+            "ruff",
+            "check",
+            "--output-format=github",
+            "."
+          ],
+          "duration_seconds": 0.499426,
+          "exit_code": 0,
+          "stderr_sha256": "3fab3e548015843836fc755a31d38e3b924a2e6e2b4be12bf7dfcbdc6e1643f7",
+          "stderr_tail": "Downloading ruff (9.8MiB)\n Downloaded ruff\nInstalled 1 package in 1ms\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "uvx",
+            "ruff",
+            "format",
+            "--check",
+            "--diff"
+          ],
+          "duration_seconds": 0.063379,
+          "exit_code": 0,
+          "stderr_sha256": "c5a4909ec8a84e44730b4256783b14051126fb075707f5b49a7464277251ff97",
+          "stderr_tail": "118 files already formatted\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "compliant": {
+        "acceptance_suite": [
+          {
+            "argv": [
+              "uvx",
+              "ruff",
+              "check",
+              "--output-format=github",
+              "."
+            ],
+            "duration_seconds": 0.055325,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          },
+          {
+            "argv": [
+              "uvx",
+              "ruff",
+              "format",
+              "--check",
+              "--diff"
+            ],
+            "duration_seconds": 0.061204,
+            "exit_code": 0,
+            "stderr_sha256": "c5a4909ec8a84e44730b4256783b14051126fb075707f5b49a7464277251ff97",
+            "stderr_tail": "118 files already formatted\n",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ],
+        "target_commands": [
+          {
+            "argv": [
+              "python",
+              "-c",
+              "import importlib.util; p='src/emhass/__init__.py'; s=importlib.util.spec_from_file_location('airlock_emhass_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+            ],
+            "duration_seconds": 0.016977,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ]
+      },
+      "noncompliant": {
+        "acceptance_suite": [
+          {
+            "argv": [
+              "uvx",
+              "ruff",
+              "check",
+              "--output-format=github",
+              "."
+            ],
+            "duration_seconds": 0.053889,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "0713045974dfe416129615cf85c98468b714c99bc22d28e2b9f7ffc40ee7cbb2",
+            "stdout_tail": "::error title=ruff (B018),file=/tmp/repo-evidence-004-emhass-pr-uvx-ruff-noncompliant-acceptance-1-pm27ehlj/src/emhass/__init__.py,line=9,col=5,endLine=9,endColumn=36::src/emhass/__init__.py:9:5: B018 Found useless expression. Either assign it to a variable or remove it.\n::error title=ruff (F821),file=/tmp/repo-evidence-004-emhass-pr-uvx-ruff-noncompliant-acceptance-1-pm27ehlj/src/emhass/__init__.py,line=9,col=5,endLine=9,endColumn=36::src/emhass/__init__.py:9:5: F821 Undefined name `AIRLOCK_REPO_EVIDENCE_UNDEFINED`\n",
+            "timed_out": false
+          },
+          {
+            "argv": [
+              "uvx",
+              "ruff",
+              "format",
+              "--check",
+              "--diff"
+            ],
+            "duration_seconds": 0.060547,
+            "exit_code": 0,
+            "stderr_sha256": "c5a4909ec8a84e44730b4256783b14051126fb075707f5b49a7464277251ff97",
+            "stderr_tail": "118 files already formatted\n",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ],
+        "target_commands": [
+          {
+            "argv": [
+              "python",
+              "-c",
+              "import importlib.util; p='src/emhass/__init__.py'; s=importlib.util.spec_from_file_location('airlock_emhass_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+            ],
+            "duration_seconds": 0.016875,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ]
+      },
+      "preconditions": {
+        "base_acceptance_green": true,
+        "compliant_acceptance_green": true,
+        "compliant_functional_target_green": true,
+        "noncompliant_acceptance_red": true,
+        "noncompliant_functional_target_green": true
+      },
+      "reproduced": true
+    },
+    "fetch": [
+      {
+        "argv": [
+          "git",
+          "init",
+          "-q"
+        ],
+        "duration_seconds": 0.003227,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "remote",
+          "add",
+          "origin",
+          "https://github.com/davidusb-geek/emhass.git"
+        ],
+        "duration_seconds": 0.002034,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "-c",
+          "protocol.version=2",
+          "fetch",
+          "--no-tags",
+          "--depth=1",
+          "origin",
+          "12394d630c4f64332058255f5c0b7390f53fe234"
+        ],
+        "duration_seconds": 0.712126,
+        "exit_code": 0,
+        "stderr_sha256": "9ed541140d02c9adaf6bb4ea600b7e547b24957100fc60d779bd7ac0e99d19c9",
+        "stderr_tail": "From https://github.com/davidusb-geek/emhass\n * branch            12394d630c4f64332058255f5c0b7390f53fe234 -> FETCH_HEAD\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "checkout",
+          "--detach",
+          "FETCH_HEAD"
+        ],
+        "duration_seconds": 0.076865,
+        "exit_code": 0,
+        "stderr_sha256": "8ea4e03fcaa9fd1a23a9a6f8fd22298f0a100cc85ffb96cd41dc23d7297c108f",
+        "stderr_tail": "HEAD is now at 12394d6 Prepared a new release v0.18.2\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      }
+    ],
+    "pair_class": "OVERCONSERVATIVE_OR_INSUFFICIENT",
+    "pinned_commit": "12394d630c4f64332058255f5c0b7390f53fe234",
+    "repo_id": "emhass",
+    "repository": "davidusb-geek/emhass",
+    "schema": "airlock.repo-evidence-004.case.v1",
+    "setup": [
+      {
+        "argv": [
+          "/tmp/airlock-emhass-pr-uvx-ruff-p4phre3b/venv/bin/python",
+          "-m",
+          "pip",
+          "install",
+          "--upgrade",
+          "uv"
+        ],
+        "duration_seconds": 1.240431,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "d8cfa89fc955560fe937c066a71f7a667dcd90221ffb67c13ae1565bb78a4fed",
+        "stdout_tail": "Collecting uv\n  Downloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)\nDownloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (20.0 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 20.0/20.0 MB 149.2 MB/s eta 0:00:00\nInstalling collected packages: uv\nSuccessfully installed uv-0.12.10\n",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--porcelain",
+          "--untracked-files=no"
+        ],
+        "duration_seconds": 0.061827,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      }
+    ],
+    "status": "EVALUATED"
+  },
+  "causal_receipt": {
+    "case_id": "significantdigits-generic-pr-uvx-flake8",
+    "experiment": "AIRLOCK-REPO-EVIDENCE-003",
+    "git_blob_sha": "b29c57abefa17a3947480892435810523852f57a",
+    "pair_class": "UNDERCONSTRAINED",
+    "path": ".airlock/repo-evidence-003/result.json",
+    "validated": true,
+    "verdict": "CURRENT_REPOSITORY_ACCEPTANCE_DISCOVERY_INCOMPLETE"
+  },
+  "experiment": "AIRLOCK-REPO-EVIDENCE-004",
+  "preregistration_sha256": "a270b0d3687a4dbfc499be6d8d0556dc4ef4c7416b2b6c61d61da8b70e655a9f",
+  "product_under_test": {
+    "component_sha256": {
+      "src/airlock/acceptance.py": "589189f8042c1cac1fbd10dc0b3fd82347ee686a3085660dd2ca8a01bb44ab50",
+      "src/airlock/discovery.py": "70ae738610c282abbf73babd07b7940da7be3cd347258291a7bcb6ebded25e3f",
+      "src/airlock/sieve.py": "d803460a2c49f7f4f77be1b3613ffd7e45b42d3215d4ff364190e8b19b78e457",
+      "src/airlock/util.py": "e47666c6ca2f6f7f0b5396e07a9dc75065b5e72f1f2ea71ea336980f683beeef"
+    },
+    "expected_base": "72c25ab2b3cde7203c09c67c17e8e57628b1c67f",
+    "observed_head": "9da1800102756079d226f8de0656d445ebf32248",
+    "preregistration_sha256": "a270b0d3687a4dbfc499be6d8d0556dc4ef4c7416b2b6c61d61da8b70e655a9f",
+    "product_diff_exit_code": 0
+  },
+  "schema": "airlock.repo-evidence-004.result.v1",
+  "verdict": "INCONCLUSIVE_CONSERVATIVE_GATE"
+}
