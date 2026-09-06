@@ -282,6 +282,109 @@ class RepositoryAcceptanceTests(unittest.TestCase):
             result.get("restored_judge_paths", []),
         )
 
+    def test_uvx_wrapped_quality_command_is_repo_owned_acceptance_evidence(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                ".github/workflows/python-app.yml": (
+                    "name: Python application\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  build:\n"
+                    "    steps:\n"
+                    "      - name: Lint with flake8\n"
+                    "        run: uvx flake8 . --count --select=E9,F63,F7,F82\n"
+                ),
+            }
+        )
+        real_which = shutil.which
+        with mock.patch(
+            "airlock.acceptance.shutil.which",
+            side_effect=lambda name: "/usr/bin/uvx" if name == "uvx" else real_which(name),
+        ):
+            evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        expected = [
+            "uvx",
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+        ]
+        self.assertIn(expected, evidence["commands"])
+        self.assertTrue(
+            any(
+                source.get("path") == ".github/workflows/python-app.yml"
+                and source.get("argv") == expected
+                and source.get("status") == "replayable"
+                for source in evidence["sources"]
+            )
+        )
+
+    def test_uvx_wrapper_does_not_authorize_unrecognized_tool(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                ".github/workflows/python-app.yml": (
+                    "name: Python application\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  quality:\n"
+                    "    steps:\n"
+                    "      - name: Lint repository\n"
+                    "        run: uvx lint-remote-repo\n"
+                ),
+            }
+        )
+        real_which = shutil.which
+        with mock.patch(
+            "airlock.acceptance.shutil.which",
+            side_effect=lambda name: "/usr/bin/uvx" if name == "uvx" else real_which(name),
+        ):
+            evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        self.assertNotIn(["uvx", "lint-remote-repo"], evidence["commands"])
+        self.assertFalse(
+            any(source.get("argv") == ["uvx", "lint-remote-repo"] for source in evidence["sources"])
+        )
+
+    def test_unavailable_uvx_quality_command_is_needs_evidence(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                "tests/test_value.py": "from src.value import VALUE\n",
+                ".github/workflows/python-app.yml": (
+                    "name: Python application\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  build:\n"
+                    "    steps:\n"
+                    "      - name: Lint with flake8\n"
+                    "        run: uvx flake8 . --count --select=E9,F63,F7,F82\n"
+                ),
+            }
+        )
+        real_which = shutil.which
+        with mock.patch(
+            "airlock.acceptance.shutil.which",
+            side_effect=lambda name: None if name == "uvx" else real_which(name),
+        ):
+            check = sufficiency_check(
+                fixture.repo,
+                fixture.base,
+                ["src/value.py"],
+                ["tests/test_value.py"],
+                [],
+            )
+        self.assertEqual(check["status"], "INSUFFICIENT")
+        self.assertEqual(check["basis"], "unresolved_repository_acceptance_evidence")
+
     def test_unreplayable_repo_evidence_is_needs_evidence_not_survival(self):
         fixture = self.make_repo(
             {

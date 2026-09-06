@@ -61,3 +61,21 @@ authority merely because they contain a quality-looking job.
 Do not rerun AIRLOCK-REPO-EVIDENCE-001. The underconstraint is the frozen
 receipt. The corrected product must be tested on fresh cases.
 
+## AIRLOCK-REPO-EVIDENCE-003 follow-up
+
+AIRLOCK-REPO-EVIDENCE-003 found a fresh `UNDERCONSTRAINED` pair in
+`significantdigits`. Airlock correctly recognized the generic pull-request
+workflow and replayed `uv run pytest`, but it silently dropped the repository's
+strict `uvx flake8 ...` acceptance command because `uvx` was not recognized as
+a tool runner. Both functionally passing candidates therefore survived even
+though the external repository-owned verifier rejected the noncompliant one.
+
+The correction is wrapper-aware without making wrappers authoritative. `uvx`
+is now accepted only when the command it wraps is already in Airlock's existing
+quality-command families. `uvx lint-remote-repo`, for example, does not become
+acceptance evidence merely because it is wrapped by `uvx`. If `uvx` itself is
+unavailable, the recognized repository evidence remains unresolved and the
+existing sufficiency gate fails closed instead of promoting the candidate.
+
+Do not rerun AIRLOCK-REPO-EVIDENCE-003. Its `SURVIVED / SURVIVED` result is the
+frozen receipt. Test this correction on fresh wrapper cases.
