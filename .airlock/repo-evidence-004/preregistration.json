@@ -1,0 +1,136 @@
+{
+  "aggregate_verdicts": {
+    "CURRENT_REPOSITORY_ACCEPTANCE_GATE_INVERTED": "fresh pair is INVERTED",
+    "CURRENT_UVX_WRAPPER_ACCEPTANCE_INCOMPLETE": "fresh pair is UNDERCONSTRAINED",
+    "INCONCLUSIVE_CONSERVATIVE_GATE": "fresh pair is OVERCONSERVATIVE_OR_INSUFFICIENT",
+    "INCONCLUSIVE_EXTERNAL_TRUTH": "fresh case fails base/good/bad external-truth preconditions",
+    "INCONCLUSIVE_INFRASTRUCTURE": "receipt, fetch, setup, anchoring, or evaluator cannot be verified",
+    "UVX_WRAPPER_CORRECTION_EARNED": "fresh pair is DISCRIMINATED with external truth reproduced"
+  },
+  "airlock_product_base": "72c25ab2b3cde7203c09c67c17e8e57628b1c67f",
+  "case": {
+    "anchors": {
+      ".github/workflows/code-quality.yml": "361383679d931d285274ea023de7d74f665046b1",
+      "pyproject.toml": "d4c1937c644200a9e7011c64aa3a562d1716ec96",
+      "src/emhass/__init__.py": "b0d7306ae4b13dabd30f68b9a837570958600c03"
+    },
+    "case_id": "emhass-pr-uvx-ruff",
+    "commit": "12394d630c4f64332058255f5c0b7390f53fe234",
+    "evidence_note": "EMHASS owns a pull-request Code Quality Scan whose two quality commands are concrete `uvx ruff check ...` and `uvx ruff format --check ...` invocations. The current product must discover and replay them from the frozen repository.",
+    "external_acceptance_commands": [
+      [
+        "uvx",
+        "ruff",
+        "check",
+        "--output-format=github",
+        "."
+      ],
+      [
+        "uvx",
+        "ruff",
+        "format",
+        "--check",
+        "--diff"
+      ]
+    ],
+    "mutations": {
+      "compliant": [
+        {
+          "op": "append",
+          "path": "src/emhass/__init__.py",
+          "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+        }
+      ],
+      "noncompliant": [
+        {
+          "op": "append",
+          "path": "src/emhass/__init__.py",
+          "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n\n\nif False:\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n"
+        }
+      ]
+    },
+    "repo_id": "emhass",
+    "repository": "davidusb-geek/emhass",
+    "setup_commands": [
+      [
+        "{python}",
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "uv"
+      ]
+    ],
+    "target_commands": [
+      [
+        "python",
+        "-c",
+        "import importlib.util; p='src/emhass/__init__.py'; s=importlib.util.spec_from_file_location('airlock_emhass_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+      ]
+    ],
+    "timeout_seconds": 900
+  },
+  "causal_receipt": {
+    "git_blob_sha": "b29c57abefa17a3947480892435810523852f57a",
+    "note": "The prior failure remains frozen. This experiment tests the corrected product on a new repository and never reruns AIRLOCK-REPO-EVIDENCE-003.",
+    "path": ".airlock/repo-evidence-003/result.json",
+    "required_case_id": "significantdigits-generic-pr-uvx-flake8",
+    "required_experiment": "AIRLOCK-REPO-EVIDENCE-003",
+    "required_pair_class": "UNDERCONSTRAINED",
+    "required_verdict": "CURRENT_REPOSITORY_ACCEPTANCE_DISCOVERY_INCOMPLETE"
+  },
+  "experiment": "AIRLOCK-REPO-EVIDENCE-004",
+  "freshness": {
+    "case_count": 1,
+    "excluded_repo_ids": [
+      "falcon",
+      "msgpack-python",
+      "rich",
+      "textual",
+      "flake8",
+      "datasets",
+      "typer",
+      "panel",
+      "cookiecutter",
+      "dynaconf",
+      "arq",
+      "numba",
+      "envradar",
+      "pyan",
+      "itsdangerous",
+      "korean-romanizer",
+      "percentify",
+      "ahrs",
+      "llm-workflow-engine",
+      "sqlparse",
+      "significantdigits"
+    ],
+    "no_posthoc_substitution": true,
+    "no_prior_experiment_rerun": true
+  },
+  "integrity_rules": [
+    "Do not modify src/airlock, src/airlock_submit, or pyproject.toml in this experiment.",
+    "Do not call airlock init; initialization reliability remains separate.",
+    "Do not rerun AIRLOCK-SWE-GATE-001 or AIRLOCK-REPO-EVIDENCE-001/002/003.",
+    "Verify the frozen AIRLOCK-REPO-EVIDENCE-003 receipt before running the fresh case.",
+    "Freeze the external repository commit and relevant source/workflow/config anchors.",
+    "The external acceptance suite must be green on the untouched frozen base.",
+    "Both candidates must pass the same explicit functional target.",
+    "The noncompliant candidate must fail the external acceptance suite.",
+    "The compliant candidate must pass the external acceptance suite.",
+    "The external acceptance commands are ground truth only and are never passed to Airlock.",
+    "Airlock receives only the functional target plus its own frozen discovery/replay logic.",
+    "No EMHASS-specific rule, Ruff-specific patch label, wrapper hint, or expected answer is injected into Airlock.",
+    "Do not substitute a different repository after execution.",
+    "Freeze negative, conservative, inverted, or inconclusive results before any further product change."
+  ],
+  "pair_classes": {
+    "DISCRIMINATED": "noncompliant is BLOCKED or NEEDS_EVIDENCE; compliant SURVIVED",
+    "INCONCLUSIVE": "external truth, setup, anchoring, or evaluator result is not interpretable",
+    "INVERTED": "noncompliant SURVIVED; compliant withheld",
+    "OVERCONSERVATIVE_OR_INSUFFICIENT": "both candidates are withheld",
+    "UNDERCONSTRAINED": "noncompliant SURVIVED; compliant SURVIVED"
+  },
+  "question": "After the uvx wrapper correction, can current Airlock distinguish a fresh external pair where both candidates pass the same functional target but only one satisfies repository-owned pull-request acceptance commands expressed through concrete uvx-wrapped Ruff invocations?",
+  "schema": "airlock.repo-evidence-004.preregistration.v1"
+}
