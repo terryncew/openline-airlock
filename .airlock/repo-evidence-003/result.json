@@ -1,0 +1,528 @@
+{
+  "case": {
+    "airlock": {
+      "compliant": {
+        "changed_paths": [
+          "src/significantdigits/__init__.py"
+        ],
+        "checks": [
+          {
+            "rule": "protected_files",
+            "status": "PASS",
+            "touched": []
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "python",
+                  "-c",
+                  "import significantdigits; assert significantdigits.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                ],
+                "duration_seconds": 0.645615,
+                "exit_code": 0,
+                "kind": "target",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "rule": "target",
+            "status": "PASS"
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest"
+                ],
+                "duration_seconds": 12.706322,
+                "exit_code": 0,
+                "kind": "acceptance",
+                "side_effect": false,
+                "stderr_sha256": "7405b98ade13cc1952739c43a340db6be263732d4586094d63fc7cf2f68e9d03",
+                "stderr_tail": "   Building significantdigits @ file:///tmp/repo-evidence-003-airlock-compliant-8r9y4wch\n      Built significantdigits @ file:///tmp/repo-evidence-003-airlock-compliant-8r9y4wch\nUninstalled 1 package in 0.27ms\nInstalled 1 package in 0.41ms\n",
+                "stdout_sha256": "e2ea69cce5205fa0976ae62dbc0ec932096775753cfae199fa702bb4e36b30ca",
+                "stdout_tail": "al discards the imaginary part\n    arrmean = umr_sum(arr, axis, dtype, keepdims=True, where=where)\n\ntests/test_parker.py::TestGaussian::test_contributing_digits\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-compliant-8r9y4wch/src/significantdigits/_significantdigits.py:916: RuntimeWarning: invalid value encountered in cast\n    kth_bit_z = xp.floor(abs_z * scale).astype(np.int64)\n\ntests/test_parker.py::TestGaussianLarge::test_fuzzy\n  /tmp/repo-evidence-003-airlock-compliant-8r9y4wch/tests/test_parker.py:194: LinAlgWarning: An ill-conditioned matrix detected: slice 0 has rcond = 9.332636185032189e-302.\n    return scipy.linalg.solve(a, b)\n\ntests/test_parker.py::TestGaussianLarge::test_significant_digits\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/venv/lib/python3.12/site-packages/numpy/_core/_methods.py:190: RuntimeWarning: overflow encountered in square\n    x = um.square(x, out=x)\n\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-compliant-8r9y4wch/src/significantdigits/_significantdigits.py:915: RuntimeWarning: overflow encountered in ldexp\n    scale = xp.ldexp(1.0, kth.astype(xp.int64))\n\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-compliant-8r9y4wch/src/significantdigits/_significantdigits.py:916: RuntimeWarning: invalid value encountered in multiply\n    kth_bit_z = xp.floor(abs_z * scale).astype(np.int64)\n\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-compliant-8r9y4wch/src/significantdigits/_significantdigits.py:916: RuntimeWarning: overflow encountered in multiply\n    kth_bit_z = xp.floor(abs_z * scale).astype(np.int64)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================ 185 passed, 28 skipped, 16 warnings in 11.73s =================\n",
+                "timed_out": false
+              }
+            ],
+            "repository_acceptance": {
+              "basis": "repo_owned_acceptance_commands_passed",
+              "restored_judge_paths": [
+                ".github/workflows/python-app.yml"
+              ],
+              "sources": [
+                {
+                  "argv": [
+                    "uv",
+                    "run",
+                    "pytest"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                }
+              ],
+              "status": "PASS"
+            },
+            "rule": "regression",
+            "status": "PASS"
+          },
+          {
+            "basis": "explicit_target_command",
+            "matched_tests": [],
+            "rule": "evidence_sufficiency",
+            "status": "PASS"
+          }
+        ],
+        "commit": "3dd02b51a3a54671137f50cf17719ddd21908452",
+        "disposition": "SURVIVED",
+        "label": "compliant",
+        "patch_sha256": "f55a6250b0c6f5f346b8f596856433d02ecaa5b42ec28a5c67c4a1163266f332",
+        "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+      },
+      "noncompliant": {
+        "changed_paths": [
+          "src/significantdigits/__init__.py",
+          "src/significantdigits/args.py"
+        ],
+        "checks": [
+          {
+            "rule": "protected_files",
+            "status": "PASS",
+            "touched": []
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "python",
+                  "-c",
+                  "import significantdigits; assert significantdigits.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                ],
+                "duration_seconds": 0.64744,
+                "exit_code": 0,
+                "kind": "target",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "rule": "target",
+            "status": "PASS"
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest"
+                ],
+                "duration_seconds": 12.716725,
+                "exit_code": 0,
+                "kind": "acceptance",
+                "side_effect": false,
+                "stderr_sha256": "6d5b45b35d474ac8406ea38fb70f3757e43ecb65c18a98a0bf6a9c6a3aef76ad",
+                "stderr_tail": "   Building significantdigits @ file:///tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9\n      Built significantdigits @ file:///tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9\nUninstalled 1 package in 0.26ms\nInstalled 1 package in 0.42ms\n",
+                "stdout_sha256": "3c2fb95a7f5cf8a5cc26c2988c5d100b713aec4a3b3a19a4c9c3037842319cc9",
+                "stdout_tail": " imaginary part\n    arrmean = umr_sum(arr, axis, dtype, keepdims=True, where=where)\n\ntests/test_parker.py::TestGaussian::test_contributing_digits\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9/src/significantdigits/_significantdigits.py:916: RuntimeWarning: invalid value encountered in cast\n    kth_bit_z = xp.floor(abs_z * scale).astype(np.int64)\n\ntests/test_parker.py::TestGaussianLarge::test_fuzzy\n  /tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9/tests/test_parker.py:194: LinAlgWarning: An ill-conditioned matrix detected: slice 0 has rcond = 9.332636185032189e-302.\n    return scipy.linalg.solve(a, b)\n\ntests/test_parker.py::TestGaussianLarge::test_significant_digits\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/venv/lib/python3.12/site-packages/numpy/_core/_methods.py:190: RuntimeWarning: overflow encountered in square\n    x = um.square(x, out=x)\n\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9/src/significantdigits/_significantdigits.py:915: RuntimeWarning: overflow encountered in ldexp\n    scale = xp.ldexp(1.0, kth.astype(xp.int64))\n\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9/src/significantdigits/_significantdigits.py:916: RuntimeWarning: invalid value encountered in multiply\n    kth_bit_z = xp.floor(abs_z * scale).astype(np.int64)\n\ntests/test_parker.py::TestGaussianLarge::test_contributing_digits\n  /tmp/repo-evidence-003-airlock-noncompliant-cpnpihx9/src/significantdigits/_significantdigits.py:916: RuntimeWarning: overflow encountered in multiply\n    kth_bit_z = xp.floor(abs_z * scale).astype(np.int64)\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================ 185 passed, 28 skipped, 16 warnings in 11.75s =================\n",
+                "timed_out": false
+              }
+            ],
+            "repository_acceptance": {
+              "basis": "repo_owned_acceptance_commands_passed",
+              "restored_judge_paths": [
+                ".github/workflows/python-app.yml"
+              ],
+              "sources": [
+                {
+                  "argv": [
+                    "uv",
+                    "run",
+                    "pytest"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                }
+              ],
+              "status": "PASS"
+            },
+            "rule": "regression",
+            "status": "PASS"
+          },
+          {
+            "basis": "explicit_target_command",
+            "matched_tests": [],
+            "rule": "evidence_sufficiency",
+            "status": "PASS"
+          }
+        ],
+        "commit": "500024d8dd42d1628d92e1d1940bbd96dac0d53e",
+        "disposition": "SURVIVED",
+        "label": "noncompliant",
+        "patch_sha256": "2a05a75f4209429e3217afb41876b4ec6b3428f3e341ada7fef70c95bef133f0",
+        "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+      },
+      "protected_patterns": [
+        "tests/**",
+        ".github/**",
+        ".airlock/**",
+        ".pre-commit-config.yaml",
+        ".pre-commit-config.yml",
+        ".ruff.toml",
+        "Cargo.toml",
+        "GNUmakefile",
+        "Makefile",
+        "Taskfile.yaml",
+        "Taskfile.yml",
+        "go.mod",
+        "justfile",
+        "makefile",
+        "mypy.ini",
+        "noxfile.py",
+        "package.json",
+        "pyproject.toml",
+        "pytest.ini",
+        "ruff.toml",
+        "setup.cfg",
+        "tox.ini",
+        "tsconfig.json",
+        "uv.lock"
+      ]
+    },
+    "airlock_baseline_evidence": {
+      "base_commit": "05769c5ba43fadebaee933c5d0cf2c5b5d0f69eb",
+      "commands": [
+        [
+          "uv",
+          "run",
+          "pytest"
+        ]
+      ],
+      "judge_paths": [
+        ".github/workflows/python-app.yml"
+      ],
+      "schema": "airlock.repository-acceptance.v1",
+      "sources": [
+        {
+          "argv": [
+            "uv",
+            "run",
+            "pytest"
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/python-app.yml",
+          "status": "replayable"
+        }
+      ],
+      "unresolved": []
+    },
+    "anchors": {
+      ".github/workflows/python-app.yml": "bf06df787b568c8c8e666e17fc8ee1f77c447841",
+      "pyproject.toml": "f2a120118ebc772e79011be494c9104af4d7cda8",
+      "src/significantdigits/__init__.py": "80960017eeef991bdeda1cdcdc290c4b24724d6b",
+      "src/significantdigits/args.py": "10dde2d6434f1f794f1d6b0ea9d9241bf5969fc4",
+      "uv.lock": "e00e79c8a65a3f2e2f94715fa7aff82fb964a014"
+    },
+    "candidates": {
+      "compliant": {
+        "changed_paths": [
+          "src/significantdigits/__init__.py"
+        ],
+        "commit": "3dd02b51a3a54671137f50cf17719ddd21908452",
+        "label": "compliant",
+        "patch_sha256": "f55a6250b0c6f5f346b8f596856433d02ecaa5b42ec28a5c67c4a1163266f332"
+      },
+      "noncompliant": {
+        "changed_paths": [
+          "src/significantdigits/__init__.py",
+          "src/significantdigits/args.py"
+        ],
+        "commit": "500024d8dd42d1628d92e1d1940bbd96dac0d53e",
+        "label": "noncompliant",
+        "patch_sha256": "2a05a75f4209429e3217afb41876b4ec6b3428f3e341ada7fef70c95bef133f0"
+      }
+    },
+    "case_id": "significantdigits-generic-pr-uvx-flake8",
+    "evidence_note": "Generic python-app.yml / Python application PR workflow. The strict repository-owned undefined-name gate is encoded as `uvx flake8 ...`. The current product must discover and account for that evidence without the benchmark supplying the command.",
+    "external_truth": {
+      "base_acceptance_constraint": {
+        "argv": [
+          "uvx",
+          "flake8",
+          ".",
+          "--count",
+          "--select=E9,F63,F7,F82",
+          "--show-source",
+          "--statistics",
+          "--extend-exclude=.venv,venv"
+        ],
+        "duration_seconds": 0.991201,
+        "exit_code": 0,
+        "stderr_sha256": "44ebbb83e24a24496ba460988b672bba1313a698a35c8d97a411d995004e2f06",
+        "stderr_tail": "Installed 4 packages in 3ms\n",
+        "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+        "stdout_tail": "0\n",
+        "timed_out": false
+      },
+      "compliant": {
+        "acceptance_constraint": {
+          "argv": [
+            "uvx",
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics",
+            "--extend-exclude=.venv,venv"
+          ],
+          "duration_seconds": 0.304315,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+          "stdout_tail": "0\n",
+          "timed_out": false
+        },
+        "target_commands": [
+          {
+            "argv": [
+              "python",
+              "-c",
+              "import significantdigits; assert significantdigits.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+            ],
+            "duration_seconds": 0.623256,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ]
+      },
+      "noncompliant": {
+        "acceptance_constraint": {
+          "argv": [
+            "uvx",
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics",
+            "--extend-exclude=.venv,venv"
+          ],
+          "duration_seconds": 0.306069,
+          "exit_code": 1,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "fc8bf729981e60876973551085df09846d665460124fd6c07e05a92846662feb",
+          "stdout_tail": "./src/significantdigits/args.py:124:12: F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n    return AIRLOCK_REPO_EVIDENCE_UNDEFINED\n           ^\n1     F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n1\n",
+          "timed_out": false
+        },
+        "target_commands": [
+          {
+            "argv": [
+              "python",
+              "-c",
+              "import significantdigits; assert significantdigits.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+            ],
+            "duration_seconds": 1.702836,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ]
+      },
+      "preconditions": {
+        "base_acceptance_green": true,
+        "compliant_acceptance_green": true,
+        "compliant_functional_target_green": true,
+        "noncompliant_acceptance_red": true,
+        "noncompliant_functional_target_green": true
+      },
+      "reproduced": true
+    },
+    "fetch": [
+      {
+        "argv": [
+          "git",
+          "init",
+          "-q"
+        ],
+        "duration_seconds": 0.001907,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "remote",
+          "add",
+          "origin",
+          "https://github.com/verificarlo/significantdigits.git"
+        ],
+        "duration_seconds": 0.001226,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "-c",
+          "protocol.version=2",
+          "fetch",
+          "--no-tags",
+          "--depth=1",
+          "origin",
+          "05769c5ba43fadebaee933c5d0cf2c5b5d0f69eb"
+        ],
+        "duration_seconds": 0.495554,
+        "exit_code": 0,
+        "stderr_sha256": "5065c9ac8dbfaae98a08dbc49623ce966ac42c888cdb9ea9d1a3a25f186db7a7",
+        "stderr_tail": "From https://github.com/verificarlo/significantdigits\n * branch            05769c5ba43fadebaee933c5d0cf2c5b5d0f69eb -> FETCH_HEAD\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "checkout",
+          "--detach",
+          "FETCH_HEAD"
+        ],
+        "duration_seconds": 0.011929,
+        "exit_code": 0,
+        "stderr_sha256": "377e208e5e97486e8cc96e2f359a50f89fed6dcfcc04700e4617c3d14bf53283",
+        "stderr_tail": "HEAD is now at 05769c5 Bump the actions group with 4 updates\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      }
+    ],
+    "pair_class": "UNDERCONSTRAINED",
+    "pinned_commit": "05769c5ba43fadebaee933c5d0cf2c5b5d0f69eb",
+    "repo_id": "significantdigits",
+    "repository": "verificarlo/significantdigits",
+    "schema": "airlock.repo-evidence-003.case.v1",
+    "setup": [
+      {
+        "argv": [
+          "/tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/venv/bin/python",
+          "-m",
+          "pip",
+          "install",
+          "--upgrade",
+          "pip"
+        ],
+        "duration_seconds": 2.420221,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "4bb0a70020d03a6ab0a9ed258c6cb4baf8a4c3049615f1fdfe0805540afa7400",
+        "stdout_tail": "Requirement already satisfied: pip in /tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/venv/lib/python3.12/site-packages (25.0.1)\nCollecting pip\n  Downloading pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)\nDownloading pip-26.2.1-py3-none-any.whl (1.8 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 1.8/1.8 MB 3.1 MB/s eta 0:00:00\nInstalling collected packages: pip\n  Attempting uninstall: pip\n    Found existing installation: pip 25.0.1\n    Uninstalling pip-25.0.1:\n      Successfully uninstalled pip-25.0.1\nSuccessfully installed pip-26.2.1\n",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "/tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/venv/bin/python",
+          "-m",
+          "pip",
+          "install",
+          "--upgrade",
+          "uv"
+        ],
+        "duration_seconds": 1.211365,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "c99c9ca465179885fe518ab03f014d039a688ba73c3cdc70041f77c066fbfb1d",
+        "stdout_tail": "Collecting uv\n  Downloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)\nDownloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (20.0 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 20.0/20.0 MB 77.4 MB/s  0:00:00\nInstalling collected packages: uv\nSuccessfully installed uv-0.12.10\n",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "uv",
+          "sync",
+          "--locked"
+        ],
+        "duration_seconds": 0.630348,
+        "exit_code": 0,
+        "stderr_sha256": "afb533c0d6ece3d31dadf747e34d6db31391e8c4754431e7c1c1702b740635de",
+        "stderr_tail": "Resolved 27 packages in 0.47ms\n   Building significantdigits @ file:///tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/repo\nDownloading scipy (33.7MiB)\nDownloading numpy (15.9MiB)\nDownloading pygments (1.2MiB)\n Downloaded pygments\n Downloaded numpy\n Downloaded scipy\n      Built significantdigits @ file:///tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/repo\nPrepared 16 packages in 479ms\nInstalled 16 packages in 107ms\n + asttokens==3.0.2\n + colorama==0.4.6\n + executing==2.2.1\n + icecream==2.2.0\n + iniconfig==2.3.0\n + jinja2==3.1.6\n + markdown2==2.5.5\n + markupsafe==3.0.3\n + numpy==2.5.1\n + packaging==26.2\n + pdoc==16.0.0\n + pluggy==1.6.0\n + pygments==2.20.0\n + pytest==9.1.1\n + scipy==1.18.0\n + significantdigits==0.6.0 (from file:///tmp/airlock-significantdigits-generic-pr-uvx-flake8-an3qkrzy/repo)\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--porcelain",
+          "--untracked-files=no"
+        ],
+        "duration_seconds": 0.006527,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      }
+    ],
+    "status": "EVALUATED"
+  },
+  "experiment": "AIRLOCK-REPO-EVIDENCE-003",
+  "preregistration_sha256": "858007e86e281a323af4237a7adbc0eb4c6b15278ee79bcc43d277932f7c5571",
+  "prior_receipt": {
+    "experiment": "AIRLOCK-REPO-EVIDENCE-002",
+    "git_blob_sha": "97414b9b6ce78f33aa9dde5de8c1ce6eec6b4af0",
+    "pair_class_counts": {
+      "DISCRIMINATED": 3,
+      "INCONCLUSIVE": 1,
+      "INVERTED": 0,
+      "OVERCONSERVATIVE_OR_INSUFFICIENT": 0,
+      "UNDERCONSTRAINED": 0
+    },
+    "path": ".airlock/repo-evidence-002/result.json",
+    "validated": true,
+    "verdict": "INCONCLUSIVE_EXTERNAL_TRUTH"
+  },
+  "product_under_test": {
+    "component_sha256": {
+      "src/airlock/acceptance.py": "8ddb36d52479e01aca248ce4e3c2a62f8aa6b5e1cbc70cbf156d5310253348a5",
+      "src/airlock/discovery.py": "70ae738610c282abbf73babd07b7940da7be3cd347258291a7bcb6ebded25e3f",
+      "src/airlock/sieve.py": "d803460a2c49f7f4f77be1b3613ffd7e45b42d3215d4ff364190e8b19b78e457",
+      "src/airlock/util.py": "e47666c6ca2f6f7f0b5396e07a9dc75065b5e72f1f2ea71ea336980f683beeef"
+    },
+    "expected_base": "2245907bcb8bb581dd520565457383d5098ecd88",
+    "observed_head": "a3cfc556ffdb225ce0cc1856adc3ea449c38bc3b",
+    "preregistration_sha256": "858007e86e281a323af4237a7adbc0eb4c6b15278ee79bcc43d277932f7c5571",
+    "product_diff_exit_code": 0
+  },
+  "schema": "airlock.repo-evidence-003.result.v1",
+  "verdict": "CURRENT_REPOSITORY_ACCEPTANCE_DISCOVERY_INCOMPLETE"
+}
