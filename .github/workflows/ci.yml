@@ -57,7 +57,38 @@ jobs:
           python-version: "3.12"
       - run: python -m pip install .
       - id: reachability
+        # The reachability proof runs the repository's full unittest suite eight
+        # times across isolated candidate clones. Some tests create disposable
+        # Git repositories. Git's detached auto-maintenance can outlive a short
+        # test and race TemporaryDirectory cleanup, producing a false regression
+        # even though the candidate is correct. Disable only automatic background
+        # maintenance for this stress proof; all evaluator checks remain intact.
+        env:
+          GIT_CONFIG_COUNT: "4"
+          GIT_CONFIG_KEY_0: maintenance.auto
+          GIT_CONFIG_VALUE_0: "false"
+          GIT_CONFIG_KEY_1: maintenance.autoDetach
+          GIT_CONFIG_VALUE_1: "false"
+          GIT_CONFIG_KEY_2: gc.auto
+          GIT_CONFIG_VALUE_2: "0"
+          GIT_CONFIG_KEY_3: gc.autoDetach
+          GIT_CONFIG_VALUE_3: "false"
         run: python scripts/verify_unattended_reachability.py --out airlock-unattended-reachability.json
+      - name: Publish reachability failure diagnostics
+        if: ${{ always() && steps.reachability.outcome == 'failure' }}
+        shell: bash
+        run: |
+          {
+            echo "### Unattended reachability failure"
+            echo
+            echo '```json'
+            if test -f airlock-unattended-reachability.json; then
+              cat airlock-unattended-reachability.json
+            else
+              echo '{"error":"reachability report was not written"}'
+            fi
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
       - uses: actions/upload-artifact@v4
         if: ${{ always() && steps.reachability.outcome != 'skipped' }}
         with:
