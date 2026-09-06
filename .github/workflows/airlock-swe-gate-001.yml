@@ -60,8 +60,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          python -m pip install -e . pytest
-          pytest -q
+          # Match the repository's canonical CI instead of collecting intentional
+          # experiment fixtures with pytest and instead of using an editable install.
+          python -m pip install .
+          python scripts/verify_v030_release.py
+          python scripts/verify_improvement_release.py
+          python scripts/verify_nightshift_release.py
+          python -m unittest discover -s tests -v
 
       - name: Run frozen SWE-Gate benchmark
         shell: bash
