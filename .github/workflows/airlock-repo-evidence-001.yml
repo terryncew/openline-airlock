@@ -1,0 +1,96 @@
+name: AIRLOCK-REPO-EVIDENCE-001
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".airlock/repo-evidence-001/run.py"
+      - ".airlock/repo-evidence-001/preregistration.json"
+      - ".github/workflows/airlock-repo-evidence-001.yml"
+      - "AIRLOCK_REPO_EVIDENCE_001_HANDOFF.json"
+      - "docs/AIRLOCK_REPO_EVIDENCE_001.md"
+  workflow_dispatch:
+
+concurrency:
+  group: airlock-repo-evidence-001-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  fresh-repository-evidence:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      AIRLOCK_BASE_SHA: "c2495433c6da402f2ca9492f1830d2e4bc2b2bb7"
+
+    steps:
+      - name: Checkout frozen experiment branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify frozen product boundary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git cat-file -e "$AIRLOCK_BASE_SHA^{commit}"
+          git diff --exit-code "$AIRLOCK_BASE_SHA" HEAD -- src/airlock src/airlock_submit pyproject.toml
+
+      - name: Install frozen Airlock
+        run: python -m pip install .
+
+      - name: Verify current Airlock before external cases
+        run: |
+          python scripts/verify_v030_release.py
+          python scripts/verify_improvement_release.py
+          python scripts/verify_nightshift_release.py
+          python -m unittest discover -s tests -v
+
+      - name: Verify experiment harness without network
+        run: python .airlock/repo-evidence-001/run.py --self-test
+
+      - id: experiment
+        name: Run four frozen fresh repository cases
+        run: |
+          python .airlock/repo-evidence-001/run.py             --output-dir runs/repo-evidence-001
+
+      - name: Publish experiment summary
+        if: always()
+        shell: bash
+        run: |
+          if test -f runs/repo-evidence-001/result.md; then
+            cat runs/repo-evidence-001/result.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload full experiment artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airlock-repo-evidence-001-${{ github.run_id }}
+          path: runs/repo-evidence-001/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Freeze completed result into experiment branch
+        if: ${{ success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          cp runs/repo-evidence-001/result.json .airlock/repo-evidence-001/result.json
+          cp runs/repo-evidence-001/result.md docs/AIRLOCK_REPO_EVIDENCE_001_RESULT.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .airlock/repo-evidence-001/result.json docs/AIRLOCK_REPO_EVIDENCE_001_RESULT.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "research: freeze AIRLOCK-REPO-EVIDENCE-001 result"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
