@@ -1,0 +1,61 @@
+{
+  "base_repo": "terryncew/openline-airlock",
+  "base_sha": "11e99ee762b4e4a8b593c96cf3a5e175a5edba88",
+  "branch": "research/airlock-swe-gate-001",
+  "changed_files": [
+    ".airlock/swe-gate-001/evaluate_inside.py",
+    ".airlock/swe-gate-001/run.py",
+    ".github/workflows/airlock-swe-gate-001.yml",
+    "docs/AIRLOCK_SWE_GATE_001.md",
+    "AIRLOCK_SWE_GATE_001_HANDOFF.json"
+  ],
+  "falsifier": "At least one live-verified UNDERCONSTRAINED pair: current Airlock SURVIVES both the functional-pass/review-fail patch and its functional-pass/review-pass gold control.",
+  "handoff": "AIRLOCK-SWE-GATE-001",
+  "integrity": {
+    "benchmark_specific_config_changes_allowed": false,
+    "gold_control_required": true,
+    "hidden_constraint_tests_injected": false,
+    "live_external_truth_recheck_required": true,
+    "product_code_changes_allowed": false,
+    "rerun_for_better_result_allowed": false
+  },
+  "pair_classes": [
+    "DISCRIMINATED",
+    "UNDERCONSTRAINED",
+    "OVERCONSERVATIVE_OR_INSUFFICIENT",
+    "INVERTED",
+    "INCONCLUSIVE"
+  ],
+  "question": "Can current zero-config Airlock distinguish functional-pass/review-fail patches from functional-pass/review-pass gold controls without benchmark-specific rules?",
+  "result_freeze_rule": "Freeze the result without product changes. A negative result is valid evidence and may earn a later separately scoped design change.",
+  "sample": {
+    "distinct_repos": 12,
+    "eligibility_truth": {
+      "gold_constraint": true,
+      "gold_functional": true,
+      "noncompliant_constraint": false,
+      "noncompliant_functional": true
+    },
+    "instances": 12,
+    "no_posthoc_swaps": true,
+    "patch_evaluations": 24,
+    "seed": "AIRLOCK-SWE-GATE-001|11e99ee762b4e4a8b593c96cf3a5e175a5edba88|5f303b30dd53af3499d05558cfd82eda641be22b|distinct-repo-v1",
+    "selection": "one deterministic eligible instance per distinct repo using SHA-256 ranking"
+  },
+  "status": "PREREGISTERED_EXTERNAL_BENCHMARK_NO_RESULTS",
+  "trigger": {
+    "arxiv": "2609.04167",
+    "paper": "SWE-Gate: Passing Functional Tests Is Not Enough for Software Engineering Agents",
+    "reason": "External deterministic corpus separates functional-pass patches from maintainer-constraint compliance.",
+    "repository": "DeepSoftwareAnalytics/SWE-Gate",
+    "repository_sha": "5f303b30dd53af3499d05558cfd82eda641be22b"
+  },
+  "verdicts": [
+    "CURRENT_GATE_NOT_REVIEW_COMPLETE",
+    "EXTERNAL_CONSTRAINT_DISCRIMINATION_EARNED",
+    "INCONCLUSIVE_CONSERVATIVE_GATE",
+    "INCONCLUSIVE_EXTERNAL_TRUTH_DRIFT",
+    "INCONCLUSIVE_AIRLOCK_INIT_FAILURE",
+    "INCONCLUSIVE_INFRASTRUCTURE"
+  ]
+}

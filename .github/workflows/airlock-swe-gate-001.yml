@@ -1,0 +1,111 @@
+name: AIRLOCK-SWE-GATE-001
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - ".airlock/swe-gate-001/**"
+      - "docs/AIRLOCK_SWE_GATE_001.md"
+      - "AIRLOCK_SWE_GATE_001_HANDOFF.json"
+      - ".github/workflows/airlock-swe-gate-001.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: airlock-swe-gate-001-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  external-benchmark:
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    env:
+      AIRLOCK_BASE_SHA: "11e99ee762b4e4a8b593c96cf3a5e175a5edba88"
+      SWE_GATE_SHA: "5f303b30dd53af3499d05558cfd82eda641be22b"
+      SAMPLE_SEED: "AIRLOCK-SWE-GATE-001|11e99ee762b4e4a8b593c96cf3a5e175a5edba88|5f303b30dd53af3499d05558cfd82eda641be22b|distinct-repo-v1"
+
+    steps:
+      - name: Checkout Airlock experiment branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Checkout pinned SWE-Gate release
+        uses: actions/checkout@v4
+        with:
+          repository: DeepSoftwareAnalytics/SWE-Gate
+          ref: ${{ env.SWE_GATE_SHA }}
+          path: _external/SWE-Gate
+          fetch-depth: 1
+          persist-credentials: false
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Verify frozen inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git -C _external/SWE-Gate rev-parse HEAD)" = "$SWE_GATE_SHA"
+          git diff --exit-code "$AIRLOCK_BASE_SHA" HEAD -- src/airlock src/airlock_submit pyproject.toml
+          docker info >/dev/null
+
+      - name: Verify current Airlock before benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Match the repository's canonical CI instead of collecting intentional
+          # experiment fixtures with pytest and instead of using an editable install.
+          python -m pip install .
+          python scripts/verify_v030_release.py
+          python scripts/verify_improvement_release.py
+          python scripts/verify_nightshift_release.py
+          python -m unittest discover -s tests -v
+
+      - name: Run frozen SWE-Gate benchmark
+        shell: bash
+        run: |
+          set -euo pipefail
+          python .airlock/swe-gate-001/run_fixed.py             --swe-gate-root _external/SWE-Gate             --airlock-root "$PWD"             --output-dir runs/swe-gate-001             --seed "$SAMPLE_SEED"             --repo-count 12
+
+      - name: Publish summary
+        if: always()
+        shell: bash
+        run: |
+          if test -f runs/swe-gate-001/result.md; then
+            cat runs/swe-gate-001/result.md >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload immutable run artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airlock-swe-gate-001-${{ github.run_id }}
+          path: runs/swe-gate-001/
+          if-no-files-found: warn
+          retention-days: 90
+
+      - name: Freeze successful result into the experiment branch
+        if: ${{ success() && github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository }}
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          cp runs/swe-gate-001/result.json .airlock/swe-gate-001/result.json
+          cp runs/swe-gate-001/result.md docs/AIRLOCK_SWE_GATE_001_RESULT.md
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .airlock/swe-gate-001/result.json docs/AIRLOCK_SWE_GATE_001_RESULT.md
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "research: freeze SWE-Gate external benchmark result"
+          git push origin "HEAD:${{ github.event.pull_request.head.ref }}"
+          gh pr comment "${{ github.event.pull_request.number }}" --body-file runs/swe-gate-001/result.md
