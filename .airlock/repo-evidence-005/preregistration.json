@@ -1,0 +1,143 @@
+{
+  "aggregate_verdicts": {
+    "CURRENT_REPOSITORY_ACCEPTANCE_CONTEXT_INCOMPLETE": "fresh pair is UNDERCONSTRAINED",
+    "CURRENT_REPOSITORY_ACCEPTANCE_GATE_INVERTED": "fresh pair is INVERTED",
+    "EXECUTION_CONTEXT_CORRECTION_EARNED": "fresh pair is DISCRIMINATED with external truth reproduced",
+    "INCONCLUSIVE_CONSERVATIVE_GATE": "fresh pair is OVERCONSERVATIVE_OR_INSUFFICIENT",
+    "INCONCLUSIVE_EXTERNAL_TRUTH": "fresh case fails base/good/bad ground-truth preconditions",
+    "INCONCLUSIVE_INFRASTRUCTURE": "receipt, fetch, setup, anchoring, or evaluator cannot be verified"
+  },
+  "airlock_product_base": "827fb55b382992735804916d150e5daaabe9c512",
+  "case": {
+    "anchors": {
+      ".github/workflows/test-run.yml": "f8f95dff17b318b281c3aa904b0ec14f14b32780",
+      "CONTRIBUTING.md": "341d81bb3827f869caa5f03e897b34934992a01c",
+      "pyproject.toml": "edfd96814624c6394aef4982fd28860f12449044",
+      "uv.lock": "904e9deb1b33770d872252255d34842e309e50a3"
+    },
+    "case_id": "overture-pr-uv-sync-context",
+    "commit": "9410974885ab5e9de107b15c0ba000a248c36a36",
+    "evidence_note": "The frozen PR workflow owns a same-job sequence `uv sync --dev` -> `uv run ruff check .` -> `uv run pytest tests/ -v`. The frozen Ruff policy selects F401. The bad candidate adds one unused import to a new source module; the good candidate does not. Both expose the same standalone functional probe. The experiment never tells Airlock the setup sequence or the quality commands.",
+    "external_acceptance_commands": [
+      [
+        "uv",
+        "run",
+        "ruff",
+        "check",
+        "."
+      ],
+      [
+        "uv",
+        "run",
+        "pytest",
+        "tests/",
+        "-v"
+      ]
+    ],
+    "external_job_setup": [
+      "uv",
+      "sync",
+      "--dev"
+    ],
+    "harness_setup_commands": [
+      [
+        "{python}",
+        "-m",
+        "pip",
+        "install",
+        "--upgrade",
+        "uv"
+      ]
+    ],
+    "mutations": {
+      "compliant": [
+        {
+          "op": "write",
+          "path": "overturemaps/airlock_acceptance_probe.py",
+          "text": "def airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+        }
+      ],
+      "noncompliant": [
+        {
+          "op": "write",
+          "path": "overturemaps/airlock_acceptance_probe.py",
+          "text": "import math\n\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+        }
+      ]
+    },
+    "repo_id": "overturemaps-py",
+    "repository": "OvertureMaps/overturemaps-py",
+    "target_commands": [
+      [
+        "python",
+        "-c",
+        "import importlib.util; p='overturemaps/airlock_acceptance_probe.py'; s=importlib.util.spec_from_file_location('airlock_overture_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+      ]
+    ],
+    "timeout_seconds": 1200
+  },
+  "causal_receipt": {
+    "git_blob_sha": "cbde582cfa10f17bd8706a1e5451989ad17de2b3",
+    "note": "AIRLOCK-REPO-EVIDENCE-004 remains frozen. It established that current-at-the-time Airlock discovered the relevant quality commands but blocked both candidates because a workflow-owned `uv run pytest` was replayed without its repository-owned setup context. This experiment tests the corrected product on a different repository.",
+    "path": ".airlock/repo-evidence-004/result.json",
+    "required_case_id": "emhass-pr-uvx-ruff",
+    "required_experiment": "AIRLOCK-REPO-EVIDENCE-004",
+    "required_pair_class": "OVERCONSERVATIVE_OR_INSUFFICIENT",
+    "required_verdict": "INCONCLUSIVE_CONSERVATIVE_GATE"
+  },
+  "experiment": "AIRLOCK-REPO-EVIDENCE-005",
+  "freshness": {
+    "case_count": 1,
+    "excluded_repo_ids": [
+      "falcon",
+      "msgpack-python",
+      "rich",
+      "textual",
+      "flake8",
+      "datasets",
+      "typer",
+      "panel",
+      "cookiecutter",
+      "dynaconf",
+      "arq",
+      "numba",
+      "envradar",
+      "pyan",
+      "itsdangerous",
+      "korean-romanizer",
+      "percentify",
+      "ahrs",
+      "llm-workflow-engine",
+      "sqlparse",
+      "significantdigits",
+      "emhass"
+    ],
+    "no_posthoc_substitution": true,
+    "no_prior_experiment_rerun": true
+  },
+  "integrity_rules": [
+    "Do not modify src/airlock, src/airlock_submit, or pyproject.toml in this experiment.",
+    "Do not call airlock init; initialization reliability remains a separate problem.",
+    "Do not rerun AIRLOCK-SWE-GATE-001 or AIRLOCK-REPO-EVIDENCE-001/002/003/004.",
+    "Verify the frozen AIRLOCK-REPO-EVIDENCE-004 receipt before the fresh case.",
+    "Freeze the external repository commit and relevant workflow/config/lockfile anchors.",
+    "The external acceptance commands and setup sequence are ground truth only and are never passed to Airlock.",
+    "The untouched frozen external base must satisfy the ground-truth setup and acceptance commands.",
+    "Both candidates must pass the same explicit functional target.",
+    "The noncompliant candidate must fail the repository-owned Ruff gate for an actual repo-configured rule.",
+    "The compliant candidate must pass the same repository-owned quality commands.",
+    "Airlock receives only the explicit functional target plus its own frozen discovery/replay machinery.",
+    "No Overture-specific rule, setup hint, Ruff hint, workflow path, or expected answer is injected into Airlock.",
+    "Do not substitute another repository after execution.",
+    "Freeze negative, conservative, inverted, or inconclusive results before any further product change."
+  ],
+  "pair_classes": {
+    "DISCRIMINATED": "noncompliant is BLOCKED or NEEDS_EVIDENCE; compliant SURVIVED",
+    "INCONCLUSIVE": "external truth, setup, anchoring, or evaluator result is not interpretable",
+    "INVERTED": "noncompliant SURVIVED; compliant withheld",
+    "OVERCONSERVATIVE_OR_INSUFFICIENT": "both candidates are withheld",
+    "UNDERCONSTRAINED": "noncompliant SURVIVED; compliant SURVIVED"
+  },
+  "question": "After the repository-acceptance execution-context correction, can current Airlock discriminate a fresh external pair when the repository's pull-request quality commands require a preceding same-job `uv sync` to exist and succeed?",
+  "schema": "airlock.repo-evidence-005.preregistration.v1"
+}
