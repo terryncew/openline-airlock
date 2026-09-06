@@ -1,0 +1,301 @@
+{
+  "aggregate_verdicts": {
+    "CURRENT_REPOSITORY_ACCEPTANCE_DISCOVERY_INCOMPLETE": "at least one live-verified UNDERCONSTRAINED pair and no global external-truth/infrastructure inconclusive",
+    "CURRENT_REPOSITORY_ACCEPTANCE_GATE_INVERTED": "no underconstrained pair, but at least one INVERTED pair",
+    "INCONCLUSIVE_CONSERVATIVE_GATE": "no underconstrained/inverted pair, but at least one overconservative pair",
+    "INCONCLUSIVE_EXTERNAL_TRUTH": "at least one frozen case fails the base/good/bad external-truth preconditions",
+    "INCONCLUSIVE_INFRASTRUCTURE": "at least one frozen case cannot be fetched, anchored, prepared, or evaluated",
+    "REPOSITORY_ACCEPTANCE_DISCRIMINATION_EARNED": "all four fresh pairs are DISCRIMINATED"
+  },
+  "airlock_product_base": "f3a2d1477636100add061b2fc13585a43552a0ce",
+  "cases": [
+    {
+      "anchors": {
+        ".github/workflows/python-app.yml": "36b439d7dba7bdb39462e57ccea1fb9595f0ea1e",
+        "percentify/__init__.py": "7fe7d36308fa94d175bfa018c9c2de18e911cac4",
+        "pyproject.toml": "786dbd9c1de51389e80c4de6420b949181009ef0"
+      },
+      "case_id": "percentify-generic-pr-flake8",
+      "commit": "666651f504948a7481e8fe67e53c22300d14edf9",
+      "evidence_note": "Generic python-app.yml / Python application PR workflow; nested lint job owns the strict flake8 acceptance command.",
+      "external_acceptance_command": [
+        "flake8",
+        ".",
+        "--count",
+        "--select=E9,F63,F7,F82",
+        "--show-source",
+        "--statistics"
+      ],
+      "mutations": {
+        "compliant": [
+          {
+            "op": "append",
+            "path": "percentify/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "percentify/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n\nif False:\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n"
+          }
+        ]
+      },
+      "repo_id": "percentify",
+      "repository": "Ad-meliorael/percentify",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".",
+          "pytest",
+          "polars",
+          "pyarrow",
+          "flake8"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "import percentify; assert percentify.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+        ]
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "anchors": {
+        ".github/workflows/python-app.yml": "0316ef202c7f12dd893baeee0498ad2ac47e2ae9",
+        "ahrs/__init__.py": "6403725c05911d284e7cd2d77900bc200cee729f"
+      },
+      "case_id": "ahrs-generic-pr-flake8",
+      "commit": "81726853363c4ed78d51c04273a2ce67a1f7aeff",
+      "evidence_note": "Generic python-app.yml / Python application PR workflow; nested flake8 step defines a strict acceptance constraint.",
+      "external_acceptance_command": [
+        "flake8",
+        ".",
+        "--count",
+        "--select=E9,F63,F7,F82",
+        "--show-source",
+        "--statistics"
+      ],
+      "mutations": {
+        "compliant": [
+          {
+            "op": "append",
+            "path": "ahrs/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "ahrs/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n\nif False:\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n"
+          }
+        ]
+      },
+      "repo_id": "ahrs",
+      "repository": "Mayitzin/ahrs",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".",
+          "pytest",
+          "pytest-cov",
+          "flake8",
+          "setuptools",
+          "wheel",
+          "build"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "import ahrs; assert ahrs.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+        ]
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "anchors": {
+        ".flake8": "35806b1fedfaa916db5e889b66d5ef52c865bfb9",
+        ".github/workflows/python-app.yml": "01be8c018755c7596a6ad250cb9fbef58e06fbcd",
+        "lwe/version.py": "972ac380d3338b259c5e4da775b7192f9b78fa94"
+      },
+      "case_id": "lwe-pr-flake8",
+      "commit": "8a64e79dc45a5c4ef1c1c3db37eae84e18dce10d",
+      "evidence_note": "Repository PR workflow owns strict flake8 plus pytest evidence; the source of truth includes the committed .flake8 policy.",
+      "external_acceptance_command": [
+        "flake8",
+        ".",
+        "--count",
+        "--select=E9,F63,F7,F82",
+        "--show-source",
+        "--statistics"
+      ],
+      "mutations": {
+        "compliant": [
+          {
+            "op": "append",
+            "path": "lwe/version.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "lwe/version.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n\nif False:\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n"
+          }
+        ]
+      },
+      "repo_id": "llm-workflow-engine",
+      "repository": "llm-workflow-engine/llm-workflow-engine",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".",
+          "pytest",
+          "pytest-datadir",
+          "flake8",
+          "flake8-bugbear"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "from lwe.version import airlock_acceptance_probe; assert airlock_acceptance_probe('  fresh  ') == 'fresh'"
+        ]
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "anchors": {
+        ".github/workflows/python-app.yml": "67eff95ae2ce67ba013c29b5b31889cd07d9beab",
+        "pyproject.toml": "44a27e7ef844a39ab837403199f9832d33b14c74",
+        "sqlparse/__init__.py": "8411f5a3e9599c7a68e65495a3d5dd5206b9273a"
+      },
+      "case_id": "sqlparse-generic-pr-ruff-wrapper",
+      "commit": "60cdc649726bf1bc4f1b336050560b336da715ec",
+      "encoded_repository_command": [
+        "uv",
+        "run",
+        "--group",
+        "dev",
+        "ruff",
+        "check",
+        "sqlparse/"
+      ],
+      "evidence_note": "Generic python-app.yml / Python application PR workflow. The repository encodes Ruff behind `uv run --group dev`; external truth invokes the same Ruff policy directly from the pinned pyproject configuration. Airlock is not told either command.",
+      "external_acceptance_command": [
+        "ruff",
+        "check",
+        "sqlparse/"
+      ],
+      "mutations": {
+        "compliant": [
+          {
+            "op": "append",
+            "path": "sqlparse/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "sqlparse/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n\nif False:\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n"
+          }
+        ]
+      },
+      "repo_id": "sqlparse",
+      "repository": "andialbrecht/sqlparse",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".",
+          "pytest",
+          "coverage",
+          "ruff",
+          "uv"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "import sqlparse; assert sqlparse.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+        ]
+      ],
+      "timeout_seconds": 1200
+    }
+  ],
+  "experiment": "AIRLOCK-REPO-EVIDENCE-002",
+  "freshness": {
+    "case_count": 4,
+    "excluded_airlock_repo_evidence_001_repo_ids": [
+      "envradar",
+      "pyan",
+      "itsdangerous",
+      "korean-romanizer"
+    ],
+    "excluded_airlock_swe_gate_001_repo_ids": [
+      "falcon",
+      "msgpack-python",
+      "rich",
+      "textual",
+      "flake8",
+      "datasets",
+      "typer",
+      "panel",
+      "cookiecutter",
+      "dynaconf",
+      "arq",
+      "numba"
+    ],
+    "no_posthoc_substitution": true
+  },
+  "integrity_rules": [
+    "Do not modify src/airlock, src/airlock_submit, or pyproject.toml in this experiment.",
+    "Do not call airlock init; initialization reliability remains a separate problem.",
+    "Do not rerun AIRLOCK-SWE-GATE-001 or AIRLOCK-REPO-EVIDENCE-001.",
+    "Every external repository, commit, source anchor, workflow anchor, and relevant config anchor is frozen before execution.",
+    "Before evaluating candidates, the external acceptance verifier must pass on the frozen base.",
+    "Both paired candidates must pass the same explicit functional target.",
+    "The noncompliant candidate must fail the external acceptance verifier.",
+    "The compliant candidate must pass the external acceptance verifier.",
+    "The external acceptance verifier is ground truth only and is never supplied to Airlock.",
+    "Airlock receives only the functional target plus its own current repository-evidence discovery and replay logic.",
+    "No benchmark-specific acceptance rule, patch label, or expected verdict is injected into Airlock.",
+    "Run all four frozen cases even after the aggregate claim has already been falsified; preserve the downstream trace.",
+    "Freeze negative and inconclusive results before any further product correction."
+  ],
+  "pair_classes": {
+    "DISCRIMINATED": "noncompliant is BLOCKED or NEEDS_EVIDENCE; compliant SURVIVED",
+    "INCONCLUSIVE": "external truth, setup, patch, or evaluator result is not interpretable",
+    "INVERTED": "noncompliant SURVIVED; compliant withheld",
+    "OVERCONSERVATIVE_OR_INSUFFICIENT": "both candidates are withheld",
+    "UNDERCONSTRAINED": "noncompliant SURVIVED; compliant SURVIVED"
+  },
+  "question": "After the nested-PR-workflow discovery correction, can current Airlock distinguish fresh pairs where both candidates pass the same functional target but only one satisfies repository-owned acceptance evidence?",
+  "schema": "airlock.repo-evidence-002.preregistration.v1"
+}

@@ -1,0 +1,2220 @@
+{
+  "cases": [
+    {
+      "airlock": {
+        "compliant": {
+          "changed_paths": [
+            "percentify/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "import percentify; assert percentify.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                  ],
+                  "duration_seconds": 0.418116,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 0.374646,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+                  "stdout_tail": "0\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--exit-zero",
+                    "--max-complexity=10",
+                    "--max-line-length=127",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 0.341361,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "3bca586e1c4ccb6ac27c111dbd52cf9f28b35be65df8fc60daa6648beef422da",
+                  "stdout_tail": "./percentify/profiling.py:385:1: C901 'check_leakage' is too complex (12)\n./percentify/stats.py:639:1: C901 'correlate' is too complex (13)\n2     C901 'check_leakage' is too complex (12)\n2\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pytest",
+                    "-q"
+                  ],
+                  "duration_seconds": 4.103324,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "3fc5d1ac9fb037d631c6ba7840457ce2a8d411ecd108e2b5543e1698bf65069d",
+                  "stdout_tail": "........................................................................ [ 39%]\n........................................................................ [ 79%]\n.....................................                                    [100%]\n181 passed in 3.71s\n",
+                  "timed_out": false
+                }
+              ],
+              "repository_acceptance": {
+                "basis": "repo_owned_acceptance_commands_passed",
+                "restored_judge_paths": [
+                  ".github/workflows/python-app.yml"
+                ],
+                "sources": [
+                  {
+                    "argv": [
+                      "flake8",
+                      ".",
+                      "--count",
+                      "--select=E9,F63,F7,F82",
+                      "--show-source",
+                      "--statistics"
+                    ],
+                    "kind": "github_actions",
+                    "path": ".github/workflows/python-app.yml",
+                    "status": "replayable"
+                  },
+                  {
+                    "argv": [
+                      "flake8",
+                      ".",
+                      "--count",
+                      "--exit-zero",
+                      "--max-complexity=10",
+                      "--max-line-length=127",
+                      "--statistics"
+                    ],
+                    "kind": "github_actions",
+                    "path": ".github/workflows/python-app.yml",
+                    "status": "replayable"
+                  },
+                  {
+                    "argv": [
+                      "pytest",
+                      "-q"
+                    ],
+                    "kind": "github_actions",
+                    "path": ".github/workflows/python-app.yml",
+                    "status": "replayable"
+                  }
+                ],
+                "status": "PASS"
+              },
+              "rule": "regression",
+              "status": "PASS"
+            },
+            {
+              "basis": "explicit_target_command",
+              "matched_tests": [],
+              "rule": "evidence_sufficiency",
+              "status": "PASS"
+            }
+          ],
+          "commit": "f39677a153847e706bbe5f7a023f430e20f83d07",
+          "disposition": "SURVIVED",
+          "label": "compliant",
+          "patch_sha256": "032d34a9b55fc611c045d7adc9994c14572d92a810c3df3667649e544e343fd4",
+          "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "percentify/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "import percentify; assert percentify.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                  ],
+                  "duration_seconds": 0.419714,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "baseline_commands": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 0.36533,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+                  "stdout_tail": "0\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--exit-zero",
+                    "--max-complexity=10",
+                    "--max-line-length=127",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 0.343191,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "3bca586e1c4ccb6ac27c111dbd52cf9f28b35be65df8fc60daa6648beef422da",
+                  "stdout_tail": "./percentify/profiling.py:385:1: C901 'check_leakage' is too complex (12)\n./percentify/stats.py:639:1: C901 'correlate' is too complex (13)\n2     C901 'check_leakage' is too complex (12)\n2\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pytest",
+                    "-q"
+                  ],
+                  "duration_seconds": 4.044103,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "493479520612038de8eb43d13282c10b22b28d76ec954e6803ada3d415816da6",
+                  "stdout_tail": "........................................................................ [ 39%]\n........................................................................ [ 79%]\n.....................................                                    [100%]\n181 passed in 3.67s\n",
+                  "timed_out": false
+                }
+              ],
+              "basis": "acceptance_command_failed",
+              "commands": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 0.36755,
+                  "exit_code": 1,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e7ee2868cec080fddcfff6ffb26d83d06a3e896f24292f89989c4d9e3b80e7b3",
+                  "stdout_tail": "./percentify/__init__.py:21:5: F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n    ^\n1     F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n1\n",
+                  "timed_out": false
+                }
+              ],
+              "restored_judge_paths": [
+                ".github/workflows/python-app.yml"
+              ],
+              "rule": "repository_acceptance",
+              "sources": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--exit-zero",
+                    "--max-complexity=10",
+                    "--max-line-length=127",
+                    "--statistics"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "pytest",
+                    "-q"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                }
+              ],
+              "status": "FAIL"
+            }
+          ],
+          "commit": "288e0832e368ff619a4ec810da0b247dddcab12f",
+          "disposition": "BLOCKED",
+          "label": "noncompliant",
+          "patch_sha256": "00bf041ed6a9d3f1aa59c2cddab3c0f56158b16f8a8ef969703bfca0863d0ef8",
+          "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+        },
+        "protected_patterns": [
+          "tests/**",
+          ".github/**",
+          ".airlock/**",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml",
+          ".ruff.toml",
+          "Cargo.toml",
+          "GNUmakefile",
+          "Makefile",
+          "Taskfile.yaml",
+          "Taskfile.yml",
+          "go.mod",
+          "justfile",
+          "makefile",
+          "mypy.ini",
+          "noxfile.py",
+          "package.json",
+          "pyproject.toml",
+          "pytest.ini",
+          "ruff.toml",
+          "setup.cfg",
+          "tox.ini",
+          "tsconfig.json"
+        ]
+      },
+      "airlock_baseline_evidence": {
+        "base_commit": "666651f504948a7481e8fe67e53c22300d14edf9",
+        "commands": [
+          [
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics"
+          ],
+          [
+            "flake8",
+            ".",
+            "--count",
+            "--exit-zero",
+            "--max-complexity=10",
+            "--max-line-length=127",
+            "--statistics"
+          ],
+          [
+            "pytest",
+            "-q"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/python-app.yml"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--exit-zero",
+              "--max-complexity=10",
+              "--max-line-length=127",
+              "--statistics"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "pytest",
+              "-q"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          }
+        ],
+        "unresolved": []
+      },
+      "anchors": {
+        ".github/workflows/python-app.yml": "36b439d7dba7bdb39462e57ccea1fb9595f0ea1e",
+        "percentify/__init__.py": "7fe7d36308fa94d175bfa018c9c2de18e911cac4",
+        "pyproject.toml": "786dbd9c1de51389e80c4de6420b949181009ef0"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "percentify/__init__.py"
+          ],
+          "commit": "f39677a153847e706bbe5f7a023f430e20f83d07",
+          "label": "compliant",
+          "patch_sha256": "032d34a9b55fc611c045d7adc9994c14572d92a810c3df3667649e544e343fd4"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "percentify/__init__.py"
+          ],
+          "commit": "288e0832e368ff619a4ec810da0b247dddcab12f",
+          "label": "noncompliant",
+          "patch_sha256": "00bf041ed6a9d3f1aa59c2cddab3c0f56158b16f8a8ef969703bfca0863d0ef8"
+        }
+      },
+      "case_id": "percentify-generic-pr-flake8",
+      "encoded_repository_command": null,
+      "evidence_note": "Generic python-app.yml / Python application PR workflow; nested lint job owns the strict flake8 acceptance command.",
+      "external_truth": {
+        "base_acceptance_constraint": {
+          "argv": [
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics"
+          ],
+          "duration_seconds": 0.595512,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+          "stdout_tail": "0\n",
+          "timed_out": false
+        },
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "duration_seconds": 0.367143,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "stdout_tail": "0\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import percentify; assert percentify.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.420263,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "duration_seconds": 0.367575,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e7ee2868cec080fddcfff6ffb26d83d06a3e896f24292f89989c4d9e3b80e7b3",
+            "stdout_tail": "./percentify/__init__.py:21:5: F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n    ^\n1     F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n1\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import percentify; assert percentify.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.475594,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "preconditions": {
+          "base_acceptance_green": true,
+          "compliant_acceptance_green": true,
+          "compliant_functional_target_green": true,
+          "noncompliant_acceptance_red": true,
+          "noncompliant_functional_target_green": true
+        },
+        "reproduced": true
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.003126,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/Ad-meliorael/percentify.git"
+          ],
+          "duration_seconds": 0.001801,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "666651f504948a7481e8fe67e53c22300d14edf9"
+          ],
+          "duration_seconds": 0.981185,
+          "exit_code": 0,
+          "stderr_sha256": "88c8999beec99f1b07c68a6795fdf001fb18f591998a7c20c437a85595406bb3",
+          "stderr_tail": "From https://github.com/Ad-meliorael/percentify\n * branch            666651f504948a7481e8fe67e53c22300d14edf9 -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.005956,
+          "exit_code": 0,
+          "stderr_sha256": "0503e728638146400da937f79face40ce5859bd8c136db30f7ef02559ef8df3f",
+          "stderr_tail": "HEAD is now at 666651f fix documentation with real attributions\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "DISCRIMINATED",
+      "pinned_commit": "666651f504948a7481e8fe67e53c22300d14edf9",
+      "repo_id": "percentify",
+      "repository": "Ad-meliorael/percentify",
+      "schema": "airlock.repo-evidence-002.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-percentify-generic-pr-flake8-ot_svcli/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip"
+          ],
+          "duration_seconds": 2.242254,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "9f52cafe023c835ea7079913edc3d40fce90b91d187494dc84551f18d73b4084",
+          "stdout_tail": "Requirement already satisfied: pip in /tmp/airlock-percentify-generic-pr-flake8-ot_svcli/venv/lib/python3.12/site-packages (25.0.1)\nCollecting pip\n  Downloading pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)\nDownloading pip-26.2.1-py3-none-any.whl (1.8 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 1.8/1.8 MB 6.7 MB/s eta 0:00:00\nInstalling collected packages: pip\n  Attempting uninstall: pip\n    Found existing installation: pip 25.0.1\n    Uninstalling pip-25.0.1:\n      Successfully uninstalled pip-25.0.1\nSuccessfully installed pip-26.2.1\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "/tmp/airlock-percentify-generic-pr-flake8-ot_svcli/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "pytest",
+            "polars",
+            "pyarrow",
+            "flake8"
+          ],
+          "duration_seconds": 23.939465,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "10aad140fa7a709ba300aa92bb11bdf47493635eb12b8785c37601ef4f734ac4",
+          "stdout_tail": "e-2.14.0-py2.py3-none-any.whl (31 kB)\nDownloading pyflakes-3.4.0-py2.py3-none-any.whl (63 kB)\nDownloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)\nUsing cached packaging-26.3-py3-none-any.whl (129 kB)\nDownloading pandas-3.0.5-cp312-cp312-manylinux_2_24_x86_64.manylinux_2_28_x86_64.whl (11.0 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 11.0/11.0 MB 195.3 MB/s  0:00:00\nDownloading numpy-2.5.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.7 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 16.7/16.7 MB 157.5 MB/s  0:00:00\nDownloading pygments-2.21.0-py3-none-any.whl (1.3 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 1.3/1.3 MB 169.1 MB/s  0:00:00\nDownloading python_dateutil-2.9.0.post0-py2.py3-none-any.whl (229 kB)\nDownloading six-1.17.0-py2.py3-none-any.whl (11 kB)\nDownloading scipy-1.18.1-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (35.3 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 35.3/35.3 MB 138.1 MB/s  0:00:00\nBuilding wheels for collected packages: percentify\n  Building editable for percentify (pyproject.toml): started\n  Building editable for percentify (pyproject.toml): finished with status 'done'\n  Created wheel for percentify: filename=percentify-1.0.2-0.editable-py3-none-any.whl size=10546 sha256=5e1b07d3034c3a1176033e423eca39057ee7ad43064f0bd3507f06a253d7ad2f\n  Stored in directory: /tmp/pip-ephem-wheel-cache-hnaoeq0k/wheels/6c/bf/51/73d5f585934e0a9770ebb96feaa5fbe4c377863feaf5c7bfdc\nSuccessfully built percentify\nInstalling collected packages: six, pygments, pyflakes, pycodestyle, pyarrow, polars-runtime-32, pluggy, packaging, numpy, mccabe, iniconfig, scipy, python-dateutil, pytest, polars, flake8, pandas, percentify\n\nSuccessfully installed flake8-7.3.0 iniconfig-2.3.0 mccabe-0.7.0 numpy-2.5.3 packaging-26.3 pandas-3.0.5 percentify-1.0.2 pluggy-1.6.0 polars-1.44.1 polars-runtime-32-1.44.1 pyarrow-25.0.1 pycodestyle-2.14.0 pyflakes-3.4.0 pygments-2.21.0 pytest-9.1.1 python-dateutil-2.9.0.post0 scipy-1.18.1 six-1.17.0\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.004426,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "EVALUATED"
+    },
+    {
+      "airlock_baseline_evidence": {
+        "base_commit": "81726853363c4ed78d51c04273a2ce67a1f7aeff",
+        "commands": [
+          [
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics"
+          ],
+          [
+            "flake8",
+            ".",
+            "--count",
+            "--exit-zero",
+            "--max-complexity=10",
+            "--max-line-length=127",
+            "--statistics"
+          ],
+          [
+            "pytest",
+            "--cov=./ahrs",
+            "--cov-report=xml",
+            "-v"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/python-app.yml"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--exit-zero",
+              "--max-complexity=10",
+              "--max-line-length=127",
+              "--statistics"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "pytest",
+              "--cov=./ahrs",
+              "--cov-report=xml",
+              "-v"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          }
+        ],
+        "unresolved": []
+      },
+      "anchors": {
+        ".github/workflows/python-app.yml": "0316ef202c7f12dd893baeee0498ad2ac47e2ae9",
+        "ahrs/__init__.py": "6403725c05911d284e7cd2d77900bc200cee729f"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "ahrs/__init__.py"
+          ],
+          "commit": "73ef2166bdbc82d2936e7561ca1f1ea4b8c95ec3",
+          "label": "compliant",
+          "patch_sha256": "3de39ee84a6d6a1d10b63ea983110150aa4d8442ccc4315f15f58c8fd3e555b6"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "ahrs/__init__.py"
+          ],
+          "commit": "9368a94eb72b5ba0e056474ccd256a3f4bccecc4",
+          "label": "noncompliant",
+          "patch_sha256": "664119eb96b3b464061f39b852678170cef37911abdfbd672b7e2b815c4ac175"
+        }
+      },
+      "case_id": "ahrs-generic-pr-flake8",
+      "encoded_repository_command": null,
+      "evidence_note": "Generic python-app.yml / Python application PR workflow; nested flake8 step defines a strict acceptance constraint.",
+      "external_truth": {
+        "base_acceptance_constraint": {
+          "argv": [
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics"
+          ],
+          "duration_seconds": 1.247175,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+          "stdout_tail": "0\n",
+          "timed_out": false
+        },
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "duration_seconds": 1.249915,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "stdout_tail": "0\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import ahrs; assert ahrs.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.213502,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "duration_seconds": 1.243968,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "stdout_tail": "0\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import ahrs; assert ahrs.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.213273,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "preconditions": {
+          "base_acceptance_green": true,
+          "compliant_acceptance_green": true,
+          "compliant_functional_target_green": true,
+          "noncompliant_acceptance_red": false,
+          "noncompliant_functional_target_green": true
+        },
+        "reproduced": false
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.003436,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/Mayitzin/ahrs.git"
+          ],
+          "duration_seconds": 0.001811,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "81726853363c4ed78d51c04273a2ce67a1f7aeff"
+          ],
+          "duration_seconds": 1.097938,
+          "exit_code": 0,
+          "stderr_sha256": "7914cfd2d5fb9e59a6c0c24a35e97a666a6129e45f18301bfe8b1a6896e9ae66",
+          "stderr_tail": "From https://github.com/Mayitzin/ahrs\n * branch            81726853363c4ed78d51c04273a2ce67a1f7aeff -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.029634,
+          "exit_code": 0,
+          "stderr_sha256": "491c13ba04bfd760271b32802c3595c2b6dc7f14b964efbb07330c0498c601e8",
+          "stderr_tail": "HEAD is now at 8172685 Merge pull request #140 from nbelakovski/patch-1\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "INCONCLUSIVE",
+      "pinned_commit": "81726853363c4ed78d51c04273a2ce67a1f7aeff",
+      "repo_id": "ahrs",
+      "repository": "Mayitzin/ahrs",
+      "schema": "airlock.repo-evidence-002.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-ahrs-generic-pr-flake8-7xtg0ft1/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip"
+          ],
+          "duration_seconds": 1.698223,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "08c16c066643a8d71f9eca2e5127c12a067826aeceaf6e61fc546cb4f996c6c0",
+          "stdout_tail": "Requirement already satisfied: pip in /tmp/airlock-ahrs-generic-pr-flake8-7xtg0ft1/venv/lib/python3.12/site-packages (25.0.1)\nCollecting pip\n  Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)\nUsing cached pip-26.2.1-py3-none-any.whl (1.8 MB)\nInstalling collected packages: pip\n  Attempting uninstall: pip\n    Found existing installation: pip 25.0.1\n    Uninstalling pip-25.0.1:\n      Successfully uninstalled pip-25.0.1\nSuccessfully installed pip-26.2.1\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "/tmp/airlock-ahrs-generic-pr-flake8-7xtg0ft1/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "pytest",
+            "pytest-cov",
+            "flake8",
+            "setuptools",
+            "wheel",
+            "build"
+          ],
+          "duration_seconds": 10.487209,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "4ce8689f3c2b3491f4537d046a00986a7dbee50beaeb4dec46e7ea8759cf0e8b",
+          "stdout_tail": "-1.6.0-py3-none-any.whl (20 kB)\nDownloading pytest_cov-7.1.0-py3-none-any.whl (22 kB)\nUsing cached flake8-7.3.0-py2.py3-none-any.whl (57 kB)\nUsing cached mccabe-0.7.0-py2.py3-none-any.whl (7.3 kB)\nUsing cached pycodestyle-2.14.0-py2.py3-none-any.whl (31 kB)\nUsing cached pyflakes-3.4.0-py2.py3-none-any.whl (63 kB)\nUsing cached setuptools-84.0.0-py3-none-any.whl (818 kB)\nUsing cached wheel-0.48.0-py3-none-any.whl (33 kB)\nDownloading build-1.6.0-py3-none-any.whl (31 kB)\nDownloading coverage-7.16.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (257 kB)\nDownloading docutils-0.23-py3-none-any.whl (634 kB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 634.7/634.7 kB 6.3 MB/s  0:00:00\nUsing cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)\nUsing cached numpy-2.5.3-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl (16.7 MB)\nUsing cached packaging-26.3-py3-none-any.whl (129 kB)\nUsing cached pygments-2.21.0-py3-none-any.whl (1.3 MB)\nDownloading pyproject_hooks-1.2.0-py3-none-any.whl (10 kB)\nBuilding wheels for collected packages: AHRS\n  Building editable for AHRS (pyproject.toml): started\n  Building editable for AHRS (pyproject.toml): finished with status 'done'\n  Created wheel for AHRS: filename=ahrs-0.4.0-py3-none-any.whl size=5073 sha256=0be171749bdb85ccfbb9a8605ff063725c91d98fbe67c55bf5d913e886f9e29c\n  Stored in directory: /tmp/pip-ephem-wheel-cache-cpyagxy3/wheels/d8/71/f8/3639979597351a8ca5b18aee74b124d4d34891b27dba6785e8\nSuccessfully built AHRS\nInstalling collected packages: setuptools, pyproject_hooks, pygments, pyflakes, pycodestyle, pluggy, packaging, numpy, mccabe, iniconfig, docutils, coverage, wheel, pytest, flake8, build, AHRS, pytest-cov\n\nSuccessfully installed AHRS-0.4.0 build-1.6.0 coverage-7.16.0 docutils-0.23 flake8-7.3.0 iniconfig-2.3.0 mccabe-0.7.0 numpy-2.5.3 packaging-26.3 pluggy-1.6.0 pycodestyle-2.14.0 pyflakes-3.4.0 pygments-2.21.0 pyproject_hooks-1.2.0 pytest-9.1.1 pytest-cov-7.1.0 setuptools-84.0.0 wheel-0.48.0\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.008784,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "INCONCLUSIVE_EXTERNAL_TRUTH"
+    },
+    {
+      "airlock": {
+        "compliant": {
+          "changed_paths": [
+            "lwe/version.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "from lwe.version import airlock_acceptance_probe; assert airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                  ],
+                  "duration_seconds": 0.787658,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 1.181767,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+                  "stdout_tail": "0\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--exit-zero",
+                    "--max-complexity=10",
+                    "--max-line-length=127",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 1.149042,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "c67ee7219669f099c4c9182ac47fad15d883ca97d20c806e178fbf4524fb1cdc",
+                  "stdout_tail": "Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling.  See https://docs.python.org/3/tutorial/errors.html#exception-chaining for details.\n./lwe/core/editor.py:55:61: B907 'editor' is manually surrounded by quotes, consider using the `!r` conversion flag.\n./lwe/core/provider.py:61:5: C901 'PresetValue.cast' is too complex (13)\n./lwe/core/provider.py:190:80: B907 'key' is manually surrounded by quotes, consider using the `!r` conversion flag.\n./lwe/core/provider.py:213:80: B907 'key' is manually surrounded by quotes, consider using the `!r` conversion flag.\n./lwe/core/repl.py:563:5: C901 'Repl.command_title' is too complex (13)\n./lwe/core/repl.py:642:5: C901 'Repl.command_chat' is too complex (15)\n./lwe/core/repl.py:712:5: C901 'Repl.command_switch' is too complex (13)\n./lwe/core/util.py:314:1: C901 'ansible_doc_to_markdown' is too complex (16)\n./lwe/main.py:20:1: C901 'main' is too complex (21)\n./tests/system/test_api_backend_template.py:15:1: F401 'lwe.core.util' imported but unused\n./tests/unit/test_request.py:691:1: E302 expected 2 blank lines, found 1\n./tests/unit/test_request.py:706:1: E302 expected 2 blank lines, found 1\n./tests/unit/test_request.py:725:1: E302 expected 2 blank lines, found 1\n./tests/unit/test_request.py:737:1: E302 expected 2 blank lines, found 1\n1     B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling.  See https://docs.python.org/3/tutorial/errors.html#exception-chaining for details.\n1     B905 `zip()` without an explicit `strict=` parameter.\n8     B907 'self.logfile.name' is manually surrounded by quotes, consider using the `!r` conversion flag.\n12    C901 'ApiRepl.action_preset_save' is too complex (15)\n4     E302 expected 2 blank lines, found 1\n3     E402 module level import not at top of file\n1     F401 'lwe.core.util' imported but unused\n30\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pytest"
+                  ],
+                  "duration_seconds": 20.857803,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "77722d4c85a8ddba470916230bec0201cd0fa00f7cef9588e100f8bb513604f2",
+                  "stdout_tail": "................               [ 76%]\ntests/unit/test_token_manager.py ....                                    [ 78%]\ntests/unit/test_tool_cache.py ..........                                 [ 82%]\ntests/unit/test_util.py .........................................        [100%]\n\n=============================== warnings summary ===============================\nlwe/core/tool_manager.py:8\n  /tmp/repo-evidence-002-airlock-compliant-lojm0r2c/lwe/core/tool_manager.py:8: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.\n    import langchain_community.tools\n\ntests/integration/test_conversation_storage_manager.py: 12 warnings\ntests/integration/test_request.py: 18 warnings\ntests/system/test_api_backend.py: 21 warnings\ntests/system/test_api_backend_template.py: 14 warnings\ntests/unit/test_conversation_storage_manager.py: 9 warnings\ntests/unit/test_provider.py: 1 warning\ntests/unit/test_request.py: 89 warnings\ntests/unit/test_token_manager.py: 4 warnings\n  /tmp/airlock-lwe-pr-flake8-6z05tuii/venv/lib/python3.12/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.\n    util.warn_deprecated(\n\ntests/integration/test_conversation_storage_manager.py::test_store_conversation_messages_new_messages_with_current_user\n  /tmp/repo-evidence-002-airlock-compliant-lojm0r2c/lwe/core/provider.py:154: LangChainDeprecationWarning: The method `BaseChatModel.dict` was deprecated in langchain-core 1.4.2 and will be removed in 2.0.0. Use `asdict` instead.\n    llm_defaults = llm.dict()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n====================== 235 passed, 170 warnings in 18.89s ======================\n",
+                  "timed_out": false
+                }
+              ],
+              "repository_acceptance": {
+                "basis": "repo_owned_acceptance_commands_passed",
+                "restored_judge_paths": [
+                  ".github/workflows/python-app.yml"
+                ],
+                "sources": [
+                  {
+                    "argv": [
+                      "flake8",
+                      ".",
+                      "--count",
+                      "--select=E9,F63,F7,F82",
+                      "--show-source",
+                      "--statistics"
+                    ],
+                    "kind": "github_actions",
+                    "path": ".github/workflows/python-app.yml",
+                    "status": "replayable"
+                  },
+                  {
+                    "argv": [
+                      "flake8",
+                      ".",
+                      "--count",
+                      "--exit-zero",
+                      "--max-complexity=10",
+                      "--max-line-length=127",
+                      "--statistics"
+                    ],
+                    "kind": "github_actions",
+                    "path": ".github/workflows/python-app.yml",
+                    "status": "replayable"
+                  },
+                  {
+                    "argv": [
+                      "pytest"
+                    ],
+                    "kind": "github_actions",
+                    "path": ".github/workflows/python-app.yml",
+                    "status": "replayable"
+                  }
+                ],
+                "status": "PASS"
+              },
+              "rule": "regression",
+              "status": "PASS"
+            },
+            {
+              "basis": "explicit_target_command",
+              "matched_tests": [],
+              "rule": "evidence_sufficiency",
+              "status": "PASS"
+            }
+          ],
+          "commit": "343fb7b683033e03f52ab56d8cc2dd5863d1746b",
+          "disposition": "SURVIVED",
+          "label": "compliant",
+          "patch_sha256": "18811392563045fb3981a9a3e0fed8ea4b02616de9e652de211b6d908f86e9a2",
+          "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "lwe/version.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "from lwe.version import airlock_acceptance_probe; assert airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                  ],
+                  "duration_seconds": 0.839562,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "baseline_commands": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 1.168761,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+                  "stdout_tail": "0\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--exit-zero",
+                    "--max-complexity=10",
+                    "--max-line-length=127",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 1.15119,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "c67ee7219669f099c4c9182ac47fad15d883ca97d20c806e178fbf4524fb1cdc",
+                  "stdout_tail": "Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling.  See https://docs.python.org/3/tutorial/errors.html#exception-chaining for details.\n./lwe/core/editor.py:55:61: B907 'editor' is manually surrounded by quotes, consider using the `!r` conversion flag.\n./lwe/core/provider.py:61:5: C901 'PresetValue.cast' is too complex (13)\n./lwe/core/provider.py:190:80: B907 'key' is manually surrounded by quotes, consider using the `!r` conversion flag.\n./lwe/core/provider.py:213:80: B907 'key' is manually surrounded by quotes, consider using the `!r` conversion flag.\n./lwe/core/repl.py:563:5: C901 'Repl.command_title' is too complex (13)\n./lwe/core/repl.py:642:5: C901 'Repl.command_chat' is too complex (15)\n./lwe/core/repl.py:712:5: C901 'Repl.command_switch' is too complex (13)\n./lwe/core/util.py:314:1: C901 'ansible_doc_to_markdown' is too complex (16)\n./lwe/main.py:20:1: C901 'main' is too complex (21)\n./tests/system/test_api_backend_template.py:15:1: F401 'lwe.core.util' imported but unused\n./tests/unit/test_request.py:691:1: E302 expected 2 blank lines, found 1\n./tests/unit/test_request.py:706:1: E302 expected 2 blank lines, found 1\n./tests/unit/test_request.py:725:1: E302 expected 2 blank lines, found 1\n./tests/unit/test_request.py:737:1: E302 expected 2 blank lines, found 1\n1     B904 Within an `except` clause, raise exceptions with `raise ... from err` or `raise ... from None` to distinguish them from errors in exception handling.  See https://docs.python.org/3/tutorial/errors.html#exception-chaining for details.\n1     B905 `zip()` without an explicit `strict=` parameter.\n8     B907 'self.logfile.name' is manually surrounded by quotes, consider using the `!r` conversion flag.\n12    C901 'ApiRepl.action_preset_save' is too complex (15)\n4     E302 expected 2 blank lines, found 1\n3     E402 module level import not at top of file\n1     F401 'lwe.core.util' imported but unused\n30\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pytest"
+                  ],
+                  "duration_seconds": 24.134055,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "0342ac44c2dc81177dcefafb1e6d97fd00635f8654d8801ddf12ef0ea867987e",
+                  "stdout_tail": "mplate_manager.py ......................               [ 76%]\ntests/unit/test_token_manager.py ....                                    [ 78%]\ntests/unit/test_tool_cache.py ..........                                 [ 82%]\ntests/unit/test_util.py .........................................        [100%]\n\n=============================== warnings summary ===============================\nlwe/core/tool_manager.py:8\n  /tmp/airlock-acceptance-base-9pixhz49/lwe/core/tool_manager.py:8: DeprecationWarning: `langchain-community` is being sunset and is no longer actively maintained. See https://github.com/langchain-ai/langchain-community/issues/674 for details and migration guidance toward standalone integration packages.\n    import langchain_community.tools\n\ntests/integration/test_conversation_storage_manager.py: 12 warnings\ntests/integration/test_request.py: 18 warnings\ntests/system/test_api_backend.py: 21 warnings\ntests/system/test_api_backend_template.py: 14 warnings\ntests/unit/test_conversation_storage_manager.py: 9 warnings\ntests/unit/test_provider.py: 1 warning\ntests/unit/test_request.py: 89 warnings\ntests/unit/test_token_manager.py: 4 warnings\n  /tmp/airlock-lwe-pr-flake8-6z05tuii/venv/lib/python3.12/site-packages/alembic/config.py:604: DeprecationWarning: No path_separator found in configuration; falling back to legacy splitting on spaces, commas, and colons for prepend_sys_path.  Consider adding path_separator=os to Alembic config.\n    util.warn_deprecated(\n\ntests/integration/test_conversation_storage_manager.py::test_store_conversation_messages_new_messages_with_current_user\n  /tmp/airlock-acceptance-base-9pixhz49/lwe/core/provider.py:154: LangChainDeprecationWarning: The method `BaseChatModel.dict` was deprecated in langchain-core 1.4.2 and will be removed in 2.0.0. Use `asdict` instead.\n    llm_defaults = llm.dict()\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n====================== 235 passed, 170 warnings in 21.55s ======================\n",
+                  "timed_out": false
+                }
+              ],
+              "basis": "acceptance_command_failed",
+              "commands": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "duration_seconds": 1.158356,
+                  "exit_code": 1,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9c576363c5779c9c0b3eee482b3441156e4881349646dc95800b851dbfbe2b34",
+                  "stdout_tail": "./lwe/version.py:8:5: F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n    ^\n1     F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n1\n",
+                  "timed_out": false
+                }
+              ],
+              "restored_judge_paths": [
+                ".github/workflows/python-app.yml"
+              ],
+              "rule": "repository_acceptance",
+              "sources": [
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--select=E9,F63,F7,F82",
+                    "--show-source",
+                    "--statistics"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "flake8",
+                    ".",
+                    "--count",
+                    "--exit-zero",
+                    "--max-complexity=10",
+                    "--max-line-length=127",
+                    "--statistics"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "pytest"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/python-app.yml",
+                  "status": "replayable"
+                }
+              ],
+              "status": "FAIL"
+            }
+          ],
+          "commit": "ec63eed2cf04c428272dd31f2e1538350e88e00b",
+          "disposition": "BLOCKED",
+          "label": "noncompliant",
+          "patch_sha256": "d6603b55f32d3e08315471d8d731855e68d28e491060d0e41c683f83869421e1",
+          "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+        },
+        "protected_patterns": [
+          "tests/**",
+          ".github/**",
+          ".airlock/**",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml",
+          ".ruff.toml",
+          "Cargo.toml",
+          "GNUmakefile",
+          "Makefile",
+          "Taskfile.yaml",
+          "Taskfile.yml",
+          "go.mod",
+          "justfile",
+          "makefile",
+          "mypy.ini",
+          "noxfile.py",
+          "package.json",
+          "pyproject.toml",
+          "pytest.ini",
+          "ruff.toml",
+          "setup.cfg",
+          "tox.ini",
+          "tsconfig.json"
+        ]
+      },
+      "airlock_baseline_evidence": {
+        "base_commit": "8a64e79dc45a5c4ef1c1c3db37eae84e18dce10d",
+        "commands": [
+          [
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics"
+          ],
+          [
+            "flake8",
+            ".",
+            "--count",
+            "--exit-zero",
+            "--max-complexity=10",
+            "--max-line-length=127",
+            "--statistics"
+          ],
+          [
+            "pytest"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/python-app.yml"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--exit-zero",
+              "--max-complexity=10",
+              "--max-line-length=127",
+              "--statistics"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "pytest"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/python-app.yml",
+            "status": "replayable"
+          }
+        ],
+        "unresolved": []
+      },
+      "anchors": {
+        ".flake8": "35806b1fedfaa916db5e889b66d5ef52c865bfb9",
+        ".github/workflows/python-app.yml": "01be8c018755c7596a6ad250cb9fbef58e06fbcd",
+        "lwe/version.py": "972ac380d3338b259c5e4da775b7192f9b78fa94"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "lwe/version.py"
+          ],
+          "commit": "343fb7b683033e03f52ab56d8cc2dd5863d1746b",
+          "label": "compliant",
+          "patch_sha256": "18811392563045fb3981a9a3e0fed8ea4b02616de9e652de211b6d908f86e9a2"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "lwe/version.py"
+          ],
+          "commit": "ec63eed2cf04c428272dd31f2e1538350e88e00b",
+          "label": "noncompliant",
+          "patch_sha256": "d6603b55f32d3e08315471d8d731855e68d28e491060d0e41c683f83869421e1"
+        }
+      },
+      "case_id": "lwe-pr-flake8",
+      "encoded_repository_command": null,
+      "evidence_note": "Repository PR workflow owns strict flake8 plus pytest evidence; the source of truth includes the committed .flake8 policy.",
+      "external_truth": {
+        "base_acceptance_constraint": {
+          "argv": [
+            "flake8",
+            ".",
+            "--count",
+            "--select=E9,F63,F7,F82",
+            "--show-source",
+            "--statistics"
+          ],
+          "duration_seconds": 1.158675,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+          "stdout_tail": "0\n",
+          "timed_out": false
+        },
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "duration_seconds": 1.163004,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+            "stdout_tail": "0\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "from lwe.version import airlock_acceptance_probe; assert airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.783912,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "flake8",
+              ".",
+              "--count",
+              "--select=E9,F63,F7,F82",
+              "--show-source",
+              "--statistics"
+            ],
+            "duration_seconds": 1.167203,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "9c576363c5779c9c0b3eee482b3441156e4881349646dc95800b851dbfbe2b34",
+            "stdout_tail": "./lwe/version.py:8:5: F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n    AIRLOCK_REPO_EVIDENCE_UNDEFINED\n    ^\n1     F821 undefined name 'AIRLOCK_REPO_EVIDENCE_UNDEFINED'\n1\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "from lwe.version import airlock_acceptance_probe; assert airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.819044,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "preconditions": {
+          "base_acceptance_green": true,
+          "compliant_acceptance_green": true,
+          "compliant_functional_target_green": true,
+          "noncompliant_acceptance_red": true,
+          "noncompliant_functional_target_green": true
+        },
+        "reproduced": true
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.003576,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/llm-workflow-engine/llm-workflow-engine.git"
+          ],
+          "duration_seconds": 0.001847,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "8a64e79dc45a5c4ef1c1c3db37eae84e18dce10d"
+          ],
+          "duration_seconds": 0.988893,
+          "exit_code": 0,
+          "stderr_sha256": "b7b63989cf6dca9ea0ae853fde7b8350847e8f389d04df71a9544ff956bb6984",
+          "stderr_tail": "From https://github.com/llm-workflow-engine/llm-workflow-engine\n * branch            8a64e79dc45a5c4ef1c1c3db37eae84e18dce10d -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.013533,
+          "exit_code": 0,
+          "stderr_sha256": "594480e07c3a1a0f929eb0283ce99a1bd95b8ec5336f2f56dd8527d48be92c98",
+          "stderr_tail": "HEAD is now at 8a64e79 0.22.25\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "DISCRIMINATED",
+      "pinned_commit": "8a64e79dc45a5c4ef1c1c3db37eae84e18dce10d",
+      "repo_id": "llm-workflow-engine",
+      "repository": "llm-workflow-engine/llm-workflow-engine",
+      "schema": "airlock.repo-evidence-002.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-lwe-pr-flake8-6z05tuii/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip"
+          ],
+          "duration_seconds": 1.583696,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "99e710a5237dd9a6844a5652cb5d858fb5598eac7536066bc7cb15d3cc036324",
+          "stdout_tail": "Requirement already satisfied: pip in /tmp/airlock-lwe-pr-flake8-6z05tuii/venv/lib/python3.12/site-packages (25.0.1)\nCollecting pip\n  Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)\nUsing cached pip-26.2.1-py3-none-any.whl (1.8 MB)\nInstalling collected packages: pip\n  Attempting uninstall: pip\n    Found existing installation: pip 25.0.1\n    Uninstalling pip-25.0.1:\n      Successfully uninstalled pip-25.0.1\nSuccessfully installed pip-26.2.1\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "/tmp/airlock-lwe-pr-flake8-6z05tuii/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "pytest",
+            "pytest-datadir",
+            "flake8",
+            "flake8-bugbear"
+          ],
+          "duration_seconds": 90.817602,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "737c92fb06929f113590ee240fdc92464c2008de9818c0c186f7633304a79dc9",
+          "stdout_tail": "ic, langgraph, langchain-community, langchain, llm-workflow-engine\n\nSuccessfully installed Jinja2-3.1.6 Mako-1.4.1 MarkupSafe-3.0.3 PyYAML-6.0.3 aiohappyeyeballs-2.7.1 aiohttp-3.14.3 aiosignal-1.4.0 alembic-1.19.2 annotated-types-0.8.0 ansible-14.3.1 ansible-core-2.21.3 anyio-4.15.1 attrs-26.1.0 beautifulsoup4-4.15.0 certifi-2026.7.22 cffi-2.1.1 charset_normalizer-3.5.1 cryptography-50.0.1 distro-1.9.0 dnspython-2.8.0 docutils-0.23 email-validator-2.3.0 et-xmlfile-2.0.0 flake8-7.3.0 flake8-bugbear-25.11.29 flatbuffers-25.12.19 frozenlist-1.8.0 greenlet-3.5.5 h11-0.16.0 httpcore-1.0.9 httpcore2-2.12.0 httpx-0.28.1 httpx-sse-0.4.3 httpx2-2.12.0 idna-3.19 iniconfig-2.3.0 jiter-0.16.0 jsonpatch-1.33 jsonpointer-3.1.1 kreuzberg-4.10.3 langchain-1.4.0 langchain-classic-1.0.8 langchain-community-0.4.2 langchain-core-1.6.2 langchain-protocol-0.0.19 langchain-text-splitters-1.1.2 langchain_openai-1.6.0 langgraph-1.2.11 langgraph-checkpoint-4.2.0 langgraph-prebuilt-1.1.0 langgraph-sdk-0.4.4 langsmith-0.12.2 llm-workflow-engine-0.22.25 markdown-it-py-4.2.0 mccabe-0.7.0 mdurl-0.1.2 multidict-6.7.1 names-0.3.0 networkx-3.6.1 numexpr-2.14.2 numpy-2.5.3 onnxruntime-1.29.0 openai-3.8.0 openpyxl-3.1.5 orjson-3.12.0 ormsgpack-1.12.2 packaging-26.3 pdfminer.six-20260107 pluggy-1.6.0 prompt-toolkit-3.0.53 propcache-0.5.2 protobuf-7.36.1 psutil-7.2.2 pycodestyle-2.14.0 pycparser-3.0 pydantic-2.13.5 pydantic-core-2.46.5 pydantic-settings-2.15.0 pyflakes-3.4.0 pygments-2.21.0 pymupdf-1.28.2 pymupdf4llm-1.28.2 pymupdf_layout-1.28.2 pyperclip-1.11.0 pytest-9.1.1 pytest-datadir-1.8.0 python-dotenv-1.2.3 python-frontmatter-1.3.0 regex-2026.9.3 requests-2.34.2 requests-toolbelt-1.0.0 resolvelib-1.2.1 rich-15.0.0 setuptools-84.0.0 sniffio-1.3.1 soupsieve-2.9.2 sqlalchemy-2.0.52 tabulate-0.10.0 tenacity-9.1.4 tiktoken-0.14.0 truststore-0.10.4 typing-inspection-0.4.4 typing_extensions-4.16.0 urllib3-2.7.0 uuid-utils-0.17.0 wcwidth-0.8.3 websockets-16.1.1 xxhash-4.0.1 yarl-1.24.5 zstandard-0.25.0\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.007034,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "EVALUATED"
+    },
+    {
+      "airlock": {
+        "compliant": {
+          "changed_paths": [
+            "sqlparse/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "import sqlparse; assert sqlparse.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                  ],
+                  "duration_seconds": 0.064355,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "make",
+                    "test"
+                  ],
+                  "duration_seconds": 14.361165,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "41dfb42f525c1b09ef1842bab0d852a330f4a07682e08a001b355ec7878cd86a",
+                  "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.10.21\nCreating virtual environment at: .venv\n   Building sqlparse @ file:///tmp/repo-evidence-002-airlock-compliant-tswspndw\n      Built sqlparse @ file:///tmp/repo-evidence-002-airlock-compliant-tswspndw\nInstalled 78 packages in 57ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.11.16\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 77 packages in 53ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3.12\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 74 packages in 55ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.13.15\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 74 packages in 52ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.14.7\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 73 packages in 61ms\n",
+                  "stdout_sha256": "48696400f2e30e25ee880ba490240841d74f3710d4c8d2a1fcddcc25e581d6a2",
+                  "stdout_tail": "ests/test_split.py .................................................    [ 85%]\ntests/test_tokenize.py ................................................. [ 94%]\n......................                                                   [ 99%]\ntests/test_utils.py ....                                                 [100%]\n\n================== 506 passed, 2 xfailed, 1 xpassed in 1.73s ===================\nuv run --group dev --python 3.14 pytest tests/\n============================= test session starts ==============================\nplatform linux -- Python 3.14.7, pytest-9.0.3, pluggy-1.6.0\nrootdir: /tmp/repo-evidence-002-airlock-compliant-tswspndw\nconfigfile: pyproject.toml\nplugins: anyio-4.14.2\ncollected 509 items\n\ntests/test_cli.py .......................                                [  4%]\ntests/test_dos_prevention.py .......                                     [  5%]\ntests/test_format.py ...............................................x... [ 15%]\n............x...                                                         [ 19%]\ntests/test_grouping.py ................................................. [ 28%]\n...................................................                      [ 38%]\ntests/test_keywords.py ......                                            [ 39%]\ntests/test_parse.py .................................................... [ 50%]\n....................................                                     [ 57%]\ntests/test_regressions.py .............................................. [ 66%]\n................................X...............                         [ 75%]\ntests/test_split.py .................................................    [ 85%]\ntests/test_tokenize.py ................................................. [ 94%]\n......................                                                   [ 99%]\ntests/test_utils.py ....                                                 [100%]\n\n================== 506 passed, 2 xfailed, 1 xpassed in 1.82s ===================\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "make",
+                    "lint"
+                  ],
+                  "duration_seconds": 0.076096,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "beb8ace83a0c16553ada8beff18a6e8732ab225d95f5ca3c1081c3500ded9a02",
+                  "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                  "stdout_sha256": "2cee391542218ea50b6087ed05f513f4210e003b4f68051d098390f2c655e142",
+                  "stdout_tail": "uv run --group dev ruff check sqlparse/\nAll checks passed!\n",
+                  "timed_out": false
+                }
+              ],
+              "repository_acceptance": {
+                "basis": "repo_owned_acceptance_commands_passed",
+                "restored_judge_paths": [
+                  ".github/workflows/python-app.yml",
+                  "Makefile"
+                ],
+                "sources": [
+                  {
+                    "argv": [
+                      "make",
+                      "test"
+                    ],
+                    "kind": "make_target",
+                    "path": "Makefile",
+                    "status": "replayable"
+                  },
+                  {
+                    "argv": [
+                      "make",
+                      "lint"
+                    ],
+                    "kind": "make_target",
+                    "path": "Makefile",
+                    "status": "replayable"
+                  }
+                ],
+                "status": "PASS"
+              },
+              "rule": "regression",
+              "status": "PASS"
+            },
+            {
+              "basis": "explicit_target_command",
+              "matched_tests": [],
+              "rule": "evidence_sufficiency",
+              "status": "PASS"
+            }
+          ],
+          "commit": "6db5c8ea5c9d1290fdc2f991764481881407cd8a",
+          "disposition": "SURVIVED",
+          "label": "compliant",
+          "patch_sha256": "6001cd01130ef2cde8abc8c1f76c9b2328188fbc1e4104e8122f381b541af44e",
+          "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "sqlparse/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "import sqlparse; assert sqlparse.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                  ],
+                  "duration_seconds": 0.064488,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "baseline_commands": [
+                {
+                  "argv": [
+                    "make",
+                    "test"
+                  ],
+                  "duration_seconds": 34.618575,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "51291e8cf6e0d61a0da50cbddef1d7203b2121d29f9ab9bdeda31b553b27fd2d",
+                  "stderr_tail": "ance-base-rttpujpc\nInstalled 78 packages in 60ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nDownloading cpython-3.11.16-linux-x86_64-gnu (download) (29.4MiB)\n Downloaded cpython-3.11.16-linux-x86_64-gnu (download)\nUsing CPython 3.11.16\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nDownloading sphinx (3.7MiB)\nDownloading cryptography (4.5MiB)\n Downloaded sphinx\n Downloaded cryptography\nInstalled 77 packages in 52ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3.12\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nDownloading sphinx (3.7MiB)\n Downloaded sphinx\nInstalled 74 packages in 54ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nDownloading cpython-3.13.15-linux-x86_64-gnu (download) (33.2MiB)\n Downloaded cpython-3.13.15-linux-x86_64-gnu (download)\nUsing CPython 3.13.15\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 74 packages in 54ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nDownloading cpython-3.14.7-linux-x86_64-gnu (download) (34.3MiB)\n Downloaded cpython-3.14.7-linux-x86_64-gnu (download)\nUsing CPython 3.14.7\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 73 packages in 53ms\n",
+                  "stdout_sha256": "2cb5009e8bf0f6ee6529a62920e332c6a530de2324d07e3651009c2bd68d6e5d",
+                  "stdout_tail": "    [ 75%]\ntests/test_split.py .................................................    [ 85%]\ntests/test_tokenize.py ................................................. [ 94%]\n......................                                                   [ 99%]\ntests/test_utils.py ....                                                 [100%]\n\n================== 506 passed, 2 xfailed, 1 xpassed in 1.75s ===================\nuv run --group dev --python 3.14 pytest tests/\n============================= test session starts ==============================\nplatform linux -- Python 3.14.7, pytest-9.0.3, pluggy-1.6.0\nrootdir: /tmp/airlock-acceptance-base-rttpujpc\nconfigfile: pyproject.toml\nplugins: anyio-4.14.2\ncollected 509 items\n\ntests/test_cli.py .......................                                [  4%]\ntests/test_dos_prevention.py .......                                     [  5%]\ntests/test_format.py ...............................................x... [ 15%]\n............x...                                                         [ 19%]\ntests/test_grouping.py ................................................. [ 28%]\n...................................................                      [ 38%]\ntests/test_keywords.py ......                                            [ 39%]\ntests/test_parse.py .................................................... [ 50%]\n....................................                                     [ 57%]\ntests/test_regressions.py .............................................. [ 66%]\n................................X...............                         [ 75%]\ntests/test_split.py .................................................    [ 85%]\ntests/test_tokenize.py ................................................. [ 94%]\n......................                                                   [ 99%]\ntests/test_utils.py ....                                                 [100%]\n\n================== 506 passed, 2 xfailed, 1 xpassed in 1.87s ===================\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "make",
+                    "lint"
+                  ],
+                  "duration_seconds": 0.075927,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "beb8ace83a0c16553ada8beff18a6e8732ab225d95f5ca3c1081c3500ded9a02",
+                  "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                  "stdout_sha256": "2cee391542218ea50b6087ed05f513f4210e003b4f68051d098390f2c655e142",
+                  "stdout_tail": "uv run --group dev ruff check sqlparse/\nAll checks passed!\n",
+                  "timed_out": false
+                }
+              ],
+              "basis": "acceptance_command_failed",
+              "commands": [
+                {
+                  "argv": [
+                    "make",
+                    "test"
+                  ],
+                  "duration_seconds": 14.609728,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "70f8bafd2d8adb0ee975e6367bd84b70d8d3a3095d91626dd1d0cc38a0917bb1",
+                  "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.10.21\nCreating virtual environment at: .venv\n   Building sqlparse @ file:///tmp/repo-evidence-002-airlock-noncompliant-rvuq3r7d\n      Built sqlparse @ file:///tmp/repo-evidence-002-airlock-noncompliant-rvuq3r7d\nInstalled 78 packages in 96ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.11.16\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 77 packages in 53ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3.12\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 74 packages in 56ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.13.15\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 74 packages in 53ms\nwarning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.14.7\nRemoved virtual environment at: .venv\nCreating virtual environment at: .venv\nInstalled 73 packages in 54ms\n",
+                  "stdout_sha256": "551858920366a4451c7b30aa17de9ff6ac3718317a565bc5505dfbd7771526c3",
+                  "stdout_tail": "s/test_split.py .................................................    [ 85%]\ntests/test_tokenize.py ................................................. [ 94%]\n......................                                                   [ 99%]\ntests/test_utils.py ....                                                 [100%]\n\n================== 506 passed, 2 xfailed, 1 xpassed in 1.75s ===================\nuv run --group dev --python 3.14 pytest tests/\n============================= test session starts ==============================\nplatform linux -- Python 3.14.7, pytest-9.0.3, pluggy-1.6.0\nrootdir: /tmp/repo-evidence-002-airlock-noncompliant-rvuq3r7d\nconfigfile: pyproject.toml\nplugins: anyio-4.14.2\ncollected 509 items\n\ntests/test_cli.py .......................                                [  4%]\ntests/test_dos_prevention.py .......                                     [  5%]\ntests/test_format.py ...............................................x... [ 15%]\n............x...                                                         [ 19%]\ntests/test_grouping.py ................................................. [ 28%]\n...................................................                      [ 38%]\ntests/test_keywords.py ......                                            [ 39%]\ntests/test_parse.py .................................................... [ 50%]\n....................................                                     [ 57%]\ntests/test_regressions.py .............................................. [ 66%]\n................................X...............                         [ 75%]\ntests/test_split.py .................................................    [ 85%]\ntests/test_tokenize.py ................................................. [ 94%]\n......................                                                   [ 99%]\ntests/test_utils.py ....                                                 [100%]\n\n================== 506 passed, 2 xfailed, 1 xpassed in 1.80s ===================\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "make",
+                    "lint"
+                  ],
+                  "duration_seconds": 0.075754,
+                  "exit_code": 2,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "d1db859fde979933eb5ad2b02a32e30fc7c758bdc827191b04e56b02c1d676f8",
+                  "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nmake: *** [Makefile:20: lint] Error 1\n",
+                  "stdout_sha256": "4af4ed1c5054b6350974102f06a8a00c65fc54833e750985b17366c8ab1165ae",
+                  "stdout_tail": "uv run --group dev ruff check sqlparse/\nB018 Found useless expression. Either assign it to a variable or remove it.\n  --> sqlparse/__init__.py:82:5\n   |\n81 | if False:\n82 |     AIRLOCK_REPO_EVIDENCE_UNDEFINED\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n\nF821 Undefined name `AIRLOCK_REPO_EVIDENCE_UNDEFINED`\n  --> sqlparse/__init__.py:82:5\n   |\n81 | if False:\n82 |     AIRLOCK_REPO_EVIDENCE_UNDEFINED\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n   |\n\nFound 2 errors.\n",
+                  "timed_out": false
+                }
+              ],
+              "restored_judge_paths": [
+                ".github/workflows/python-app.yml",
+                "Makefile"
+              ],
+              "rule": "repository_acceptance",
+              "sources": [
+                {
+                  "argv": [
+                    "make",
+                    "test"
+                  ],
+                  "kind": "make_target",
+                  "path": "Makefile",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "make",
+                    "lint"
+                  ],
+                  "kind": "make_target",
+                  "path": "Makefile",
+                  "status": "replayable"
+                }
+              ],
+              "status": "FAIL"
+            }
+          ],
+          "commit": "3d4b7f96e6bbf882a5b77143ca1d41377af6ffa8",
+          "disposition": "BLOCKED",
+          "label": "noncompliant",
+          "patch_sha256": "4dd7622d51ee8de0072d409e05053f869604bfedd9c60a829cc36fd03e07f45d",
+          "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+        },
+        "protected_patterns": [
+          "tests/**",
+          ".github/**",
+          ".airlock/**",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml",
+          ".ruff.toml",
+          "Cargo.toml",
+          "GNUmakefile",
+          "Makefile",
+          "Taskfile.yaml",
+          "Taskfile.yml",
+          "go.mod",
+          "justfile",
+          "makefile",
+          "mypy.ini",
+          "noxfile.py",
+          "package.json",
+          "pyproject.toml",
+          "pytest.ini",
+          "ruff.toml",
+          "setup.cfg",
+          "tox.ini",
+          "tsconfig.json",
+          "uv.lock"
+        ]
+      },
+      "airlock_baseline_evidence": {
+        "base_commit": "60cdc649726bf1bc4f1b336050560b336da715ec",
+        "commands": [
+          [
+            "make",
+            "test"
+          ],
+          [
+            "make",
+            "lint"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/python-app.yml",
+          "Makefile"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "make",
+              "test"
+            ],
+            "kind": "make_target",
+            "path": "Makefile",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "make",
+              "lint"
+            ],
+            "kind": "make_target",
+            "path": "Makefile",
+            "status": "replayable"
+          }
+        ],
+        "unresolved": []
+      },
+      "anchors": {
+        ".github/workflows/python-app.yml": "67eff95ae2ce67ba013c29b5b31889cd07d9beab",
+        "pyproject.toml": "44a27e7ef844a39ab837403199f9832d33b14c74",
+        "sqlparse/__init__.py": "8411f5a3e9599c7a68e65495a3d5dd5206b9273a"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "sqlparse/__init__.py"
+          ],
+          "commit": "6db5c8ea5c9d1290fdc2f991764481881407cd8a",
+          "label": "compliant",
+          "patch_sha256": "6001cd01130ef2cde8abc8c1f76c9b2328188fbc1e4104e8122f381b541af44e"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "sqlparse/__init__.py"
+          ],
+          "commit": "3d4b7f96e6bbf882a5b77143ca1d41377af6ffa8",
+          "label": "noncompliant",
+          "patch_sha256": "4dd7622d51ee8de0072d409e05053f869604bfedd9c60a829cc36fd03e07f45d"
+        }
+      },
+      "case_id": "sqlparse-generic-pr-ruff-wrapper",
+      "encoded_repository_command": [
+        "uv",
+        "run",
+        "--group",
+        "dev",
+        "ruff",
+        "check",
+        "sqlparse/"
+      ],
+      "evidence_note": "Generic python-app.yml / Python application PR workflow. The repository encodes Ruff behind `uv run --group dev`; external truth invokes the same Ruff policy directly from the pinned pyproject configuration. Airlock is not told either command.",
+      "external_truth": {
+        "base_acceptance_constraint": {
+          "argv": [
+            "ruff",
+            "check",
+            "sqlparse/"
+          ],
+          "duration_seconds": 0.009735,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+          "stdout_tail": "All checks passed!\n",
+          "timed_out": false
+        },
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "ruff",
+              "check",
+              "sqlparse/"
+            ],
+            "duration_seconds": 0.009824,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+            "stdout_tail": "All checks passed!\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import sqlparse; assert sqlparse.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.064039,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "ruff",
+              "check",
+              "sqlparse/"
+            ],
+            "duration_seconds": 0.009639,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "a88a04783d78fc9e6546d52f131d32ba6d3c3a1eedcf46360961342ede31480e",
+            "stdout_tail": "B018 Found useless expression. Either assign it to a variable or remove it.\n  --> sqlparse/__init__.py:82:5\n   |\n81 | if False:\n82 |     AIRLOCK_REPO_EVIDENCE_UNDEFINED\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nF821 Undefined name `AIRLOCK_REPO_EVIDENCE_UNDEFINED`\n  --> sqlparse/__init__.py:82:5\n   |\n81 | if False:\n82 |     AIRLOCK_REPO_EVIDENCE_UNDEFINED\n   |     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n\nFound 2 errors.\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import sqlparse; assert sqlparse.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+              ],
+              "duration_seconds": 0.06432,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "preconditions": {
+          "base_acceptance_green": true,
+          "compliant_acceptance_green": true,
+          "compliant_functional_target_green": true,
+          "noncompliant_acceptance_red": true,
+          "noncompliant_functional_target_green": true
+        },
+        "reproduced": true
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.003464,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/andialbrecht/sqlparse.git"
+          ],
+          "duration_seconds": 0.001883,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "60cdc649726bf1bc4f1b336050560b336da715ec"
+          ],
+          "duration_seconds": 0.93422,
+          "exit_code": 0,
+          "stderr_sha256": "b10d61e86d6ea589fbfd32c12df847e825ea8b6663dff6c2eea8676982d277cb",
+          "stderr_tail": "From https://github.com/andialbrecht/sqlparse\n * branch            60cdc649726bf1bc4f1b336050560b336da715ec -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.008518,
+          "exit_code": 0,
+          "stderr_sha256": "343ffdfd15e0b5f9d34724250793c9f7a9bb4c10eb693943e7168ae44fcf4858",
+          "stderr_tail": "HEAD is now at 60cdc64 Back to development mode.\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "DISCRIMINATED",
+      "pinned_commit": "60cdc649726bf1bc4f1b336050560b336da715ec",
+      "repo_id": "sqlparse",
+      "repository": "andialbrecht/sqlparse",
+      "schema": "airlock.repo-evidence-002.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "--upgrade",
+            "pip"
+          ],
+          "duration_seconds": 1.576615,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "9b0ca488d5fac1c94482e0dfb214e340f3b44f4e6ba7b460e383244bd030c0b9",
+          "stdout_tail": "Requirement already satisfied: pip in /tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv/lib/python3.12/site-packages (25.0.1)\nCollecting pip\n  Using cached pip-26.2.1-py3-none-any.whl.metadata (4.6 kB)\nUsing cached pip-26.2.1-py3-none-any.whl (1.8 MB)\nInstalling collected packages: pip\n  Attempting uninstall: pip\n    Found existing installation: pip 25.0.1\n    Uninstalling pip-25.0.1:\n      Successfully uninstalled pip-25.0.1\nSuccessfully installed pip-26.2.1\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "/tmp/airlock-sqlparse-generic-pr-ruff-wrapper-bs079dy8/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "pytest",
+            "coverage",
+            "ruff",
+            "uv"
+          ],
+          "duration_seconds": 6.235337,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "84f048139640ecec70b107f19c9e251249faf958d75eaa1fbdccc035c1d6cedb",
+          "stdout_tail": "uv\n  Downloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)\nCollecting iniconfig>=1.0.1 (from pytest)\n  Using cached iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)\nCollecting packaging>=22 (from pytest)\n  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)\nCollecting pluggy<2,>=1.5 (from pytest)\n  Using cached pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)\nCollecting pygments>=2.7.2 (from pytest)\n  Using cached pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)\nUsing cached pytest-9.1.1-py3-none-any.whl (386 kB)\nUsing cached pluggy-1.6.0-py3-none-any.whl (20 kB)\nUsing cached coverage-7.16.0-cp312-cp312-manylinux1_x86_64.manylinux_2_28_x86_64.manylinux_2_5_x86_64.whl (257 kB)\nDownloading ruff-0.16.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (10.3 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 10.3/10.3 MB 20.0 MB/s  0:00:00\nDownloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (20.0 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 20.0/20.0 MB 100.8 MB/s  0:00:00\nUsing cached iniconfig-2.3.0-py3-none-any.whl (7.5 kB)\nUsing cached packaging-26.3-py3-none-any.whl (129 kB)\nUsing cached pygments-2.21.0-py3-none-any.whl (1.3 MB)\nBuilding wheels for collected packages: sqlparse\n  Building editable for sqlparse (pyproject.toml): started\n  Building editable for sqlparse (pyproject.toml): finished with status 'done'\n  Created wheel for sqlparse: filename=sqlparse-0.6.1.dev0-py3-none-any.whl size=6595 sha256=15ad93b533f5b5e5cf5007bc4b92b63701a2b848bf8d133bf70693306bf99cbd\n  Stored in directory: /tmp/pip-ephem-wheel-cache-38juww84/wheels/04/02/df/146f49d8439a758d18da12ce27dfdee78f9e919afdd6fafced\nSuccessfully built sqlparse\nInstalling collected packages: uv, sqlparse, ruff, pygments, pluggy, packaging, iniconfig, coverage, pytest\n\nSuccessfully installed coverage-7.16.0 iniconfig-2.3.0 packaging-26.3 pluggy-1.6.0 pygments-2.21.0 pytest-9.1.1 ruff-0.16.6 sqlparse-0.6.1.dev0 uv-0.12.10\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.005159,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "EVALUATED"
+    }
+  ],
+  "experiment": "AIRLOCK-REPO-EVIDENCE-002",
+  "pair_class_counts": {
+    "DISCRIMINATED": 3,
+    "INCONCLUSIVE": 1,
+    "INVERTED": 0,
+    "OVERCONSERVATIVE_OR_INSUFFICIENT": 0,
+    "UNDERCONSTRAINED": 0
+  },
+  "preregistration_sha256": "73c9aa184ee0d7cd0e8486bd48526ec7586dfeca870e01cf6014f28e6e34e480",
+  "product_under_test": {
+    "component_sha256": {
+      "src/airlock/acceptance.py": "8ddb36d52479e01aca248ce4e3c2a62f8aa6b5e1cbc70cbf156d5310253348a5",
+      "src/airlock/discovery.py": "70ae738610c282abbf73babd07b7940da7be3cd347258291a7bcb6ebded25e3f",
+      "src/airlock/sieve.py": "d803460a2c49f7f4f77be1b3613ffd7e45b42d3215d4ff364190e8b19b78e457",
+      "src/airlock/util.py": "e47666c6ca2f6f7f0b5396e07a9dc75065b5e72f1f2ea71ea336980f683beeef"
+    },
+    "expected_base": "f3a2d1477636100add061b2fc13585a43552a0ce",
+    "observed_head": "658d012b177b0752715081f228b194860ebce301",
+    "preregistration_sha256": "73c9aa184ee0d7cd0e8486bd48526ec7586dfeca870e01cf6014f28e6e34e480",
+    "product_diff_exit_code": 0
+  },
+  "schema": "airlock.repo-evidence-002.result.v1",
+  "verdict": "INCONCLUSIVE_EXTERNAL_TRUTH"
+}
