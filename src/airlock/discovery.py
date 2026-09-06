@@ -6,6 +6,7 @@ import shutil
 import tempfile
 from pathlib import Path
 
+from .acceptance import PROJECT_CONTROL_NAMES
 from .gitops import add_worktree, head, remove_worktree, tracked_files
 from .util import compact_result, run, sha256_bytes, worktree_env
 
@@ -186,10 +187,14 @@ def protected_patterns(repo: Path) -> list[str]:
         if any(path == root_name or path.startswith(root_name + "/") for path in tracked):
             patterns.append(pattern)
     patterns.extend(ALWAYS_PROTECTED)
-    for name in sorted(PROTECTED_CONFIG_NAMES):
-        if name in tracked:
+
+    # A candidate cannot create a new control file after the base is frozen and
+    # use it to redefine its own checks. Lockfiles remain tracked-only; files
+    # that can define acceptance are protected whether or not they exist yet.
+    for name in sorted(PROTECTED_CONFIG_NAMES | PROJECT_CONTROL_NAMES):
+        if name in PROJECT_CONTROL_NAMES or name in tracked:
             patterns.append(name)
-    return patterns
+    return list(dict.fromkeys(patterns))
 
 
 def run_baseline(repo: Path, commands: dict[str, list[list[str]]], timeout: int = 1200) -> dict:

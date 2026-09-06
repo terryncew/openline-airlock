@@ -1,0 +1,42 @@
+# Repository acceptance evidence
+
+AIRLOCK-SWE-GATE-001 produced a clean underconstraint case: two Flake8 patches
+passed Airlock's configured checks, but only one satisfied the maintainer-derived
+tooling constraint.
+
+This change closes the class of failure without teaching Airlock SWE-Gate or
+adding a pyright-specific rule.
+
+The product boundary is now explicit:
+
+- configured tests/static checks establish executable correctness;
+- additional repository-owned acceptance evidence is discovered separately;
+- a candidate cannot introduce a new project-control file and use it to redefine
+  the judge after the base is frozen;
+- replayable acceptance commands found in existing CI, project scripts,
+  contributor commands, Make targets, and supported tool-script config are run
+  against the candidate;
+- the files that define those commands, plus directly invoked judge scripts, are
+  restored from the frozen base before execution;
+- recognized acceptance evidence that cannot be replayed causes
+  `NEEDS_EVIDENCE` through the existing sufficiency gate.
+
+No model invents an acceptance rule. The repo either already owns evidence for
+the constraint, or Airlock declines to treat ordinary test passage as enough.
+
+This does not change or attempt to repair the separate zero-config
+initialization failures observed by AIRLOCK-SWE-GATE-001.
+
+## Fresh falsifier
+
+Do not rerun AIRLOCK-SWE-GATE-001.
+
+The next external experiment must use fresh unrelated repositories. Each case
+must contain repository-owned acceptance evidence before the candidate patches
+are created. Both paired patches must pass the obvious functional tests; only
+one may satisfy that pre-existing acceptance evidence.
+
+The fix earns the stronger claim only if noncompliant patches are withheld
+without benchmark-specific rules or manual patch labeling. Cases where the
+acceptance evidence cannot be replayed must stop at `NEEDS_EVIDENCE`, not
+`SURVIVED`.
