@@ -79,3 +79,30 @@ existing sufficiency gate fails closed instead of promoting the candidate.
 
 Do not rerun AIRLOCK-REPO-EVIDENCE-003. Its `SURVIVED / SURVIVED` result is the
 frozen receipt. Test this correction on fresh wrapper cases.
+
+## AIRLOCK-REPO-EVIDENCE-004 follow-up
+
+AIRLOCK-REPO-EVIDENCE-004 reproduced external truth on a fresh EMHASS pair, but
+Airlock withheld both candidates. The `uvx` correction worked: Airlock found and
+replayed the repository's `uvx ruff check ...` and `uvx ruff format --check ...`
+gates. The conservative failure came from a different PR workflow. Airlock
+replayed `uv run pytest` without the preceding same-job
+`uv sync --reinstall --upgrade --extra test`, so the frozen base could not spawn
+`pytest` and repository acceptance stopped at `acceptance_baseline_not_green`.
+
+The correction preserves a narrow repository-owned execution context instead of
+inventing dependencies. For GitHub pull-request workflows, a safe `uv sync ...`
+step that appears earlier in the same job is attached to later recognized
+acceptance commands and replayed before them on both the frozen base and the
+candidate. Setup from one job cannot leak into another job. `uv sync` itself is
+not acceptance evidence, and other `uv`/`poetry` subcommands do not gain
+acceptance authority merely because their text mentions a quality tool.
+
+Setup is still fail-closed. If its executable is unavailable, the associated
+acceptance evidence is unresolved. If setup fails, times out, or changes tracked
+repository state, Airlock withholds the candidate rather than silently changing
+the frozen judge.
+
+Do not rerun AIRLOCK-REPO-EVIDENCE-004. Its `BLOCKED / BLOCKED` result is the
+frozen receipt. Test this correction on a fresh repository whose pull-request
+quality command genuinely depends on a preceding same-job `uv sync` context.

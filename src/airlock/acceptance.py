@@ -218,9 +218,11 @@ def _command_family(argv: list[str]) -> bool:
         # argv for execution; this recursive check is classification only.
         return len(argv) >= 2 and _command_family([argv[1], *argv[2:]])
 
-    if exe in {"uv", "poetry"} and len(argv) >= 3 and argv[1] == "run":
-        nested = [argv[2], *argv[3:]]
-        return _command_family(nested)
+    if exe in {"uv", "poetry"}:
+        if len(argv) >= 3 and argv[1] == "run":
+            nested = [argv[2], *argv[3:]]
+            return _command_family(nested)
+        return False
 
     if argv[0].startswith(("./", "scripts/", "tools/")):
         return _quality_name(Path(argv[0]).stem)
@@ -366,6 +368,52 @@ def _workflow_commands(text: str) -> list[str]:
     return found
 
 
+def _workflow_job_commands(text: str) -> list[list[str]]:
+    """Group GitHub Actions run commands by job while preserving order."""
+    rows = text.splitlines()
+    jobs_index = next((i for i, raw in enumerate(rows) if raw.strip() == "jobs:"), None)
+    if jobs_index is None:
+        commands = _workflow_commands(text)
+        return [commands] if commands else []
+
+    jobs_indent = len(rows[jobs_index]) - len(rows[jobs_index].lstrip())
+    job_indent: int | None = None
+    blocks: list[list[str]] = []
+    current: list[str] | None = None
+    mapping = re.compile(r"^[A-Za-z0-9_.-]+:\s*(?:#.*)?$")
+
+    for raw in rows[jobs_index + 1 :]:
+        if not raw.strip():
+            if current is not None:
+                current.append(raw)
+            continue
+        indent = len(raw) - len(raw.lstrip())
+        if indent <= jobs_indent:
+            break
+        if job_indent is None and mapping.match(raw.strip()):
+            job_indent = indent
+        if job_indent is not None and indent == job_indent and mapping.match(raw.strip()):
+            if current is not None:
+                blocks.append(current)
+            current = [raw]
+        elif current is not None:
+            current.append(raw)
+
+    if current is not None:
+        blocks.append(current)
+    return [commands for block in blocks if (commands := _workflow_commands("\n".join(block)))]
+
+
+def _workflow_setup_family(argv: list[str]) -> bool:
+    """Recognize the narrow setup class justified by REPO-EVIDENCE-004."""
+    return bool(
+        argv
+        and Path(argv[0]).name.casefold() == "uv"
+        and len(argv) >= 2
+        and argv[1] == "sync"
+    )
+
+
 def _documented_commands(text: str) -> list[str]:
     found: list[str] = []
     in_fence = False
@@ -434,13 +482,20 @@ def discover_acceptance_evidence(repo: Path, base_commit: str) -> dict[str, Any]
     tracked = set(tracked_files(repo, base_commit))
     raw_candidates: list[dict[str, Any]] = []
 
-    def add(path: str, kind: str, command_text: str | None = None, argv: list[str] | None = None) -> None:
+    def add(
+        path: str,
+        kind: str,
+        command_text: str | None = None,
+        argv: list[str] | None = None,
+        setup_commands: list[list[str]] | None = None,
+    ) -> None:
         raw_candidates.append(
             {
                 "path": path,
                 "kind": kind,
                 "command_text": command_text,
                 "argv": argv,
+                "setup_commands": [list(row) for row in (setup_commands or [])],
             }
         )
 
@@ -483,9 +538,20 @@ def discover_acceptance_evidence(repo: Path, base_commit: str) -> dict[str, Any]
         text = _read_at(repo, base_commit, path)
         if not text or not _workflow_is_acceptance_surface(path, text):
             continue
-        for command_text in _workflow_commands(text):
-            if _looks_quality_like_text(command_text):
-                add(path, "github_actions", command_text=command_text)
+        for job_commands in _workflow_job_commands(text):
+            setup_commands: list[list[str]] = []
+            for command_text in job_commands:
+                parsed, _ = _safe_argv(command_text)
+                if parsed is not None and _workflow_setup_family(parsed):
+                    setup_commands.append(parsed)
+                    continue
+                if _looks_quality_like_text(command_text):
+                    add(
+                        path,
+                        "github_actions",
+                        command_text=command_text,
+                        setup_commands=setup_commands,
+                    )
 
     for path in sorted(p for p in tracked if Path(p).name in CONTRIBUTOR_DOC_NAMES):
         text = _read_at(repo, base_commit, path)
@@ -537,15 +603,25 @@ def discover_acceptance_evidence(repo: Path, base_commit: str) -> dict[str, Any]
                     if candidate.startswith(root + "/")
                 )
 
+        setup_commands = [list(value) for value in row.get("setup_commands", [])]
         available = _executable_available(argv, repo, tracked)
+        unavailable_setup = [
+            value for value in setup_commands
+            if not _executable_available(value, repo, tracked)
+        ]
+        replayable = available and not unavailable_setup
         source = {
             "path": path,
             "kind": row["kind"],
             "argv": argv,
-            "status": "replayable" if available else "unresolved",
+            "setup_commands": setup_commands,
+            "status": "replayable" if replayable else "unresolved",
         }
         if not available:
             source["reason"] = "command_unavailable"
+        elif unavailable_setup:
+            source["reason"] = "setup_command_unavailable"
+            source["unavailable_setup_commands"] = unavailable_setup
 
         key = (path, row["kind"], shlex.join(argv))
         if key in seen_sources:
@@ -554,7 +630,7 @@ def discover_acceptance_evidence(repo: Path, base_commit: str) -> dict[str, Any]
         sources.append(source)
 
         command_key = tuple(argv)
-        if available and command_key not in seen_commands:
+        if replayable and command_key not in seen_commands:
             seen_commands.add(command_key)
             replayable_commands.append(argv)
 
@@ -609,10 +685,46 @@ def project_control_change_check(worktree: Path, base_commit: str) -> dict[str, 
     }
 
 
+def _setup_for_command(evidence: dict[str, Any], argv: list[str]) -> list[list[str]]:
+    """Use the most explicit replayable same-job context for this command."""
+    best: list[list[str]] = []
+    for source in evidence.get("sources", []):
+        if source.get("status") != "replayable" or source.get("argv") != argv:
+            continue
+        candidate = [list(row) for row in source.get("setup_commands", [])]
+        if len(candidate) > len(best):
+            best = candidate
+    return best
+
+
+def _run_setup(
+    root: Path,
+    setup_commands: list[list[str]],
+    *,
+    timeout: int,
+    kind: str,
+) -> tuple[bool, list[dict[str, Any]], str | None]:
+    records: list[dict[str, Any]] = []
+    for argv in setup_commands:
+        before = run(["git", "status", "--porcelain", "--untracked-files=no"], root)
+        result = run(argv, root, env=worktree_env(root), timeout=timeout)
+        after = run(["git", "status", "--porcelain", "--untracked-files=no"], root)
+        compact = compact_result(result)
+        compact["kind"] = kind
+        compact["side_effect"] = before["stdout"] != after["stdout"]
+        records.append(compact)
+        if compact["side_effect"]:
+            return False, records, "acceptance_setup_side_effect"
+        if compact["exit_code"] != 0 or compact["timed_out"]:
+            return False, records, "acceptance_setup_failed"
+    return True, records, None
+
+
 def _run_base_acceptance(
     worktree: Path,
     base_commit: str,
     commands: list[list[str]],
+    evidence: dict[str, Any],
     *,
     timeout: int,
 ) -> dict[str, Any]:
@@ -631,8 +743,27 @@ def _run_base_acceptance(
         }
 
     records = []
+    completed_setup: set[tuple[tuple[str, ...], ...]] = set()
     try:
         for argv in commands:
+            setup_commands = _setup_for_command(evidence, argv)
+            setup_key = tuple(tuple(row) for row in setup_commands)
+            if setup_commands and setup_key not in completed_setup:
+                ok, setup_records, basis = _run_setup(
+                    temp, setup_commands, timeout=timeout, kind="acceptance_baseline_setup"
+                )
+                records.extend(setup_records)
+                if not ok:
+                    return {
+                        "status": "FAIL",
+                        "basis": (
+                            "acceptance_baseline_setup_side_effect"
+                            if basis == "acceptance_setup_side_effect"
+                            else "acceptance_baseline_setup_failed"
+                        ),
+                        "commands": records,
+                    }
+                completed_setup.add(setup_key)
             before = run(["git", "status", "--porcelain", "--untracked-files=no"], temp)
             result = run(argv, temp, env=worktree_env(temp), timeout=timeout)
             after = run(["git", "status", "--porcelain", "--untracked-files=no"], temp)
@@ -668,6 +799,7 @@ def run_acceptance_commands(
         worktree,
         base_commit,
         commands,
+        evidence,
         timeout=timeout,
     )
     if baseline["status"] != "PASS":
@@ -683,8 +815,27 @@ def run_acceptance_commands(
 
     restored = freeze_judge_files(worktree, base_commit, evidence)
     records = []
+    completed_setup: set[tuple[tuple[str, ...], ...]] = set()
 
     for argv in commands:
+        setup_commands = _setup_for_command(evidence, argv)
+        setup_key = tuple(tuple(row) for row in setup_commands)
+        if setup_commands and setup_key not in completed_setup:
+            ok, setup_records, basis = _run_setup(
+                worktree, setup_commands, timeout=timeout, kind="acceptance_setup"
+            )
+            records.extend(setup_records)
+            if not ok:
+                return {
+                    "rule": "repository_acceptance",
+                    "status": "FAIL",
+                    "basis": basis or "acceptance_setup_failed",
+                    "commands": records,
+                    "sources": evidence.get("sources", []),
+                    "restored_judge_paths": restored,
+                    "baseline_commands": baseline.get("commands", []),
+                }
+            completed_setup.add(setup_key)
         before = run(["git", "status", "--porcelain", "--untracked-files=no"], worktree)
         result = run(argv, worktree, env=worktree_env(worktree), timeout=timeout)
         after = run(["git", "status", "--porcelain", "--untracked-files=no"], worktree)
