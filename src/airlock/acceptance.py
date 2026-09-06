@@ -211,6 +211,13 @@ def _command_family(argv: list[str]) -> bool:
     if exe in {"hatch", "poe", "pdm", "tox", "nox", "pre-commit", "ruff", "mypy", "pyright", "flake8", "black", "isort"}:
         return True
 
+    if exe == "uvx":
+        # ``uvx`` is a runner, not acceptance evidence by itself. It only gains
+        # acceptance authority when the command it wraps is already one of the
+        # quality families Airlock knows how to recognize. Keep the original
+        # argv for execution; this recursive check is classification only.
+        return len(argv) >= 2 and _command_family([argv[1], *argv[2:]])
+
     if exe in {"uv", "poetry"} and len(argv) >= 3 and argv[1] == "run":
         nested = [argv[2], *argv[3:]]
         return _command_family(nested)
