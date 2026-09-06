@@ -66,7 +66,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
       - run: docker version
+        if: ${{ always() && steps.reachability.outcome != 'skipped' }}
       - id: actions_selftest
+        if: ${{ always() && steps.reachability.outcome != 'skipped' }}
         run: python scripts/run_actions_runtime_selftest.py --out airlock-actions-selftest
       - uses: actions/upload-artifact@v4
         if: ${{ always() && steps.actions_selftest.outcome != 'skipped' }}

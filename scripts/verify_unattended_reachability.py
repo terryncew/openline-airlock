@@ -211,6 +211,10 @@ def candidate_diagnostics(rows: list[dict]) -> list[dict]:
                         "exit_code": command.get("exit_code"),
                         "timed_out": command.get("timed_out"),
                         "side_effect": command.get("side_effect"),
+                        "stdout_sha256": command.get("stdout_sha256"),
+                        "stderr_sha256": command.get("stderr_sha256"),
+                        "stdout_tail": command.get("stdout_tail"),
+                        "stderr_tail": command.get("stderr_tail"),
                     }
                 )
             failed_checks.append(
@@ -238,6 +242,7 @@ def main() -> int:
     args = ap.parse_args()
 
     source = args.repo.resolve()
+    source_head = git(source, "rev-parse", "HEAD")
     repo, base = init_fixture(source)
     try:
         good = evaluate_arm(repo, base, GOOD_NEW, "good")
@@ -266,6 +271,8 @@ def main() -> int:
     report = {
         "schema": "airlock.unattended.reachability.v1",
         "issue_number": 23,
+        "source_head": source_head,
+        "fixture_base": base,
         "known_good": {
             "edit": 'airlock swarm "fix issue #417" -> airlock solve 417',
             "decision": good.get("decision"),
