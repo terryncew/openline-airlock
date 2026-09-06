@@ -1,0 +1,804 @@
+{
+  "case": {
+    "airlock": {
+      "compliant": {
+        "changed_paths": [
+          "overturemaps/airlock_acceptance_probe.py"
+        ],
+        "checks": [
+          {
+            "rule": "protected_files",
+            "status": "PASS",
+            "touched": []
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "python",
+                  "-c",
+                  "import importlib.util; p='overturemaps/airlock_acceptance_probe.py'; s=importlib.util.spec_from_file_location('airlock_overture_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                ],
+                "duration_seconds": 0.012896,
+                "exit_code": 0,
+                "kind": "target",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "rule": "target",
+            "status": "PASS"
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "uv",
+                  "sync",
+                  "--dev"
+                ],
+                "duration_seconds": 0.312318,
+                "exit_code": 0,
+                "kind": "acceptance_setup",
+                "side_effect": false,
+                "stderr_sha256": "cc5ca1c266beba14c6aad19267b47880523ee649443649f94cdc491dae56b37d",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3\nCreating virtual environment at: .venv\nResolved 39 packages in 0.46ms\n   Building overturemaps @ file:///tmp/repo-evidence-005-airlock-compliant-da0nujqa\n      Built overturemaps @ file:///tmp/repo-evidence-005-airlock-compliant-da0nujqa\nPrepared 1 package in 277ms\nInstalled 18 packages in 20ms\n + click==8.3.1\n + colorama==0.4.6\n + iniconfig==2.3.0\n + numpy==2.4.1\n + orjson==3.11.7\n + overturemaps==1.0.2 (from file:///tmp/repo-evidence-005-airlock-compliant-da0nujqa)\n + packaging==25.0\n + pluggy==1.6.0\n + py-cpuinfo==9.0.0\n + pyarrow==22.0.0\n + pyfiglet==1.0.4\n + pygments==2.19.2\n + pytest==9.0.2\n + pytest-benchmark==5.2.3\n + pytest-mock==3.15.1\n + ruff==0.16.4\n + shapely==2.1.2\n + tqdm==4.67.3\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "ruff",
+                  "check",
+                  "."
+                ],
+                "duration_seconds": 0.053994,
+                "exit_code": 0,
+                "kind": "acceptance",
+                "side_effect": false,
+                "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+                "stdout_tail": "All checks passed!\n",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest",
+                  "tests/",
+                  "-v"
+                ],
+                "duration_seconds": 299.362114,
+                "exit_code": 0,
+                "kind": "acceptance",
+                "side_effect": false,
+                "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                "stdout_sha256": "f40d10542fef352771dd9942f422a35209054ad1b5262bd245287b6e0abfd366",
+                "stdout_tail": ":TestGeoJSONSeqWriter::test_write_single_feature PASSED [ 83%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_filters_none_properties PASSED [ 84%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_multiple_features_newline_separated PASSED [ 85%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_writes_top_level_id_not_properties PASSED [ 86%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_context_manager_closes_cleanly PASSED [ 88%]\ntests/test_writers.py::TestGeoJSONWriter::test_empty_produces_valid_feature_collection PASSED [ 89%]\ntests/test_writers.py::TestGeoJSONWriter::test_single_feature PASSED     [ 90%]\ntests/test_writers.py::TestGeoJSONWriter::test_multiple_features_valid_json PASSED [ 91%]\ntests/test_writers.py::TestGeoJSONWriter::test_writes_top_level_id_not_properties PASSED [ 92%]\ntests/test_writers.py::TestGeoJSONWriter::test_filters_none_properties PASSED [ 93%]\ntests/test_writers.py::TestGeoJSONWriter::test_context_manager_closes_cleanly PASSED [ 94%]\ntests/test_writers.py::TestGetWriter::test_geojson_returns_geojson_writer PASSED [ 95%]\ntests/test_writers.py::TestGetWriter::test_geojsonseq_returns_geojsonseq_writer PASSED [ 96%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojson_file_writer_survives_narrow_locale PASSED [ 97%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojsonseq_file_writer_survives_narrow_locale PASSED [ 98%]\ntests/test_writers.py::TestNarrowEncodingFile::test_without_fix_narrow_locale_would_fail PASSED [100%]\n\n=============================== warnings summary ===============================\ntests/test_main.py::test_python_m_overturemaps_help\n  <frozen runpy>:128: RuntimeWarning: 'overturemaps.__main__' found in sys.modules after import of package 'overturemaps', but prior to execution of 'overturemaps.__main__'; this may result in unpredictable behaviour\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================== 92 passed, 1 warning in 298.77s (0:04:58) ===================\n",
+                "timed_out": false
+              }
+            ],
+            "repository_acceptance": {
+              "basis": "repo_owned_acceptance_commands_passed",
+              "restored_judge_paths": [
+                ".github/workflows/test-run.yml",
+                "CONTRIBUTING.md"
+              ],
+              "sources": [
+                {
+                  "argv": [
+                    "uv",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/test-run.yml",
+                  "setup_commands": [
+                    [
+                      "uv",
+                      "sync",
+                      "--dev"
+                    ]
+                  ],
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "uv",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/test-run.yml",
+                  "setup_commands": [
+                    [
+                      "uv",
+                      "sync",
+                      "--dev"
+                    ]
+                  ],
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "uv",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "kind": "contributor_docs",
+                  "path": "CONTRIBUTING.md",
+                  "setup_commands": [],
+                  "status": "replayable"
+                }
+              ],
+              "status": "PASS"
+            },
+            "rule": "regression",
+            "status": "PASS"
+          },
+          {
+            "basis": "explicit_target_command",
+            "matched_tests": [],
+            "rule": "evidence_sufficiency",
+            "status": "PASS"
+          }
+        ],
+        "commit": "6ed23bdfaac1a54fc5d120e4f5be7f593e2ff67b",
+        "disposition": "SURVIVED",
+        "label": "compliant",
+        "patch_sha256": "ab7583940cc333a2ff03c435d246ef74b4c84d3cd7ea7abfb0276fe87120d7a5",
+        "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+      },
+      "noncompliant": {
+        "changed_paths": [
+          "overturemaps/airlock_acceptance_probe.py"
+        ],
+        "checks": [
+          {
+            "rule": "protected_files",
+            "status": "PASS",
+            "touched": []
+          },
+          {
+            "commands": [
+              {
+                "argv": [
+                  "python",
+                  "-c",
+                  "import importlib.util; p='overturemaps/airlock_acceptance_probe.py'; s=importlib.util.spec_from_file_location('airlock_overture_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+                ],
+                "duration_seconds": 0.013209,
+                "exit_code": 0,
+                "kind": "target",
+                "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stderr_tail": "",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              }
+            ],
+            "rule": "target",
+            "status": "PASS"
+          },
+          {
+            "baseline_commands": [
+              {
+                "argv": [
+                  "uv",
+                  "sync",
+                  "--dev"
+                ],
+                "duration_seconds": 0.358741,
+                "exit_code": 0,
+                "kind": "acceptance_baseline_setup",
+                "side_effect": false,
+                "stderr_sha256": "015a6a075fb243cb27fbcd09c02a4f5ceedf011ed9bb7556410190a595454d56",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3\nCreating virtual environment at: .venv\nResolved 39 packages in 0.46ms\n   Building overturemaps @ file:///tmp/airlock-acceptance-base-kmv9wlzw\n      Built overturemaps @ file:///tmp/airlock-acceptance-base-kmv9wlzw\nPrepared 1 package in 322ms\nInstalled 18 packages in 20ms\n + click==8.3.1\n + colorama==0.4.6\n + iniconfig==2.3.0\n + numpy==2.4.1\n + orjson==3.11.7\n + overturemaps==1.0.2 (from file:///tmp/airlock-acceptance-base-kmv9wlzw)\n + packaging==25.0\n + pluggy==1.6.0\n + py-cpuinfo==9.0.0\n + pyarrow==22.0.0\n + pyfiglet==1.0.4\n + pygments==2.19.2\n + pytest==9.0.2\n + pytest-benchmark==5.2.3\n + pytest-mock==3.15.1\n + ruff==0.16.4\n + shapely==2.1.2\n + tqdm==4.67.3\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "ruff",
+                  "check",
+                  "."
+                ],
+                "duration_seconds": 0.054482,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+                "stdout_tail": "All checks passed!\n",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest",
+                  "tests/",
+                  "-v"
+                ],
+                "duration_seconds": 295.675602,
+                "exit_code": 0,
+                "kind": "acceptance_baseline",
+                "side_effect": false,
+                "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                "stdout_sha256": "29cd10ed5f0ed1a95703b130d4e1f98db9c508bf50c5bace392a0d90e493b2d0",
+                "stdout_tail": ":TestGeoJSONSeqWriter::test_write_single_feature PASSED [ 83%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_filters_none_properties PASSED [ 84%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_multiple_features_newline_separated PASSED [ 85%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_writes_top_level_id_not_properties PASSED [ 86%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_context_manager_closes_cleanly PASSED [ 88%]\ntests/test_writers.py::TestGeoJSONWriter::test_empty_produces_valid_feature_collection PASSED [ 89%]\ntests/test_writers.py::TestGeoJSONWriter::test_single_feature PASSED     [ 90%]\ntests/test_writers.py::TestGeoJSONWriter::test_multiple_features_valid_json PASSED [ 91%]\ntests/test_writers.py::TestGeoJSONWriter::test_writes_top_level_id_not_properties PASSED [ 92%]\ntests/test_writers.py::TestGeoJSONWriter::test_filters_none_properties PASSED [ 93%]\ntests/test_writers.py::TestGeoJSONWriter::test_context_manager_closes_cleanly PASSED [ 94%]\ntests/test_writers.py::TestGetWriter::test_geojson_returns_geojson_writer PASSED [ 95%]\ntests/test_writers.py::TestGetWriter::test_geojsonseq_returns_geojsonseq_writer PASSED [ 96%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojson_file_writer_survives_narrow_locale PASSED [ 97%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojsonseq_file_writer_survives_narrow_locale PASSED [ 98%]\ntests/test_writers.py::TestNarrowEncodingFile::test_without_fix_narrow_locale_would_fail PASSED [100%]\n\n=============================== warnings summary ===============================\ntests/test_main.py::test_python_m_overturemaps_help\n  <frozen runpy>:128: RuntimeWarning: 'overturemaps.__main__' found in sys.modules after import of package 'overturemaps', but prior to execution of 'overturemaps.__main__'; this may result in unpredictable behaviour\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================== 92 passed, 1 warning in 295.11s (0:04:55) ===================\n",
+                "timed_out": false
+              }
+            ],
+            "basis": "acceptance_command_failed",
+            "commands": [
+              {
+                "argv": [
+                  "uv",
+                  "sync",
+                  "--dev"
+                ],
+                "duration_seconds": 0.313372,
+                "exit_code": 0,
+                "kind": "acceptance_setup",
+                "side_effect": false,
+                "stderr_sha256": "2add8034265edb4f1e2ea07cc292154472483e0eda1754eaf64bf957df3f4b83",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3\nCreating virtual environment at: .venv\nResolved 39 packages in 0.50ms\n   Building overturemaps @ file:///tmp/repo-evidence-005-airlock-noncompliant-8hkk43mb\n      Built overturemaps @ file:///tmp/repo-evidence-005-airlock-noncompliant-8hkk43mb\nPrepared 1 package in 278ms\nInstalled 18 packages in 19ms\n + click==8.3.1\n + colorama==0.4.6\n + iniconfig==2.3.0\n + numpy==2.4.1\n + orjson==3.11.7\n + overturemaps==1.0.2 (from file:///tmp/repo-evidence-005-airlock-noncompliant-8hkk43mb)\n + packaging==25.0\n + pluggy==1.6.0\n + py-cpuinfo==9.0.0\n + pyarrow==22.0.0\n + pyfiglet==1.0.4\n + pygments==2.19.2\n + pytest==9.0.2\n + pytest-benchmark==5.2.3\n + pytest-mock==3.15.1\n + ruff==0.16.4\n + shapely==2.1.2\n + tqdm==4.67.3\n",
+                "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                "stdout_tail": "",
+                "timed_out": false
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "ruff",
+                  "check",
+                  "."
+                ],
+                "duration_seconds": 0.055748,
+                "exit_code": 1,
+                "kind": "acceptance",
+                "side_effect": false,
+                "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+                "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+                "stdout_sha256": "bcbaea8f0342f2e4afc64d1aef782b31ba1dc16f68cb8306d9a22cac633ae257",
+                "stdout_tail": "F401 [*] `math` imported but unused\n --> overturemaps/airlock_acceptance_probe.py:1:8\n  |\n1 | import math\n  |        ^^^^\nhelp: Remove unused import: `math`\n  |\n  - import math\n1 |\n  |\n\nFound 1 error.\n[*] 1 fixable with the `--fix` option.\n",
+                "timed_out": false
+              }
+            ],
+            "restored_judge_paths": [
+              ".github/workflows/test-run.yml",
+              "CONTRIBUTING.md"
+            ],
+            "rule": "repository_acceptance",
+            "sources": [
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "ruff",
+                  "check",
+                  "."
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/test-run.yml",
+                "setup_commands": [
+                  [
+                    "uv",
+                    "sync",
+                    "--dev"
+                  ]
+                ],
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest",
+                  "tests/",
+                  "-v"
+                ],
+                "kind": "github_actions",
+                "path": ".github/workflows/test-run.yml",
+                "setup_commands": [
+                  [
+                    "uv",
+                    "sync",
+                    "--dev"
+                  ]
+                ],
+                "status": "replayable"
+              },
+              {
+                "argv": [
+                  "uv",
+                  "run",
+                  "pytest",
+                  "tests/",
+                  "-v"
+                ],
+                "kind": "contributor_docs",
+                "path": "CONTRIBUTING.md",
+                "setup_commands": [],
+                "status": "replayable"
+              }
+            ],
+            "status": "FAIL"
+          }
+        ],
+        "commit": "6e7cdd67e6226eea5f3f2b52ea41798c5f6a7c69",
+        "disposition": "BLOCKED",
+        "label": "noncompliant",
+        "patch_sha256": "e9a1d68cf91852078d9e0d25970715f3493cd8cdab2c0bb411e9266a764cc97c",
+        "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+      },
+      "protected_patterns": [
+        "tests/**",
+        ".github/**",
+        ".airlock/**",
+        ".pre-commit-config.yaml",
+        ".pre-commit-config.yml",
+        ".ruff.toml",
+        "Cargo.toml",
+        "GNUmakefile",
+        "Makefile",
+        "Taskfile.yaml",
+        "Taskfile.yml",
+        "go.mod",
+        "justfile",
+        "makefile",
+        "mypy.ini",
+        "noxfile.py",
+        "package.json",
+        "pyproject.toml",
+        "pytest.ini",
+        "ruff.toml",
+        "setup.cfg",
+        "tox.ini",
+        "tsconfig.json",
+        "uv.lock"
+      ]
+    },
+    "airlock_baseline_evidence": {
+      "base_commit": "9410974885ab5e9de107b15c0ba000a248c36a36",
+      "commands": [
+        [
+          "uv",
+          "run",
+          "ruff",
+          "check",
+          "."
+        ],
+        [
+          "uv",
+          "run",
+          "pytest",
+          "tests/",
+          "-v"
+        ]
+      ],
+      "judge_paths": [
+        ".github/workflows/test-run.yml",
+        "CONTRIBUTING.md"
+      ],
+      "schema": "airlock.repository-acceptance.v1",
+      "sources": [
+        {
+          "argv": [
+            "uv",
+            "run",
+            "ruff",
+            "check",
+            "."
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/test-run.yml",
+          "setup_commands": [
+            [
+              "uv",
+              "sync",
+              "--dev"
+            ]
+          ],
+          "status": "replayable"
+        },
+        {
+          "argv": [
+            "uv",
+            "run",
+            "pytest",
+            "tests/",
+            "-v"
+          ],
+          "kind": "github_actions",
+          "path": ".github/workflows/test-run.yml",
+          "setup_commands": [
+            [
+              "uv",
+              "sync",
+              "--dev"
+            ]
+          ],
+          "status": "replayable"
+        },
+        {
+          "argv": [
+            "uv",
+            "run",
+            "pytest",
+            "tests/",
+            "-v"
+          ],
+          "kind": "contributor_docs",
+          "path": "CONTRIBUTING.md",
+          "setup_commands": [],
+          "status": "replayable"
+        }
+      ],
+      "unresolved": []
+    },
+    "anchors": {
+      ".github/workflows/test-run.yml": "f8f95dff17b318b281c3aa904b0ec14f14b32780",
+      "CONTRIBUTING.md": "341d81bb3827f869caa5f03e897b34934992a01c",
+      "pyproject.toml": "edfd96814624c6394aef4982fd28860f12449044",
+      "uv.lock": "904e9deb1b33770d872252255d34842e309e50a3"
+    },
+    "candidates": {
+      "compliant": {
+        "changed_paths": [
+          "overturemaps/airlock_acceptance_probe.py"
+        ],
+        "commit": "6ed23bdfaac1a54fc5d120e4f5be7f593e2ff67b",
+        "label": "compliant",
+        "patch_sha256": "ab7583940cc333a2ff03c435d246ef74b4c84d3cd7ea7abfb0276fe87120d7a5"
+      },
+      "noncompliant": {
+        "changed_paths": [
+          "overturemaps/airlock_acceptance_probe.py"
+        ],
+        "commit": "6e7cdd67e6226eea5f3f2b52ea41798c5f6a7c69",
+        "label": "noncompliant",
+        "patch_sha256": "e9a1d68cf91852078d9e0d25970715f3493cd8cdab2c0bb411e9266a764cc97c"
+      }
+    },
+    "case_id": "overture-pr-uv-sync-context",
+    "evidence_note": "The frozen PR workflow owns a same-job sequence `uv sync --dev` -> `uv run ruff check .` -> `uv run pytest tests/ -v`. The frozen Ruff policy selects F401. The bad candidate adds one unused import to a new source module; the good candidate does not. Both expose the same standalone functional probe. The experiment never tells Airlock the setup sequence or the quality commands.",
+    "external_truth": {
+      "base": {
+        "commands": [
+          {
+            "argv": [
+              "uv",
+              "run",
+              "ruff",
+              "check",
+              "."
+            ],
+            "duration_seconds": 0.054425,
+            "exit_code": 0,
+            "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+            "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+            "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+            "stdout_tail": "All checks passed!\n",
+            "timed_out": false
+          },
+          {
+            "argv": [
+              "uv",
+              "run",
+              "pytest",
+              "tests/",
+              "-v"
+            ],
+            "duration_seconds": 316.398151,
+            "exit_code": 0,
+            "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+            "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+            "stdout_sha256": "b81a26ee932b664a9bf3680b615f298406b61b71a32fb31fdb591fd70b75dfd1",
+            "stdout_tail": ":TestGeoJSONSeqWriter::test_write_single_feature PASSED [ 83%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_filters_none_properties PASSED [ 84%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_multiple_features_newline_separated PASSED [ 85%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_writes_top_level_id_not_properties PASSED [ 86%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_context_manager_closes_cleanly PASSED [ 88%]\ntests/test_writers.py::TestGeoJSONWriter::test_empty_produces_valid_feature_collection PASSED [ 89%]\ntests/test_writers.py::TestGeoJSONWriter::test_single_feature PASSED     [ 90%]\ntests/test_writers.py::TestGeoJSONWriter::test_multiple_features_valid_json PASSED [ 91%]\ntests/test_writers.py::TestGeoJSONWriter::test_writes_top_level_id_not_properties PASSED [ 92%]\ntests/test_writers.py::TestGeoJSONWriter::test_filters_none_properties PASSED [ 93%]\ntests/test_writers.py::TestGeoJSONWriter::test_context_manager_closes_cleanly PASSED [ 94%]\ntests/test_writers.py::TestGetWriter::test_geojson_returns_geojson_writer PASSED [ 95%]\ntests/test_writers.py::TestGetWriter::test_geojsonseq_returns_geojsonseq_writer PASSED [ 96%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojson_file_writer_survives_narrow_locale PASSED [ 97%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojsonseq_file_writer_survives_narrow_locale PASSED [ 98%]\ntests/test_writers.py::TestNarrowEncodingFile::test_without_fix_narrow_locale_would_fail PASSED [100%]\n\n=============================== warnings summary ===============================\ntests/test_main.py::test_python_m_overturemaps_help\n  <frozen runpy>:128: RuntimeWarning: 'overturemaps.__main__' found in sys.modules after import of package 'overturemaps', but prior to execution of 'overturemaps.__main__'; this may result in unpredictable behaviour\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================== 92 passed, 1 warning in 315.44s (0:05:15) ===================\n",
+            "timed_out": false
+          }
+        ],
+        "setup": {
+          "argv": [
+            "uv",
+            "sync",
+            "--dev"
+          ],
+          "duration_seconds": 0.699352,
+          "exit_code": 0,
+          "stderr_sha256": "fcec14d781ccb22760e237b88c2754972f7522faf3e0d984c8ca12cd046e58cc",
+          "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3\nCreating virtual environment at: .venv\nResolved 39 packages in 0.46ms\n   Building overturemaps @ file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-base-95fmm5bx\nDownloading pyfiglet (1.7MiB)\nDownloading pygments (1.2MiB)\nDownloading numpy (15.6MiB)\nDownloading ruff (9.8MiB)\nDownloading shapely (3.0MiB)\nDownloading pyarrow (45.5MiB)\n Downloaded pygments\n Downloaded shapely\n Downloaded pyfiglet\n Downloaded ruff\n Downloaded numpy\n Downloaded pyarrow\n      Built overturemaps @ file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-base-95fmm5bx\nPrepared 18 packages in 508ms\nInstalled 18 packages in 26ms\n + click==8.3.1\n + colorama==0.4.6\n + iniconfig==2.3.0\n + numpy==2.4.1\n + orjson==3.11.7\n + overturemaps==1.0.2 (from file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-base-95fmm5bx)\n + packaging==25.0\n + pluggy==1.6.0\n + py-cpuinfo==9.0.0\n + pyarrow==22.0.0\n + pyfiglet==1.0.4\n + pygments==2.19.2\n + pytest==9.0.2\n + pytest-benchmark==5.2.3\n + pytest-mock==3.15.1\n + ruff==0.16.4\n + shapely==2.1.2\n + tqdm==4.67.3\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false,
+          "tracked_side_effect": false
+        }
+      },
+      "compliant": {
+        "acceptance": {
+          "commands": [
+            {
+              "argv": [
+                "uv",
+                "run",
+                "ruff",
+                "check",
+                "."
+              ],
+              "duration_seconds": 0.054115,
+              "exit_code": 0,
+              "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+              "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+              "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+              "stdout_tail": "All checks passed!\n",
+              "timed_out": false
+            },
+            {
+              "argv": [
+                "uv",
+                "run",
+                "pytest",
+                "tests/",
+                "-v"
+              ],
+              "duration_seconds": 298.135692,
+              "exit_code": 0,
+              "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+              "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+              "stdout_sha256": "b468db8cad130890353c5c5ca04b758895dcb396f067f4b9510451eb1e670ad7",
+              "stdout_tail": ":TestGeoJSONSeqWriter::test_write_single_feature PASSED [ 83%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_filters_none_properties PASSED [ 84%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_multiple_features_newline_separated PASSED [ 85%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_writes_top_level_id_not_properties PASSED [ 86%]\ntests/test_writers.py::TestGeoJSONSeqWriter::test_context_manager_closes_cleanly PASSED [ 88%]\ntests/test_writers.py::TestGeoJSONWriter::test_empty_produces_valid_feature_collection PASSED [ 89%]\ntests/test_writers.py::TestGeoJSONWriter::test_single_feature PASSED     [ 90%]\ntests/test_writers.py::TestGeoJSONWriter::test_multiple_features_valid_json PASSED [ 91%]\ntests/test_writers.py::TestGeoJSONWriter::test_writes_top_level_id_not_properties PASSED [ 92%]\ntests/test_writers.py::TestGeoJSONWriter::test_filters_none_properties PASSED [ 93%]\ntests/test_writers.py::TestGeoJSONWriter::test_context_manager_closes_cleanly PASSED [ 94%]\ntests/test_writers.py::TestGetWriter::test_geojson_returns_geojson_writer PASSED [ 95%]\ntests/test_writers.py::TestGetWriter::test_geojsonseq_returns_geojsonseq_writer PASSED [ 96%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojson_file_writer_survives_narrow_locale PASSED [ 97%]\ntests/test_writers.py::TestNarrowEncodingFile::test_geojsonseq_file_writer_survives_narrow_locale PASSED [ 98%]\ntests/test_writers.py::TestNarrowEncodingFile::test_without_fix_narrow_locale_would_fail PASSED [100%]\n\n=============================== warnings summary ===============================\ntests/test_main.py::test_python_m_overturemaps_help\n  <frozen runpy>:128: RuntimeWarning: 'overturemaps.__main__' found in sys.modules after import of package 'overturemaps', but prior to execution of 'overturemaps.__main__'; this may result in unpredictable behaviour\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n================== 92 passed, 1 warning in 297.58s (0:04:57) ===================\n",
+              "timed_out": false
+            }
+          ],
+          "setup": {
+            "argv": [
+              "uv",
+              "sync",
+              "--dev"
+            ],
+            "duration_seconds": 0.312005,
+            "exit_code": 0,
+            "stderr_sha256": "e0c5ba122a91d9d550a2ef07571d6a69e0844530994f19bc1fd185fb00d73152",
+            "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3\nCreating virtual environment at: .venv\nResolved 39 packages in 0.45ms\n   Building overturemaps @ file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-compliant-acceptance-hs4q5qrm\n      Built overturemaps @ file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-compliant-acceptance-hs4q5qrm\nPrepared 1 package in 277ms\nInstalled 18 packages in 19ms\n + click==8.3.1\n + colorama==0.4.6\n + iniconfig==2.3.0\n + numpy==2.4.1\n + orjson==3.11.7\n + overturemaps==1.0.2 (from file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-compliant-acceptance-hs4q5qrm)\n + packaging==25.0\n + pluggy==1.6.0\n + py-cpuinfo==9.0.0\n + pyarrow==22.0.0\n + pyfiglet==1.0.4\n + pygments==2.19.2\n + pytest==9.0.2\n + pytest-benchmark==5.2.3\n + pytest-mock==3.15.1\n + ruff==0.16.4\n + shapely==2.1.2\n + tqdm==4.67.3\n",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false,
+            "tracked_side_effect": false
+          }
+        },
+        "target_commands": [
+          {
+            "argv": [
+              "python",
+              "-c",
+              "import importlib.util; p='overturemaps/airlock_acceptance_probe.py'; s=importlib.util.spec_from_file_location('airlock_overture_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+            ],
+            "duration_seconds": 0.013395,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ]
+      },
+      "noncompliant": {
+        "acceptance": {
+          "commands": [
+            {
+              "argv": [
+                "uv",
+                "run",
+                "ruff",
+                "check",
+                "."
+              ],
+              "duration_seconds": 0.054309,
+              "exit_code": 1,
+              "stderr_sha256": "d0c85851c20062d807ec475d359c47ad5d06f17ffcb1d05650d54330428bc378",
+              "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\n",
+              "stdout_sha256": "bcbaea8f0342f2e4afc64d1aef782b31ba1dc16f68cb8306d9a22cac633ae257",
+              "stdout_tail": "F401 [*] `math` imported but unused\n --> overturemaps/airlock_acceptance_probe.py:1:8\n  |\n1 | import math\n  |        ^^^^\nhelp: Remove unused import: `math`\n  |\n  - import math\n1 |\n  |\n\nFound 1 error.\n[*] 1 fixable with the `--fix` option.\n",
+              "timed_out": false
+            }
+          ],
+          "setup": {
+            "argv": [
+              "uv",
+              "sync",
+              "--dev"
+            ],
+            "duration_seconds": 0.311011,
+            "exit_code": 0,
+            "stderr_sha256": "d1422d21543898c62b1b33fb949dcbeaf4721d1e1684f9d76e363b0d64713a3e",
+            "stderr_tail": "warning: `VIRTUAL_ENV=/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv` does not match the project environment path `.venv` and will be ignored; use `--active` to target the active environment instead\nUsing CPython 3.12.14 interpreter at: /opt/hostedtoolcache/Python/3.12.14/x64/bin/python3\nCreating virtual environment at: .venv\nResolved 39 packages in 0.44ms\n   Building overturemaps @ file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-noncompliant-acceptance-yowi3bhq\n      Built overturemaps @ file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-noncompliant-acceptance-yowi3bhq\nPrepared 1 package in 276ms\nInstalled 18 packages in 18ms\n + click==8.3.1\n + colorama==0.4.6\n + iniconfig==2.3.0\n + numpy==2.4.1\n + orjson==3.11.7\n + overturemaps==1.0.2 (from file:///tmp/repo-evidence-005-overture-pr-uv-sync-context-noncompliant-acceptance-yowi3bhq)\n + packaging==25.0\n + pluggy==1.6.0\n + py-cpuinfo==9.0.0\n + pyarrow==22.0.0\n + pyfiglet==1.0.4\n + pygments==2.19.2\n + pytest==9.0.2\n + pytest-benchmark==5.2.3\n + pytest-mock==3.15.1\n + ruff==0.16.4\n + shapely==2.1.2\n + tqdm==4.67.3\n",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false,
+            "tracked_side_effect": false
+          }
+        },
+        "target_commands": [
+          {
+            "argv": [
+              "python",
+              "-c",
+              "import importlib.util; p='overturemaps/airlock_acceptance_probe.py'; s=importlib.util.spec_from_file_location('airlock_overture_probe', p); m=importlib.util.module_from_spec(s); s.loader.exec_module(m); assert m.airlock_acceptance_probe('  fresh  ') == 'fresh'"
+            ],
+            "duration_seconds": 0.013634,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stdout_tail": "",
+            "timed_out": false
+          }
+        ]
+      },
+      "preconditions": {
+        "base_setup_and_acceptance_green": true,
+        "compliant_functional_target_green": true,
+        "compliant_setup_and_acceptance_green": true,
+        "noncompliant_functional_target_green": true,
+        "noncompliant_repo_acceptance_red": true,
+        "noncompliant_setup_green": true
+      },
+      "reproduced": true
+    },
+    "fetch": [
+      {
+        "argv": [
+          "git",
+          "init",
+          "-q"
+        ],
+        "duration_seconds": 0.002682,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "remote",
+          "add",
+          "origin",
+          "https://github.com/OvertureMaps/overturemaps-py.git"
+        ],
+        "duration_seconds": 0.00356,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "-c",
+          "protocol.version=2",
+          "fetch",
+          "--no-tags",
+          "--depth=1",
+          "origin",
+          "9410974885ab5e9de107b15c0ba000a248c36a36"
+        ],
+        "duration_seconds": 0.20633,
+        "exit_code": 0,
+        "stderr_sha256": "f158e85964904797a981c95dc3484fd5ad94b0802211b12ebb137508293f5faf",
+        "stderr_tail": "From https://github.com/OvertureMaps/overturemaps-py\n * branch            9410974885ab5e9de107b15c0ba000a248c36a36 -> FETCH_HEAD\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "checkout",
+          "--detach",
+          "FETCH_HEAD"
+        ],
+        "duration_seconds": 0.006027,
+        "exit_code": 0,
+        "stderr_sha256": "508078129b5b1e069db76fa1cd80566604b163c291efdb3bffddc89c6d67d1e0",
+        "stderr_tail": "HEAD is now at 9410974 Merge pull request #137 from OvertureMaps/docs-enhancements\n",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      }
+    ],
+    "harness_setup": [
+      {
+        "argv": [
+          "/tmp/airlock-overture-pr-uv-sync-context-xs75u1ih/venv/bin/python",
+          "-m",
+          "pip",
+          "install",
+          "--upgrade",
+          "uv"
+        ],
+        "duration_seconds": 1.019202,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "9b9df179daf2f7c038171347e2cd8d114f5e43619abae706cdec25f46ff77718",
+        "stdout_tail": "Collecting uv\n  Downloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl.metadata (11 kB)\nDownloading uv-0.12.10-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (20.0 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 20.0/20.0 MB 93.9 MB/s eta 0:00:00\nInstalling collected packages: uv\nSuccessfully installed uv-0.12.10\n",
+        "timed_out": false
+      },
+      {
+        "argv": [
+          "git",
+          "status",
+          "--porcelain",
+          "--untracked-files=no"
+        ],
+        "duration_seconds": 0.003591,
+        "exit_code": 0,
+        "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stderr_tail": "",
+        "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "stdout_tail": "",
+        "timed_out": false
+      }
+    ],
+    "pair_class": "DISCRIMINATED",
+    "pinned_commit": "9410974885ab5e9de107b15c0ba000a248c36a36",
+    "repo_id": "overturemaps-py",
+    "repository": "OvertureMaps/overturemaps-py",
+    "schema": "airlock.repo-evidence-005.case.v1",
+    "status": "EVALUATED"
+  },
+  "causal_receipt": {
+    "case_id": "emhass-pr-uvx-ruff",
+    "experiment": "AIRLOCK-REPO-EVIDENCE-004",
+    "git_blob_sha": "cbde582cfa10f17bd8706a1e5451989ad17de2b3",
+    "pair_class": "OVERCONSERVATIVE_OR_INSUFFICIENT",
+    "path": ".airlock/repo-evidence-004/result.json",
+    "validated": true,
+    "verdict": "INCONCLUSIVE_CONSERVATIVE_GATE"
+  },
+  "experiment": "AIRLOCK-REPO-EVIDENCE-005",
+  "preregistration_sha256": "829cb01c2dbc30e1979c1b8cfc3b09f6fba98867edf5252b4a6722b7d38ea14d",
+  "product_under_test": {
+    "component_sha256": {
+      "src/airlock/acceptance.py": "2fd8537b6d97d536c0ffbad0ff068d08a0e6e0dbb8f15ae9f5dad0dd161734c1",
+      "src/airlock/discovery.py": "70ae738610c282abbf73babd07b7940da7be3cd347258291a7bcb6ebded25e3f",
+      "src/airlock/sieve.py": "d803460a2c49f7f4f77be1b3613ffd7e45b42d3215d4ff364190e8b19b78e457",
+      "src/airlock/util.py": "e47666c6ca2f6f7f0b5396e07a9dc75065b5e72f1f2ea71ea336980f683beeef"
+    },
+    "expected_base": "827fb55b382992735804916d150e5daaabe9c512",
+    "observed_head": "9197a526405969fd888c93460788177a20db1979",
+    "preregistration_sha256": "829cb01c2dbc30e1979c1b8cfc3b09f6fba98867edf5252b4a6722b7d38ea14d",
+    "product_diff_exit_code": 0
+  },
+  "schema": "airlock.repo-evidence-005.result.v1",
+  "verdict": "EXECUTION_CONTEXT_CORRECTION_EARNED"
+}
