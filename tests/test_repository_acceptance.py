@@ -149,6 +149,79 @@ class RepositoryAcceptanceTests(unittest.TestCase):
             any(row.get("kind") == "acceptance" for row in result["commands"])
         )
 
+    def test_generic_pr_workflow_discovers_nested_quality_job(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                "tests/test_value.py": FUNCTIONAL_TEST,
+                "tools/verify_contract.py": JUDGE,
+                ".github/workflows/python-app.yml": (
+                    "name: Python application\n"
+                    "on:\n"
+                    "  pull_request:\n"
+                    "jobs:\n"
+                    "  test:\n"
+                    "    name: Test Python\n"
+                    "    steps:\n"
+                    "      - run: python -S -m unittest discover -s tests -q\n"
+                    "  quality:\n"
+                    "    name: Quality gates\n"
+                    "    steps:\n"
+                    "      - name: Verify repository contract\n"
+                    "        run: python -S tools/verify_contract.py\n"
+                ),
+            }
+        )
+
+        evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        self.assertIn(
+            ["python", "-S", "tools/verify_contract.py"],
+            evidence["commands"],
+        )
+        self.assertTrue(
+            any(
+                source.get("path") == ".github/workflows/python-app.yml"
+                and source.get("argv") == ["python", "-S", "tools/verify_contract.py"]
+                and source.get("status") == "replayable"
+                for source in evidence["sources"]
+            )
+        )
+
+    def test_nested_quality_job_does_not_promote_push_only_workflow(self):
+        fixture = self.make_repo(
+            {
+                "src/__init__.py": "",
+                "src/value.py": BASE_SOURCE,
+                "tools/verify_contract.py": JUDGE,
+                ".github/workflows/python-app.yml": (
+                    "name: Python application\n"
+                    "on:\n"
+                    "  push:\n"
+                    "    branches: [main]\n"
+                    "jobs:\n"
+                    "  quality:\n"
+                    "    name: Quality gates\n"
+                    "    steps:\n"
+                    "      - run: python -S tools/verify_contract.py\n"
+                ),
+            }
+        )
+
+        evidence = discover_acceptance_evidence(fixture.repo, fixture.base)
+
+        self.assertNotIn(
+            ["python", "-S", "tools/verify_contract.py"],
+            evidence["commands"],
+        )
+        self.assertFalse(
+            any(
+                source.get("path") == ".github/workflows/python-app.yml"
+                for source in evidence["sources"]
+            )
+        )
+
     @unittest.skipUnless(shutil.which("make"), "make is required for this fixture")
     def test_make_verify_is_repo_owned_acceptance_evidence(self):
         fixture = self.make_repo(
