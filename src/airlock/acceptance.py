@@ -257,34 +257,78 @@ def _executable_available(argv: list[str], repo: Path, tracked: set[str]) -> boo
 
 
 def _workflow_is_acceptance_surface(path: str, text: str) -> bool:
-    """Only treat repo-wide quality workflows as acceptance evidence.
+    """Recognize repository-owned PR acceptance evidence wherever the workflow puts it.
 
-    Research, deployment, release, and path-specific automation may contain
-    commands that happen to look like tests but do not define the general PR
-    acceptance contract. v1 intentionally follows conventional repo-wide
-    quality surfaces rather than every workflow in the repository.
+    Filename and top-level workflow names are useful hints, but they are not the
+    acceptance contract. Repositories commonly put quality gates inside generic
+    workflows such as ``python-app.yml`` under jobs or steps named "quality",
+    "lint", "type check", and similar. A PR workflow therefore qualifies when
+    either its outer metadata or its nested job/step/command content carries a
+    quality signal.
+
+    Non-PR workflows remain out of scope. Command replay still goes through the
+    existing safe-argv and quality-command filters, so discovering a generic PR
+    workflow does not authorize arbitrary shell execution.
     """
     if "pull_request" not in text:
         return False
 
+    quality_tokens = {
+        "ci",
+        "test",
+        "tests",
+        "quality",
+        "lint",
+        "check",
+        "checks",
+        "verify",
+        "validation",
+        "typecheck",
+        "typing",
+        "mypy",
+        "pyright",
+        "ruff",
+    }
+
+    def label_is_quality(value: str) -> bool:
+        normalized = value.strip().strip("'\"").casefold()
+        words = set(re.findall(r"[a-z0-9]+", normalized))
+        return bool(words & quality_tokens) or _quality_name(normalized)
+
     stem = Path(path).stem.casefold().replace("_", "-")
-    filename_tokens = {"ci", "test", "tests", "quality", "lint", "check", "checks", "verify", "validation"}
-    if stem in filename_tokens or any(
-        stem.startswith(token + "-") or stem.endswith("-" + token)
-        for token in filename_tokens
-    ):
+    if label_is_quality(stem):
         return True
 
-    for raw in text.splitlines():
+    rows = text.splitlines()
+
+    # The top-level workflow name is only one signal. A generic name such as
+    # "Python application" must not stop discovery of a nested "Quality gates"
+    # job later in the same PR workflow.
+    for raw in rows:
         if raw.startswith("name:"):
-            name = raw.split(":", 1)[1].strip().strip("'\"").casefold()
-            words = set(re.findall(r"[a-z0-9]+", name))
-            return bool(words & filename_tokens)
-        if raw and not raw.startswith((" ", "#")):
-            # Stop after top-level metadata starts if name was omitted.
-            if raw.startswith(("on:", "jobs:", "permissions:", "env:")):
-                continue
-    return False
+            if label_is_quality(raw.split(":", 1)[1]):
+                return True
+            break
+
+    # Job ids, job names, and step names are repository-owned evidence about
+    # what the PR workflow is trying to establish.
+    for raw in rows:
+        if not raw.startswith((" ", "\t")):
+            continue
+        stripped = raw.strip()
+        mapping = re.match(r"^([A-Za-z0-9_.-]+):\s*(?:#.*)?$", stripped)
+        if mapping and label_is_quality(mapping.group(1)):
+            return True
+        if stripped.startswith("name:") and label_is_quality(stripped.split(":", 1)[1]):
+            return True
+
+    # Finally inspect the actual run steps. This catches quality gates nested
+    # under generic job names without broadening execution: only commands
+    # already recognized by the existing quality filters are replayed later.
+    return any(
+        _looks_quality_like_text(command_text)
+        for command_text in _workflow_commands(text)
+    )
 
 
 def _workflow_commands(text: str) -> list[str]:
