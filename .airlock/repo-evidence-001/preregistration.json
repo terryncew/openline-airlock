@@ -1,0 +1,267 @@
+{
+  "aggregate_verdicts": {
+    "CURRENT_REPOSITORY_ACCEPTANCE_DISCOVERY_INCOMPLETE": "at least one live-verified UNDERCONSTRAINED pair",
+    "CURRENT_REPOSITORY_ACCEPTANCE_GATE_INVERTED": "no underconstrained pair, but at least one INVERTED pair",
+    "INCONCLUSIVE_CONSERVATIVE_GATE": "no underconstrained/inverted pair, but at least one overconservative pair",
+    "INCONCLUSIVE_EXTERNAL_TRUTH": "at least one case does not reproduce its frozen external truth",
+    "INCONCLUSIVE_INFRASTRUCTURE": "at least one case cannot be fetched, verified, prepared, or evaluated",
+    "REPOSITORY_ACCEPTANCE_DISCRIMINATION_EARNED": "all four fresh pairs are DISCRIMINATED"
+  },
+  "airlock_product_base": "c2495433c6da402f2ca9492f1830d2e4bc2b2bb7",
+  "cases": [
+    {
+      "anchors": {
+        ".github/workflows/ci.yml": "ba844d4a8476b679693ee0142c77d354f208ed92",
+        "CONTRIBUTING.md": "13c3858215bb425c97b314604cb77e599b1efbfa",
+        "pyproject.toml": "aa7a8f5134f16231423640fb8ae77e3a998ce254",
+        "src/envradar/config.py": "ac07238ed500f4cec803f7bfc9ea8e97380a0a38"
+      },
+      "case_id": "envradar-ruff",
+      "commit": "3b88a5835c82178df13963cbccedf234eb90cc13",
+      "external_acceptance_command": [
+        "ruff",
+        "check",
+        "."
+      ],
+      "mutations": {
+        "common": [
+          {
+            "new": "CONFIG_FILENAMES = (\"envradar.yml\", \".envradar.yml\", \"envradar.yaml\")",
+            "old": "CONFIG_FILENAMES = (\"envradar.yml\", \".envradar.yml\")",
+            "op": "replace",
+            "path": "src/envradar/config.py"
+          }
+        ],
+        "compliant": [],
+        "noncompliant": [
+          {
+            "new": "import os\nfrom pathlib import Path\n",
+            "old": "from pathlib import Path\n",
+            "op": "replace",
+            "path": "src/envradar/config.py"
+          }
+        ]
+      },
+      "repo_id": "envradar",
+      "repository": "CodMughees/envradar",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".[dev]"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "import tempfile; from pathlib import Path; from envradar.config import load_scan_config; p=Path(tempfile.mkdtemp()); (p/'envradar.yaml').write_text('ignore:\\n  - AIRLOCK_CASE\\n', encoding='utf-8'); cfg, source=load_scan_config(p); assert source is not None and source.name == 'envradar.yaml'; assert 'AIRLOCK_CASE' in cfg.ignore"
+        ]
+      ],
+      "timeout_seconds": 900
+    },
+    {
+      "anchors": {
+        ".github/workflows/ci.yml": "487acb0482583796a80443c369313a4fe3a2bc22",
+        "pyan/__init__.py": "c62b53904cbb0336f62d8f9aab2f891b18167bc5",
+        "pyproject.toml": "6db0a2c2b04918772c4e70a2b47567b6820b4ac5"
+      },
+      "case_id": "pyan-ruff",
+      "commit": "8522ca4f59b9a731e6a1685c77e8cf983813ceee",
+      "external_acceptance_command": [
+        "pdm",
+        "run",
+        "ruff",
+        "check",
+        "."
+      ],
+      "mutations": {
+        "common": [],
+        "compliant": [
+          {
+            "op": "append",
+            "path": "pyan/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "pyan/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    unused = 1\n    return value.strip()\n"
+          }
+        ]
+      },
+      "repo_id": "pyan",
+      "repository": "Technologicat/pyan",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".",
+          "pdm",
+          "ruff",
+          "pytest",
+          "pytest-cov",
+          "sphinx",
+          "docutils"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "import pyan; assert pyan.airlock_acceptance_probe('  x  ') == 'x'"
+        ]
+      ],
+      "timeout_seconds": 900
+    },
+    {
+      "anchors": {
+        ".github/workflows/pre-commit.yaml": "eda8c518a76e6d8e02e166c2cf2eaec3a8a1bb09",
+        ".github/workflows/tests.yaml": "1e55d4a1493dd8259915a69a170b9aecbb166a17",
+        ".pre-commit-config.yaml": "6e372429c2465e45dcb1c31a898d4f76731f3e17",
+        "pyproject.toml": "6cbccb05dff9abef060f563174e15b14db25a1d0",
+        "src/itsdangerous/__init__.py": "2ce2ef8a4ed2d4bbde4539d92b0777324286b12e"
+      },
+      "case_id": "itsdangerous-precommit",
+      "commit": "672971d66a2ef9f85151e53283113f33d642dabd",
+      "external_acceptance_command": [
+        "pre-commit",
+        "run",
+        "--all-files"
+      ],
+      "mutations": {
+        "common": [],
+        "compliant": [
+          {
+            "op": "append",
+            "path": "src/itsdangerous/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "src/itsdangerous/__init__.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    return value.strip()    \n"
+          }
+        ]
+      },
+      "repo_id": "itsdangerous",
+      "repository": "pallets/itsdangerous",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".",
+          "pre-commit"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "from itsdangerous import airlock_acceptance_probe; assert airlock_acceptance_probe('  x  ') == 'x'"
+        ]
+      ],
+      "timeout_seconds": 1200
+    },
+    {
+      "anchors": {
+        ".github/workflows/python-app.yml": "dd7457ac2b9b5caf11ea9e0cce01e555ec51ac67",
+        "korean_romanizer/romanizer.py": "659ff91c484d5cee2b15d8a8cfb666e39eb010eb",
+        "pyproject.toml": "e065c68cf1bb1cb2d81b2b9413b18a122a097eec"
+      },
+      "case_id": "korean-romanizer-mypy",
+      "commit": "19ab68f1eacad90ba8c8394b9c673d4b9b894e5e",
+      "external_acceptance_command": [
+        "python",
+        "-m",
+        "mypy",
+        "korean_romanizer"
+      ],
+      "mutations": {
+        "common": [],
+        "compliant": [
+          {
+            "op": "append",
+            "path": "korean_romanizer/romanizer.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    result: str = value\n    return result\n"
+          }
+        ],
+        "noncompliant": [
+          {
+            "op": "append",
+            "path": "korean_romanizer/romanizer.py",
+            "text": "\n\ndef airlock_acceptance_probe(value: str) -> str:\n    result: int = value\n    return result\n"
+          }
+        ]
+      },
+      "repo_id": "korean-romanizer",
+      "repository": "osori/korean-romanizer",
+      "setup_commands": [
+        [
+          "{python}",
+          "-m",
+          "pip",
+          "install",
+          "-e",
+          ".[dev]"
+        ]
+      ],
+      "target_commands": [
+        [
+          "python",
+          "-c",
+          "from korean_romanizer.romanizer import airlock_acceptance_probe; assert airlock_acceptance_probe('x') == 'x'"
+        ]
+      ],
+      "timeout_seconds": 900
+    }
+  ],
+  "experiment": "AIRLOCK-REPO-EVIDENCE-001",
+  "integrity_rules": [
+    "Do not modify src/airlock, src/airlock_submit, or pyproject.toml for this experiment.",
+    "Do not call airlock init; initialization reliability is a separate experiment.",
+    "Do not inject the external acceptance constraint into Airlock configuration or target commands.",
+    "Airlock receives only the functional target command plus its own current repository-evidence discovery.",
+    "Verify each upstream repository, commit, and anchor Git blob before generating either candidate.",
+    "Verify external truth live: both functional targets pass; noncompliant acceptance constraint fails; compliant acceptance constraint passes.",
+    "No post-hoc case replacement.",
+    "Do not rerun AIRLOCK-SWE-GATE-001.",
+    "A scientific negative result is frozen as-is before any product correction."
+  ],
+  "original_swe_gate_001_repo_ids_excluded": [
+    "falcon",
+    "msgpack-python",
+    "rich",
+    "textual",
+    "flake8",
+    "datasets",
+    "typer",
+    "panel",
+    "cookiecutter",
+    "dynaconf",
+    "arq",
+    "numba"
+  ],
+  "pair_classes": {
+    "DISCRIMINATED": "noncompliant is BLOCKED or NEEDS_EVIDENCE; compliant SURVIVED",
+    "INCONCLUSIVE": "external truth, setup, patch, or evaluator result is not interpretable",
+    "INVERTED": "noncompliant SURVIVED; compliant withheld",
+    "OVERCONSERVATIVE_OR_INSUFFICIENT": "both candidates are withheld",
+    "UNDERCONSTRAINED": "noncompliant SURVIVED; compliant SURVIVED"
+  },
+  "question": "Can current Airlock distinguish functionally passing candidate pairs when only one satisfies a pre-existing repository-owned acceptance constraint, without benchmark-specific acceptance rules or manual patch labeling?",
+  "schema": "airlock.repo-evidence-001.preregistration.v1"
+}
