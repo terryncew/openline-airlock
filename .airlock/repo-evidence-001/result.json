@@ -1,0 +1,1692 @@
+{
+  "cases": [
+    {
+      "airlock_baseline_evidence": {
+        "base_commit": "3b88a5835c82178df13963cbccedf234eb90cc13",
+        "commands": [
+          [
+            "ruff",
+            "check",
+            "."
+          ],
+          [
+            "pytest"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/ci.yml",
+          "CONTRIBUTING.md"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "ruff",
+              "check",
+              "."
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/ci.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "pytest"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/ci.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "ruff",
+              "check",
+              "."
+            ],
+            "kind": "contributor_docs",
+            "path": "CONTRIBUTING.md",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "pytest"
+            ],
+            "kind": "contributor_docs",
+            "path": "CONTRIBUTING.md",
+            "status": "replayable"
+          }
+        ],
+        "unresolved": []
+      },
+      "anchors": {
+        ".github/workflows/ci.yml": "ba844d4a8476b679693ee0142c77d354f208ed92",
+        "CONTRIBUTING.md": "13c3858215bb425c97b314604cb77e599b1efbfa",
+        "pyproject.toml": "aa7a8f5134f16231423640fb8ae77e3a998ce254",
+        "src/envradar/config.py": "ac07238ed500f4cec803f7bfc9ea8e97380a0a38"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "src/envradar/config.py"
+          ],
+          "commit": "40864a16b6abe7293f24cea45ff4329885d1f285",
+          "label": "compliant",
+          "patch_sha256": "f47f8ebb4a8bb2460d5cf280ccc21b33c1278af7eac468ebe490b38879d237fc"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "src/envradar/config.py"
+          ],
+          "commit": "1a366d0e466f22f56fe0dfc2676bc99d1ac9bba5",
+          "label": "noncompliant",
+          "patch_sha256": "efee68812dd0f37f03b1cc2234bdd0894a9e36dfdadc7d1cde55f39578af8e93"
+        }
+      },
+      "case_id": "envradar-ruff",
+      "external_truth": {
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "ruff",
+              "check",
+              "."
+            ],
+            "duration_seconds": 0.008667,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "a915ad0e990b2438f66fc7e65c4e96dfdcd54a4cf433a4636f0045712cef926c",
+            "stdout_tail": "I001 [*] Import block is un-sorted or un-formatted\n --> scripts/run_action.py:1:1\n  |\n1 | / from __future__ import annotations\n2 | |\n3 | | from envradar.action_runner import main\n  | |_______________________________________^\nhelp: Organize imports\n  |\n4 |\n  -\n5 | if __name__ == \"__main__\":\n  |\n\nI001 [*] Import block is un-sorted or un-formatted\n  --> src/envradar/action_runner.py:1:1\n   |\n 1 | / from __future__ import annotations\n 2 | |\n 3 | | import argparse\n 4 | | from dataclasses import dataclass\n 5 | | from pathlib import Path\n 6 | |\n 7 | | from .config import load_scan_config\n 8 | | from .models import Location, ScanResult\n 9 | | from .render import render_markdown, render_report, write_docs_markdown, write_env_example\n10 | | from .scanner import scan_repo\n   | |______________________________^\n11 |\n12 |   OUTPUT_TOKEN = \"ENVRADAR_OUTPUT\"\n   |\nhelp: Organize imports\n   |\n8  | from .models import Location, ScanResult\n   - from .render import render_markdown, render_report, write_docs_markdown, write_env_example\n9  + from .render import (\n10 +     render_markdown,\n11 +     render_report,\n12 +     write_docs_markdown,\n13 +     write_env_example,\n14 + )\n15 | from .scanner import scan_repo\n   |\n\nFound 2 errors.\n[*] 2 fixable with the `--fix` option.\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import tempfile; from pathlib import Path; from envradar.config import load_scan_config; p=Path(tempfile.mkdtemp()); (p/'envradar.yaml').write_text('ignore:\\n  - AIRLOCK_CASE\\n', encoding='utf-8'); cfg, source=load_scan_config(p); assert source is not None and source.name == 'envradar.yaml'; assert 'AIRLOCK_CASE' in cfg.ignore"
+              ],
+              "duration_seconds": 0.077464,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "ruff",
+              "check",
+              "."
+            ],
+            "duration_seconds": 0.008836,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "1cd71c395148d417955b55e97be2ccfe7d4ce6de0f000ebc62d5a39fcb851f6a",
+            "stdout_tail": "I001 [*] Import block is un-sorted or un-formatted\n --> scripts/run_action.py:1:1\n  |\n1 | / from __future__ import annotations\n2 | |\n3 | | from envradar.action_runner import main\n  | |_______________________________________^\nhelp: Organize imports\n  |\n4 |\n  -\n5 | if __name__ == \"__main__\":\n  |\n\nI001 [*] Import block is un-sorted or un-formatted\n  --> src/envradar/action_runner.py:1:1\n   |\n 1 | / from __future__ import annotations\n 2 | |\n 3 | | import argparse\n 4 | | from dataclasses import dataclass\n 5 | | from pathlib import Path\n 6 | |\n 7 | | from .config import load_scan_config\n 8 | | from .models import Location, ScanResult\n 9 | | from .render import render_markdown, render_report, write_docs_markdown, write_env_example\n10 | | from .scanner import scan_repo\n   | |______________________________^\n11 |\n12 |   OUTPUT_TOKEN = \"ENVRADAR_OUTPUT\"\n   |\nhelp: Organize imports\n   |\n8  | from .models import Location, ScanResult\n   - from .render import render_markdown, render_report, write_docs_markdown, write_env_example\n9  + from .render import (\n10 +     render_markdown,\n11 +     render_report,\n12 +     write_docs_markdown,\n13 +     write_env_example,\n14 + )\n15 | from .scanner import scan_repo\n   |\n\nF401 [*] `os` imported but unused\n --> src/envradar/config.py:3:8\n  |\n1 | from __future__ import annotations\n2 |\n3 | import os\n  |        ^^\n4 | from pathlib import Path\n  |\nhelp: Remove unused import: `os`\n  |\n2 |\n  - import os\n3 | from pathlib import Path\n  |\n\nFound 3 errors.\n[*] 3 fixable with the `--fix` option.\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import tempfile; from pathlib import Path; from envradar.config import load_scan_config; p=Path(tempfile.mkdtemp()); (p/'envradar.yaml').write_text('ignore:\\n  - AIRLOCK_CASE\\n', encoding='utf-8'); cfg, source=load_scan_config(p); assert source is not None and source.name == 'envradar.yaml'; assert 'AIRLOCK_CASE' in cfg.ignore"
+              ],
+              "duration_seconds": 0.074328,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "reproduced": false
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.003657,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/CodMughees/envradar.git"
+          ],
+          "duration_seconds": 0.002202,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "3b88a5835c82178df13963cbccedf234eb90cc13"
+          ],
+          "duration_seconds": 0.216769,
+          "exit_code": 0,
+          "stderr_sha256": "5c4a4d33142cf20550241d57df93650c1f1240a74d0895fc6955dee87aacd4f9",
+          "stderr_tail": "From https://github.com/CodMughees/envradar\n * branch            3b88a5835c82178df13963cbccedf234eb90cc13 -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.005335,
+          "exit_code": 0,
+          "stderr_sha256": "327d1311612df739198e2d2016f948434cee98f44a63b0412dbf2c30726d5c9d",
+          "stderr_tail": "HEAD is now at 3b88a58 Turn envradar into a reusable GitHub Action\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "INCONCLUSIVE",
+      "pinned_commit": "3b88a5835c82178df13963cbccedf234eb90cc13",
+      "repo_id": "envradar",
+      "repository": "CodMughees/envradar",
+      "schema": "airlock.repo-evidence-001.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-envradar-ruff-hjqjhiv7/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".[dev]"
+          ],
+          "duration_seconds": 5.196004,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "f6ef99906f6e90bf65942911414e76750ea78c1384e7e85472e0d2cfc13cd038",
+          "stdout_tail": ".manylinux2014_x86_64.whl.metadata (26 kB)\nCollecting iniconfig>=1.0.1 (from pytest>=8.0->envradar==0.2.0)\n  Downloading iniconfig-2.3.0-py3-none-any.whl.metadata (2.5 kB)\nCollecting packaging>=22 (from pytest>=8.0->envradar==0.2.0)\n  Using cached packaging-26.3-py3-none-any.whl.metadata (3.5 kB)\nCollecting pluggy<2,>=1.5 (from pytest>=8.0->envradar==0.2.0)\n  Downloading pluggy-1.6.0-py3-none-any.whl.metadata (4.8 kB)\nCollecting pygments>=2.7.2 (from pytest>=8.0->envradar==0.2.0)\n  Downloading pygments-2.21.0-py3-none-any.whl.metadata (2.5 kB)\nDownloading pytest-9.1.1-py3-none-any.whl (386 kB)\nDownloading pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 807.9/807.9 kB 44.0 MB/s eta 0:00:00\nDownloading ruff-0.16.6-py3-none-manylinux_2_17_x86_64.manylinux2014_x86_64.whl (10.3 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 10.3/10.3 MB 208.0 MB/s eta 0:00:00\nDownloading iniconfig-2.3.0-py3-none-any.whl (7.5 kB)\nUsing cached packaging-26.3-py3-none-any.whl (129 kB)\nDownloading pluggy-1.6.0-py3-none-any.whl (20 kB)\nDownloading pygments-2.21.0-py3-none-any.whl (1.3 MB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 1.3/1.3 MB 227.7 MB/s eta 0:00:00\nBuilding wheels for collected packages: envradar\n  Building editable for envradar (pyproject.toml): started\n  Building editable for envradar (pyproject.toml): finished with status 'done'\n  Created wheel for envradar: filename=envradar-0.2.0-0.editable-py3-none-any.whl size=5253 sha256=295bb61ae654477ce5617214e51558f058df2e945db87013bfd5afea5be8d11e\n  Stored in directory: /tmp/pip-ephem-wheel-cache-sbg5bxga/wheels/ba/52/e4/9b00f99a8edc7a1cb46aacc95b15dd2cb48327e3ec9c64d962\nSuccessfully built envradar\nInstalling collected packages: ruff, PyYAML, pygments, pluggy, packaging, iniconfig, pytest, envradar\nSuccessfully installed PyYAML-6.0.3 envradar-0.2.0 iniconfig-2.3.0 packaging-26.3 pluggy-1.6.0 pygments-2.21.0 pytest-9.1.1 ruff-0.16.6\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.003591,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "INCONCLUSIVE_EXTERNAL_TRUTH"
+    },
+    {
+      "airlock": {
+        "compliant": {
+          "changed_paths": [
+            "pyan/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "import pyan; assert pyan.airlock_acceptance_probe('  x  ') == 'x'"
+                  ],
+                  "duration_seconds": 0.171615,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "baseline_commands": [
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "duration_seconds": 0.555723,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+                  "stdout_tail": "All checks passed!\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "duration_seconds": 32.770381,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "d25f3a515b750fb9d636c62bd93b8c42f4ec0899b6dac8558212322bf180b228",
+                  "stdout_tail": "  140      4    97%   162, 229, 234, 273\npyan/main.py              183     14    92%   214, 216, 236, 567, 570, 586, 589, 597-598, 626-627, 668, 671, 687\npyan/modvis.py            288     19    93%   72, 199, 311, 351, 441, 471, 473, 630, 646, 648, 653-654, 668, 687, 715, 717, 719, 721, 729\npyan/node.py              107      2    98%   143, 224\npyan/postprocessor.py     136      8    94%   64, 82, 210-214, 217-218, 262\npyan/recognizers.py       107     11    90%   55, 110, 131, 164, 172, 180, 211, 244, 248-249, 259\npyan/sphinx.py             65     17    74%   38, 78, 98-118, 127, 129, 131, 133, 140\npyan/visgraph.py          184     10    95%   34-35, 71-72, 90-94, 111, 170\npyan/writers.py           259     32    88%   50, 73, 79, 140, 202-221, 226-246\n-----------------------------------------------------\nTOTAL                    2858    201    93%\n\n1 file skipped due to complete coverage.\nCoverage HTML written to dir htmlcov\n=========================== short test summary info ============================\nSKIPPED [1] tests/test_comprehension_unpacking.py:38: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:45: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:52: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:59: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:66: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_coverage.py:274: graphviz dot not installed\nSKIPPED [1] tests/test_coverage.py:280: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:229: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:237: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:253: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:262: graphviz dot not installed\n======================= 395 passed, 11 skipped in 31.79s =======================\n",
+                  "timed_out": false
+                }
+              ],
+              "basis": "acceptance_command_failed",
+              "commands": [
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "duration_seconds": 0.54123,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+                  "stdout_tail": "All checks passed!\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "duration_seconds": 27.603048,
+                  "exit_code": 1,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "27029c13cdac28dbce160e8abc6c505ec7f5106ef5ea34153dfdd780634db0ea",
+                  "stdout_tail": "nxcontrib.serializinghtml (2.0.0)\nE           * sphinxcontrib.qthelp (2.0.0)\nE           * sphinx.ext.graphviz (9.1.0)\nE           * pyan.sphinx (0.1)\nE           \nE           Traceback\nE           =========\nE           \nE                 File \"/tmp/repo-evidence-airlock-compliant-flo2s8vx/pyan/analyzer.py\", line 2182, in _function_scope\nE                   self.scope_stack.append(self.scopes[inner_ns])\nE                                           ~~~~~~~~~~~^^^^^^^^^^\nE               KeyError: 'airlock_acceptance_probe'\nE           \nE           \nE           The full traceback has been saved in:\nE           /tmp/sphinx-err-xosvaxlg.log\nE           \nE           To report this error to the developers, please open an issue at <https://github.com/sphinx-doc/sphinx/issues/>. Thanks!\nE           Please also report this if it was a user error, so that a better error message can be provided next time.\n\ntests/test_sphinx.py:205: Failed\n=========================== short test summary info ============================\nSKIPPED [1] tests/test_comprehension_unpacking.py:38: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:45: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:52: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:59: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:66: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_coverage.py:274: graphviz dot not installed\nSKIPPED [1] tests/test_coverage.py:280: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:229: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:237: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:253: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:262: graphviz dot not installed\n================== 7 failed, 388 passed, 11 skipped in 26.61s ==================\n",
+                  "timed_out": false
+                }
+              ],
+              "restored_judge_paths": [
+                ".github/workflows/ci.yml"
+              ],
+              "rule": "repository_acceptance",
+              "sources": [
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/ci.yml",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/ci.yml",
+                  "status": "replayable"
+                }
+              ],
+              "status": "FAIL"
+            }
+          ],
+          "commit": "a04758877b9f06bfb62ebb0a6fa43007025ca634",
+          "disposition": "BLOCKED",
+          "label": "compliant",
+          "patch_sha256": "83a9c6748fdf404747b4d466f21d2d26d91bcd30017ab81179fde704fc931a8f",
+          "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "pyan/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "import pyan; assert pyan.airlock_acceptance_probe('  x  ') == 'x'"
+                  ],
+                  "duration_seconds": 0.172072,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "baseline_commands": [
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "duration_seconds": 0.532776,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+                  "stdout_tail": "All checks passed!\n",
+                  "timed_out": false
+                },
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "duration_seconds": 32.822698,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "e4f16519a96aaf41d9c94d2aa3f61cf6c64a3a3c13ce57adadb5731836cfddf2",
+                  "stdout_tail": "  140      4    97%   162, 229, 234, 273\npyan/main.py              183     14    92%   214, 216, 236, 567, 570, 586, 589, 597-598, 626-627, 668, 671, 687\npyan/modvis.py            288     19    93%   72, 199, 311, 351, 441, 471, 473, 630, 646, 648, 653-654, 668, 687, 715, 717, 719, 721, 729\npyan/node.py              107      2    98%   143, 224\npyan/postprocessor.py     136      8    94%   64, 82, 210-214, 217-218, 262\npyan/recognizers.py       107     11    90%   55, 110, 131, 164, 172, 180, 211, 244, 248-249, 259\npyan/sphinx.py             65     17    74%   38, 78, 98-118, 127, 129, 131, 133, 140\npyan/visgraph.py          184     10    95%   34-35, 71-72, 90-94, 111, 170\npyan/writers.py           259     32    88%   50, 73, 79, 140, 202-221, 226-246\n-----------------------------------------------------\nTOTAL                    2858    201    93%\n\n1 file skipped due to complete coverage.\nCoverage HTML written to dir htmlcov\n=========================== short test summary info ============================\nSKIPPED [1] tests/test_comprehension_unpacking.py:38: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:45: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:52: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:59: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_comprehension_unpacking.py:66: comprehension unpacking requires Python 3.15+\nSKIPPED [1] tests/test_coverage.py:274: graphviz dot not installed\nSKIPPED [1] tests/test_coverage.py:280: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:229: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:237: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:253: graphviz dot not installed\nSKIPPED [1] tests/test_writers.py:262: graphviz dot not installed\n======================= 395 passed, 11 skipped in 31.58s =======================\n",
+                  "timed_out": false
+                }
+              ],
+              "basis": "acceptance_command_failed",
+              "commands": [
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "duration_seconds": 0.537952,
+                  "exit_code": 1,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+                  "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+                  "stdout_sha256": "78e981681834db6129411bf5b278f9a77f451abaac7f5576e26ee5b7ea872d25",
+                  "stdout_tail": "F841 Local variable `unused` is assigned to but never used\n  --> pyan/__init__.py:10:5\n   |\n 9 | def airlock_acceptance_probe(value: str) -> str:\n10 |     unused = 1\n   |     ^^^^^^\n11 |     return value.strip()\n   |\nhelp: Remove assignment to unused variable `unused`\n\nFound 1 error.\nNo fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).\n",
+                  "timed_out": false
+                }
+              ],
+              "restored_judge_paths": [
+                ".github/workflows/ci.yml"
+              ],
+              "rule": "repository_acceptance",
+              "sources": [
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "ruff",
+                    "check",
+                    "."
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/ci.yml",
+                  "status": "replayable"
+                },
+                {
+                  "argv": [
+                    "pdm",
+                    "run",
+                    "pytest",
+                    "tests/",
+                    "-v"
+                  ],
+                  "kind": "github_actions",
+                  "path": ".github/workflows/ci.yml",
+                  "status": "replayable"
+                }
+              ],
+              "status": "FAIL"
+            }
+          ],
+          "commit": "9d0dbfc0a8690fce4cce4f3ee82cf8bcee8bab6a",
+          "disposition": "BLOCKED",
+          "label": "noncompliant",
+          "patch_sha256": "919983da33f4042e75df132bc69e16f85b7bdea71842bffce8e5b66dc7ec64ca",
+          "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+        },
+        "protected_patterns": [
+          "tests/**",
+          ".github/**",
+          ".airlock/**",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml",
+          ".ruff.toml",
+          "Cargo.toml",
+          "GNUmakefile",
+          "Makefile",
+          "Taskfile.yaml",
+          "Taskfile.yml",
+          "go.mod",
+          "justfile",
+          "makefile",
+          "mypy.ini",
+          "noxfile.py",
+          "package.json",
+          "pyproject.toml",
+          "pytest.ini",
+          "ruff.toml",
+          "setup.cfg",
+          "tox.ini",
+          "tsconfig.json"
+        ]
+      },
+      "airlock_baseline_evidence": {
+        "base_commit": "8522ca4f59b9a731e6a1685c77e8cf983813ceee",
+        "commands": [
+          [
+            "pdm",
+            "run",
+            "ruff",
+            "check",
+            "."
+          ],
+          [
+            "pdm",
+            "run",
+            "pytest",
+            "tests/",
+            "-v"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/ci.yml"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "pdm",
+              "run",
+              "ruff",
+              "check",
+              "."
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/ci.yml",
+            "status": "replayable"
+          },
+          {
+            "argv": [
+              "pdm",
+              "run",
+              "pytest",
+              "tests/",
+              "-v"
+            ],
+            "kind": "github_actions",
+            "path": ".github/workflows/ci.yml",
+            "status": "replayable"
+          }
+        ],
+        "unresolved": []
+      },
+      "anchors": {
+        ".github/workflows/ci.yml": "487acb0482583796a80443c369313a4fe3a2bc22",
+        "pyan/__init__.py": "c62b53904cbb0336f62d8f9aab2f891b18167bc5",
+        "pyproject.toml": "6db0a2c2b04918772c4e70a2b47567b6820b4ac5"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "pyan/__init__.py"
+          ],
+          "commit": "a04758877b9f06bfb62ebb0a6fa43007025ca634",
+          "label": "compliant",
+          "patch_sha256": "83a9c6748fdf404747b4d466f21d2d26d91bcd30017ab81179fde704fc931a8f"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "pyan/__init__.py"
+          ],
+          "commit": "9d0dbfc0a8690fce4cce4f3ee82cf8bcee8bab6a",
+          "label": "noncompliant",
+          "patch_sha256": "919983da33f4042e75df132bc69e16f85b7bdea71842bffce8e5b66dc7ec64ca"
+        }
+      },
+      "case_id": "pyan-ruff",
+      "external_truth": {
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "pdm",
+              "run",
+              "ruff",
+              "check",
+              "."
+            ],
+            "duration_seconds": 0.526635,
+            "exit_code": 0,
+            "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+            "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+            "stdout_sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18",
+            "stdout_tail": "All checks passed!\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import pyan; assert pyan.airlock_acceptance_probe('  x  ') == 'x'"
+              ],
+              "duration_seconds": 0.174103,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "pdm",
+              "run",
+              "ruff",
+              "check",
+              "."
+            ],
+            "duration_seconds": 0.529243,
+            "exit_code": 1,
+            "stderr_sha256": "6088002b08da2db28ec054f0b9d248c99696b9e83b8a9364e3e0d185e2c03b7f",
+            "stderr_tail": "INFO: Inside an active virtualenv /tmp/airlock-pyan-ruff-7s4x5az0/venv, reusing it.\nSet env var PDM_IGNORE_ACTIVE_VENV to ignore it.\n",
+            "stdout_sha256": "78e981681834db6129411bf5b278f9a77f451abaac7f5576e26ee5b7ea872d25",
+            "stdout_tail": "F841 Local variable `unused` is assigned to but never used\n  --> pyan/__init__.py:10:5\n   |\n 9 | def airlock_acceptance_probe(value: str) -> str:\n10 |     unused = 1\n   |     ^^^^^^\n11 |     return value.strip()\n   |\nhelp: Remove assignment to unused variable `unused`\n\nFound 1 error.\nNo fixes available (1 hidden fix can be enabled with the `--unsafe-fixes` option).\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "import pyan; assert pyan.airlock_acceptance_probe('  x  ') == 'x'"
+              ],
+              "duration_seconds": 0.252354,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "reproduced": true
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.003943,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/Technologicat/pyan.git"
+          ],
+          "duration_seconds": 0.002195,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "8522ca4f59b9a731e6a1685c77e8cf983813ceee"
+          ],
+          "duration_seconds": 0.269335,
+          "exit_code": 0,
+          "stderr_sha256": "592d0cd4cb4615be2fcf8bcf553de6c95f90f61559b7097e93f7d859e60578d9",
+          "stderr_tail": "From https://github.com/Technologicat/pyan\n * branch            8522ca4f59b9a731e6a1685c77e8cf983813ceee -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.015286,
+          "exit_code": 0,
+          "stderr_sha256": "8c4965f4159c57455ba08c6ad4c7d2a4bcb31afcc6f305508206d6d149280086",
+          "stderr_tail": "HEAD is now at 8522ca4 Open 2.8.2-dev\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "OVERCONSERVATIVE_OR_INSUFFICIENT",
+      "pinned_commit": "8522ca4f59b9a731e6a1685c77e8cf983813ceee",
+      "repo_id": "pyan",
+      "repository": "Technologicat/pyan",
+      "schema": "airlock.repo-evidence-001.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-pyan-ruff-7s4x5az0/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "pdm",
+            "ruff",
+            "pytest",
+            "pytest-cov",
+            "sphinx",
+            "docutils"
+          ],
+          "duration_seconds": 11.461365,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "674830714362c51c04437526ad9c74014238e93c65e947bffef8965f33f6aee0",
+          "stdout_tail": "45bbdc\n  Stored in directory: /tmp/pip-ephem-wheel-cache-fj89c51j/wheels/7d/a0/bc/b4e2819024518cd0ac08816dab88db202f44b02c8190545a3d\nSuccessfully built pyan3\nInstalling collected packages: distlib, urllib3, typing-extensions, truststore, tomlkit, sphinxcontrib-serializinghtml, sphinxcontrib-qthelp, sphinxcontrib-jsmath, sphinxcontrib-htmlhelp, sphinxcontrib-devhelp, sphinxcontrib-applehelp, socksio, snowballstemmer, shellingham, ruff, roman-numerals, resolvelib, python-dotenv, pyproject-hooks, pygments, pluggy, platformdirs, pbs-installer, packaging, msgpack, mdurl, MarkupSafe, installer, iniconfig, imagesize, idna, h11, filelock, docutils, coverage, charset_normalizer, certifi, blinker, babel, argcomplete, alabaster, requests, python-discovery, pytest, markdown-it-py, Jinja2, id, httpcore, hishel, findpython, dep-logic, anyio, virtualenv, sphinx, rich, pytest-cov, pyan3, httpx, anysqlite, unearth, pdm\nSuccessfully installed Jinja2-3.1.6 MarkupSafe-3.0.3 alabaster-1.0.0 anyio-4.15.1 anysqlite-0.0.5 argcomplete-3.7.2 babel-2.18.0 blinker-1.9.0 certifi-2026.7.22 charset_normalizer-3.5.1 coverage-7.16.0 dep-logic-0.7.2 distlib-0.4.3 docutils-0.22.4 filelock-3.32.5 findpython-0.8.0 h11-0.16.0 hishel-1.3.1 httpcore-1.0.9 httpx-0.28.1 id-1.6.1 idna-3.19 imagesize-2.0.1 iniconfig-2.3.0 installer-1.0.1 markdown-it-py-4.2.0 mdurl-0.1.2 msgpack-1.2.2 packaging-26.3 pbs-installer-2026.9.1 pdm-2.29.0 platformdirs-4.11.7 pluggy-1.6.0 pyan3-2.8.2.dev0 pygments-2.21.0 pyproject-hooks-1.2.0 pytest-9.1.1 pytest-cov-7.1.0 python-discovery-1.6.0 python-dotenv-1.2.3 requests-2.34.2 resolvelib-1.2.1 rich-15.0.0 roman-numerals-4.1.0 ruff-0.16.6 shellingham-1.5.4 snowballstemmer-3.1.1 socksio-1.0.0 sphinx-9.1.0 sphinxcontrib-applehelp-2.0.0 sphinxcontrib-devhelp-2.0.0 sphinxcontrib-htmlhelp-2.1.0 sphinxcontrib-jsmath-1.0.1 sphinxcontrib-qthelp-2.0.0 sphinxcontrib-serializinghtml-2.0.0 tomlkit-0.15.1 truststore-0.10.4 typing-extensions-4.16.0 unearth-0.18.3 urllib3-2.7.0 virtualenv-21.7.8\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.008389,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "EVALUATED"
+    },
+    {
+      "airlock": {
+        "compliant": {
+          "changed_paths": [
+            "src/itsdangerous/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "from itsdangerous import airlock_acceptance_probe; assert airlock_acceptance_probe('  x  ') == 'x'"
+                  ],
+                  "duration_seconds": 0.05379,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "pre-commit",
+                    "run",
+                    "--all-files"
+                  ],
+                  "duration_seconds": 0.634435,
+                  "exit_code": 0,
+                  "kind": "acceptance",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9b6c3ddf86c380abb26a9268f43178cac0ee8fb2c0e4ed8e4940bb05ad9fbd24",
+                  "stdout_tail": "ruff (legacy alias)......................................................Passed\nruff format..............................................................Passed\nuv-lock..................................................................Passed\ncheck for merge conflicts................................................Passed\ndebug statements (python)................................................Passed\nfix utf-8 byte order marker..............................................Passed\ntrim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\n",
+                  "timed_out": false
+                }
+              ],
+              "repository_acceptance": {
+                "basis": "repo_owned_acceptance_commands_passed",
+                "restored_judge_paths": [
+                  ".github/workflows/tests.yaml",
+                  ".pre-commit-config.yaml"
+                ],
+                "sources": [
+                  {
+                    "argv": [
+                      "pre-commit",
+                      "run",
+                      "--all-files"
+                    ],
+                    "kind": "pre_commit",
+                    "path": ".pre-commit-config.yaml",
+                    "status": "replayable"
+                  },
+                  {
+                    "command_text": "uv run --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}",
+                    "kind": "github_actions",
+                    "path": ".github/workflows/tests.yaml",
+                    "reason": "shell_composition",
+                    "status": "unresolved"
+                  }
+                ],
+                "status": "PASS"
+              },
+              "rule": "regression",
+              "status": "PASS"
+            },
+            {
+              "basis": "unresolved_repository_acceptance_evidence",
+              "matched_tests": [],
+              "repository_acceptance": {
+                "sources": [
+                  {
+                    "argv": [
+                      "pre-commit",
+                      "run",
+                      "--all-files"
+                    ],
+                    "kind": "pre_commit",
+                    "path": ".pre-commit-config.yaml",
+                    "status": "replayable"
+                  },
+                  {
+                    "command_text": "uv run --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}",
+                    "kind": "github_actions",
+                    "path": ".github/workflows/tests.yaml",
+                    "reason": "shell_composition",
+                    "status": "unresolved"
+                  }
+                ],
+                "unresolved": [
+                  {
+                    "command_text": "uv run --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}",
+                    "kind": "github_actions",
+                    "path": ".github/workflows/tests.yaml",
+                    "reason": "shell_composition",
+                    "status": "unresolved"
+                  }
+                ]
+              },
+              "rule": "evidence_sufficiency",
+              "status": "INSUFFICIENT"
+            }
+          ],
+          "commit": "2414556f7ff18ddf5b38d69f15f67e2296aa6c11",
+          "disposition": "NEEDS_EVIDENCE",
+          "label": "compliant",
+          "patch_sha256": "eec718fe639223acce346f95fd6a19fc4c209a281a3dfd8feabb6a986cbc04de",
+          "reason": "unresolved_repository_acceptance_evidence"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "src/itsdangerous/__init__.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "from itsdangerous import airlock_acceptance_probe; assert airlock_acceptance_probe('  x  ') == 'x'"
+                  ],
+                  "duration_seconds": 0.053034,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "baseline_commands": [
+                {
+                  "argv": [
+                    "pre-commit",
+                    "run",
+                    "--all-files"
+                  ],
+                  "duration_seconds": 0.63219,
+                  "exit_code": 0,
+                  "kind": "acceptance_baseline",
+                  "side_effect": false,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "9b6c3ddf86c380abb26a9268f43178cac0ee8fb2c0e4ed8e4940bb05ad9fbd24",
+                  "stdout_tail": "ruff (legacy alias)......................................................Passed\nruff format..............................................................Passed\nuv-lock..................................................................Passed\ncheck for merge conflicts................................................Passed\ndebug statements (python)................................................Passed\nfix utf-8 byte order marker..............................................Passed\ntrim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\n",
+                  "timed_out": false
+                }
+              ],
+              "basis": "acceptance_command_side_effect",
+              "commands": [
+                {
+                  "argv": [
+                    "pre-commit",
+                    "run",
+                    "--all-files"
+                  ],
+                  "duration_seconds": 0.640766,
+                  "exit_code": 1,
+                  "kind": "acceptance",
+                  "side_effect": true,
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "c82dba14784b9b47cc1fe8a787d8fd3505a2a719866012836c6398ba0ee1141f",
+                  "stdout_tail": "ruff (legacy alias)......................................................Failed\n- hook id: ruff\n- files were modified by this hook\n\nFixed 1 error:\n- src/itsdangerous/__init__.py:\n    1 \u00d7 W291 (trailing-whitespace)\n\nFound 1 error (1 fixed, 0 remaining).\n\nruff format..............................................................Passed\nuv-lock..................................................................Passed\ncheck for merge conflicts................................................Passed\ndebug statements (python)................................................Passed\nfix utf-8 byte order marker..............................................Passed\ntrim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\n",
+                  "timed_out": false
+                }
+              ],
+              "restored_judge_paths": [
+                ".github/workflows/tests.yaml",
+                ".pre-commit-config.yaml"
+              ],
+              "rule": "repository_acceptance",
+              "sources": [
+                {
+                  "argv": [
+                    "pre-commit",
+                    "run",
+                    "--all-files"
+                  ],
+                  "kind": "pre_commit",
+                  "path": ".pre-commit-config.yaml",
+                  "status": "replayable"
+                },
+                {
+                  "command_text": "uv run --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}",
+                  "kind": "github_actions",
+                  "path": ".github/workflows/tests.yaml",
+                  "reason": "shell_composition",
+                  "status": "unresolved"
+                }
+              ],
+              "status": "FAIL"
+            }
+          ],
+          "commit": "b67276f009a463341a1fe78046facf9ee194fe72",
+          "disposition": "BLOCKED",
+          "label": "noncompliant",
+          "patch_sha256": "b6d97c609fc1914787ca9af79519384c7b930e9fca684655f66bea191caa193a",
+          "reason": "REPOSITORY_ACCEPTANCE_FAILED"
+        },
+        "protected_patterns": [
+          "tests/**",
+          ".github/**",
+          ".airlock/**",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml",
+          ".ruff.toml",
+          "Cargo.toml",
+          "GNUmakefile",
+          "Makefile",
+          "Taskfile.yaml",
+          "Taskfile.yml",
+          "go.mod",
+          "justfile",
+          "makefile",
+          "mypy.ini",
+          "noxfile.py",
+          "package.json",
+          "pyproject.toml",
+          "pytest.ini",
+          "ruff.toml",
+          "setup.cfg",
+          "tox.ini",
+          "tsconfig.json",
+          "uv.lock"
+        ]
+      },
+      "airlock_baseline_evidence": {
+        "base_commit": "672971d66a2ef9f85151e53283113f33d642dabd",
+        "commands": [
+          [
+            "pre-commit",
+            "run",
+            "--all-files"
+          ]
+        ],
+        "judge_paths": [
+          ".github/workflows/tests.yaml",
+          ".pre-commit-config.yaml"
+        ],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [
+          {
+            "argv": [
+              "pre-commit",
+              "run",
+              "--all-files"
+            ],
+            "kind": "pre_commit",
+            "path": ".pre-commit-config.yaml",
+            "status": "replayable"
+          },
+          {
+            "command_text": "uv run --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}",
+            "kind": "github_actions",
+            "path": ".github/workflows/tests.yaml",
+            "reason": "shell_composition",
+            "status": "unresolved"
+          }
+        ],
+        "unresolved": [
+          {
+            "command_text": "uv run --locked tox run -e ${{ matrix.tox || format('py{0}', matrix.python) }}",
+            "kind": "github_actions",
+            "path": ".github/workflows/tests.yaml",
+            "reason": "shell_composition",
+            "status": "unresolved"
+          }
+        ]
+      },
+      "anchors": {
+        ".github/workflows/pre-commit.yaml": "eda8c518a76e6d8e02e166c2cf2eaec3a8a1bb09",
+        ".github/workflows/tests.yaml": "1e55d4a1493dd8259915a69a170b9aecbb166a17",
+        ".pre-commit-config.yaml": "6e372429c2465e45dcb1c31a898d4f76731f3e17",
+        "pyproject.toml": "6cbccb05dff9abef060f563174e15b14db25a1d0",
+        "src/itsdangerous/__init__.py": "2ce2ef8a4ed2d4bbde4539d92b0777324286b12e"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "src/itsdangerous/__init__.py"
+          ],
+          "commit": "2414556f7ff18ddf5b38d69f15f67e2296aa6c11",
+          "label": "compliant",
+          "patch_sha256": "eec718fe639223acce346f95fd6a19fc4c209a281a3dfd8feabb6a986cbc04de"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "src/itsdangerous/__init__.py"
+          ],
+          "commit": "b67276f009a463341a1fe78046facf9ee194fe72",
+          "label": "noncompliant",
+          "patch_sha256": "b6d97c609fc1914787ca9af79519384c7b930e9fca684655f66bea191caa193a"
+        }
+      },
+      "case_id": "itsdangerous-precommit",
+      "external_truth": {
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "pre-commit",
+              "run",
+              "--all-files"
+            ],
+            "duration_seconds": 0.64071,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "9b6c3ddf86c380abb26a9268f43178cac0ee8fb2c0e4ed8e4940bb05ad9fbd24",
+            "stdout_tail": "ruff (legacy alias)......................................................Passed\nruff format..............................................................Passed\nuv-lock..................................................................Passed\ncheck for merge conflicts................................................Passed\ndebug statements (python)................................................Passed\nfix utf-8 byte order marker..............................................Passed\ntrim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "from itsdangerous import airlock_acceptance_probe; assert airlock_acceptance_probe('  x  ') == 'x'"
+              ],
+              "duration_seconds": 0.053362,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "pre-commit",
+              "run",
+              "--all-files"
+            ],
+            "duration_seconds": 13.729508,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "767c6a009547205cb1cac4dc9889bfbf47dc5923f9f0fc2686f2a32faa37227e",
+            "stdout_tail": "[INFO] Initializing environment for https://github.com/astral-sh/ruff-pre-commit.\n[INFO] Initializing environment for https://github.com/astral-sh/uv-pre-commit.\n[INFO] Initializing environment for https://github.com/pre-commit/pre-commit-hooks.\n[INFO] Installing environment for https://github.com/astral-sh/ruff-pre-commit.\n[INFO] Once installed this environment will be reused.\n[INFO] This may take a few minutes...\n[INFO] Installing environment for https://github.com/astral-sh/uv-pre-commit.\n[INFO] Once installed this environment will be reused.\n[INFO] This may take a few minutes...\n[INFO] Installing environment for https://github.com/pre-commit/pre-commit-hooks.\n[INFO] Once installed this environment will be reused.\n[INFO] This may take a few minutes...\nruff (legacy alias)......................................................Failed\n- hook id: ruff\n- files were modified by this hook\n\nFixed 1 error:\n- src/itsdangerous/__init__.py:\n    1 \u00d7 W291 (trailing-whitespace)\n\nFound 1 error (1 fixed, 0 remaining).\n\nruff format..............................................................Passed\nuv-lock..................................................................Passed\ncheck for merge conflicts................................................Passed\ndebug statements (python)................................................Passed\nfix utf-8 byte order marker..............................................Passed\ntrim trailing whitespace.................................................Passed\nfix end of files.........................................................Passed\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "from itsdangerous import airlock_acceptance_probe; assert airlock_acceptance_probe('  x  ') == 'x'"
+              ],
+              "duration_seconds": 0.052587,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "reproduced": true
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.004134,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/pallets/itsdangerous.git"
+          ],
+          "duration_seconds": 0.002221,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "672971d66a2ef9f85151e53283113f33d642dabd"
+          ],
+          "duration_seconds": 0.217369,
+          "exit_code": 0,
+          "stderr_sha256": "f0490fd4904fd81058f0e17b0675720f239082c75155517f3e77f6b9e5839166",
+          "stderr_tail": "From https://github.com/pallets/itsdangerous\n * branch            672971d66a2ef9f85151e53283113f33d642dabd -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.00831,
+          "exit_code": 0,
+          "stderr_sha256": "2654592a4e55d7a81f7837611ee6e02648f96d30239ec97a7c6783baa1290662",
+          "stderr_tail": "HEAD is now at 672971d Merge branch 'stable'\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "OVERCONSERVATIVE_OR_INSUFFICIENT",
+      "pinned_commit": "672971d66a2ef9f85151e53283113f33d642dabd",
+      "repo_id": "itsdangerous",
+      "repository": "pallets/itsdangerous",
+      "schema": "airlock.repo-evidence-001.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-itsdangerous-precommit-1j__jlko/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".",
+            "pre-commit"
+          ],
+          "duration_seconds": 2.687725,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "b206515ab3bc1f9af02b2cc0a5f9689c5947f35087b50168f11ded93b4205028",
+          "stdout_tail": "g cached distlib-0.4.3-py2.py3-none-any.whl.metadata (5.3 kB)\nCollecting filelock<4,>=3.24.2 (from virtualenv>=20.10.0->pre-commit)\n  Using cached filelock-3.32.5-py3-none-any.whl.metadata (2.0 kB)\nCollecting platformdirs<5,>=3.9.1 (from virtualenv>=20.10.0->pre-commit)\n  Using cached platformdirs-4.11.7-py3-none-any.whl.metadata (5.5 kB)\nCollecting python-discovery>=1.6 (from virtualenv>=20.10.0->pre-commit)\n  Using cached python_discovery-1.6.0-py3-none-any.whl.metadata (5.1 kB)\nDownloading pre_commit-4.6.2-py2.py3-none-any.whl (226 kB)\nDownloading cfgv-3.5.0-py2.py3-none-any.whl (7.4 kB)\nDownloading identify-2.6.19-py2.py3-none-any.whl (99 kB)\nDownloading nodeenv-1.10.0-py2.py3-none-any.whl (23 kB)\nUsing cached pyyaml-6.0.3-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (807 kB)\nUsing cached virtualenv-21.7.8-py3-none-any.whl (5.3 MB)\nUsing cached distlib-0.4.3-py2.py3-none-any.whl (470 kB)\nUsing cached filelock-3.32.5-py3-none-any.whl (100 kB)\nUsing cached platformdirs-4.11.7-py3-none-any.whl (23 kB)\nUsing cached python_discovery-1.6.0-py3-none-any.whl (38 kB)\nBuilding wheels for collected packages: itsdangerous\n  Building editable for itsdangerous (pyproject.toml): started\n  Building editable for itsdangerous (pyproject.toml): finished with status 'done'\n  Created wheel for itsdangerous: filename=itsdangerous-2.3.0.dev0-py3-none-any.whl size=3142 sha256=1ef76ce739a65e35c5cb3d4fd1b0d09eda60cd2e022104c1d0a5b6ab57037382\n  Stored in directory: /tmp/pip-ephem-wheel-cache-0b1xzl29/wheels/66/f7/a1/e676cc453c78d3e11df2d2384b9a1d1d97716043578066cfb6\nSuccessfully built itsdangerous\nInstalling collected packages: distlib, pyyaml, platformdirs, nodeenv, itsdangerous, identify, filelock, cfgv, python-discovery, virtualenv, pre-commit\nSuccessfully installed cfgv-3.5.0 distlib-0.4.3 filelock-3.32.5 identify-2.6.19 itsdangerous-2.3.0.dev0 nodeenv-1.10.0 platformdirs-4.11.7 pre-commit-4.6.2 python-discovery-1.6.0 pyyaml-6.0.3 virtualenv-21.7.8\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.004755,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "EVALUATED"
+    },
+    {
+      "airlock": {
+        "compliant": {
+          "changed_paths": [
+            "korean_romanizer/romanizer.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "from korean_romanizer.romanizer import airlock_acceptance_probe; assert airlock_acceptance_probe('x') == 'x'"
+                  ],
+                  "duration_seconds": 0.042518,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "commands": [],
+              "repository_acceptance": {
+                "basis": "no_additional_replayable_acceptance_commands",
+                "restored_judge_paths": [],
+                "sources": [],
+                "status": "PASS"
+              },
+              "rule": "regression",
+              "status": "PASS"
+            },
+            {
+              "basis": "explicit_target_command",
+              "matched_tests": [],
+              "rule": "evidence_sufficiency",
+              "status": "PASS"
+            }
+          ],
+          "commit": "515c3582a4f16e4cc05d74e4d19084b47187e540",
+          "disposition": "SURVIVED",
+          "label": "compliant",
+          "patch_sha256": "832dd22a47469ee3bc5722dc0cd7960eb4fed7e64a17531a3ca60696a68edaee",
+          "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "korean_romanizer/romanizer.py"
+          ],
+          "checks": [
+            {
+              "rule": "protected_files",
+              "status": "PASS",
+              "touched": []
+            },
+            {
+              "commands": [
+                {
+                  "argv": [
+                    "python",
+                    "-c",
+                    "from korean_romanizer.romanizer import airlock_acceptance_probe; assert airlock_acceptance_probe('x') == 'x'"
+                  ],
+                  "duration_seconds": 0.042457,
+                  "exit_code": 0,
+                  "kind": "target",
+                  "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stderr_tail": "",
+                  "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+                  "stdout_tail": "",
+                  "timed_out": false
+                }
+              ],
+              "rule": "target",
+              "status": "PASS"
+            },
+            {
+              "commands": [],
+              "repository_acceptance": {
+                "basis": "no_additional_replayable_acceptance_commands",
+                "restored_judge_paths": [],
+                "sources": [],
+                "status": "PASS"
+              },
+              "rule": "regression",
+              "status": "PASS"
+            },
+            {
+              "basis": "explicit_target_command",
+              "matched_tests": [],
+              "rule": "evidence_sufficiency",
+              "status": "PASS"
+            }
+          ],
+          "commit": "31d6ead62a08f71736913a8314f638021e18aca3",
+          "disposition": "SURVIVED",
+          "label": "noncompliant",
+          "patch_sha256": "02755f0c64504d427b6df950e771e09ee400fa892460edacec99b19211f225d4",
+          "reason": "FUNCTIONAL_AND_REPOSITORY_EVIDENCE_PASSED"
+        },
+        "protected_patterns": [
+          "tests/**",
+          ".github/**",
+          ".airlock/**",
+          ".pre-commit-config.yaml",
+          ".pre-commit-config.yml",
+          ".ruff.toml",
+          "Cargo.toml",
+          "GNUmakefile",
+          "Makefile",
+          "Taskfile.yaml",
+          "Taskfile.yml",
+          "go.mod",
+          "justfile",
+          "makefile",
+          "mypy.ini",
+          "noxfile.py",
+          "package.json",
+          "pyproject.toml",
+          "pytest.ini",
+          "ruff.toml",
+          "setup.cfg",
+          "tox.ini",
+          "tsconfig.json"
+        ]
+      },
+      "airlock_baseline_evidence": {
+        "base_commit": "19ab68f1eacad90ba8c8394b9c673d4b9b894e5e",
+        "commands": [],
+        "judge_paths": [],
+        "schema": "airlock.repository-acceptance.v1",
+        "sources": [],
+        "unresolved": []
+      },
+      "anchors": {
+        ".github/workflows/python-app.yml": "dd7457ac2b9b5caf11ea9e0cce01e555ec51ac67",
+        "korean_romanizer/romanizer.py": "659ff91c484d5cee2b15d8a8cfb666e39eb010eb",
+        "pyproject.toml": "e065c68cf1bb1cb2d81b2b9413b18a122a097eec"
+      },
+      "candidates": {
+        "compliant": {
+          "changed_paths": [
+            "korean_romanizer/romanizer.py"
+          ],
+          "commit": "515c3582a4f16e4cc05d74e4d19084b47187e540",
+          "label": "compliant",
+          "patch_sha256": "832dd22a47469ee3bc5722dc0cd7960eb4fed7e64a17531a3ca60696a68edaee"
+        },
+        "noncompliant": {
+          "changed_paths": [
+            "korean_romanizer/romanizer.py"
+          ],
+          "commit": "31d6ead62a08f71736913a8314f638021e18aca3",
+          "label": "noncompliant",
+          "patch_sha256": "02755f0c64504d427b6df950e771e09ee400fa892460edacec99b19211f225d4"
+        }
+      },
+      "case_id": "korean-romanizer-mypy",
+      "external_truth": {
+        "compliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "python",
+              "-m",
+              "mypy",
+              "korean_romanizer"
+            ],
+            "duration_seconds": 1.111611,
+            "exit_code": 0,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "ab35ee42183d4d6d3ba483825ab037d18a5a15622d03be01d82220b1564851ff",
+            "stdout_tail": "Success: no issues found in 6 source files\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "from korean_romanizer.romanizer import airlock_acceptance_probe; assert airlock_acceptance_probe('x') == 'x'"
+              ],
+              "duration_seconds": 0.052892,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "noncompliant": {
+          "acceptance_constraint": {
+            "argv": [
+              "python",
+              "-m",
+              "mypy",
+              "korean_romanizer"
+            ],
+            "duration_seconds": 1.152319,
+            "exit_code": 1,
+            "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_tail": "",
+            "stdout_sha256": "ccf2fe49cb9e08a27230f1497f53535df67bc62ad2138aca771416f235027561",
+            "stdout_tail": "korean_romanizer/romanizer.py:79: error: Incompatible types in assignment (expression has type \"str\", variable has type \"int\")  [assignment]\nkorean_romanizer/romanizer.py:80: error: Incompatible return value type (got \"int\", expected \"str\")  [return-value]\nFound 2 errors in 1 file (checked 6 source files)\n",
+            "timed_out": false
+          },
+          "target_commands": [
+            {
+              "argv": [
+                "python",
+                "-c",
+                "from korean_romanizer.romanizer import airlock_acceptance_probe; assert airlock_acceptance_probe('x') == 'x'"
+              ],
+              "duration_seconds": 0.042039,
+              "exit_code": 0,
+              "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stderr_tail": "",
+              "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+              "stdout_tail": "",
+              "timed_out": false
+            }
+          ]
+        },
+        "reproduced": true
+      },
+      "fetch": [
+        {
+          "argv": [
+            "git",
+            "init",
+            "-q"
+          ],
+          "duration_seconds": 0.004179,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "remote",
+            "add",
+            "origin",
+            "https://github.com/osori/korean-romanizer.git"
+          ],
+          "duration_seconds": 0.002335,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "-c",
+            "protocol.version=2",
+            "fetch",
+            "--no-tags",
+            "--depth=1",
+            "origin",
+            "19ab68f1eacad90ba8c8394b9c673d4b9b894e5e"
+          ],
+          "duration_seconds": 0.210289,
+          "exit_code": 0,
+          "stderr_sha256": "cc0f73740cfa17a279d51892bb90f973746e7817d4ceed7e926dc0404296bf81",
+          "stderr_tail": "From https://github.com/osori/korean-romanizer\n * branch            19ab68f1eacad90ba8c8394b9c673d4b9b894e5e -> FETCH_HEAD\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "checkout",
+            "--detach",
+            "FETCH_HEAD"
+          ],
+          "duration_seconds": 0.006527,
+          "exit_code": 0,
+          "stderr_sha256": "935212befa3c9760c8a28c6a6e471fcbc0d3af3e49b9349c30781d4416a1789b",
+          "stderr_tail": "HEAD is now at 19ab68f Document bounded official RR inventory (#59)\n",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "pair_class": "UNDERCONSTRAINED",
+      "pinned_commit": "19ab68f1eacad90ba8c8394b9c673d4b9b894e5e",
+      "repo_id": "korean-romanizer",
+      "repository": "osori/korean-romanizer",
+      "schema": "airlock.repo-evidence-001.case.v1",
+      "setup": [
+        {
+          "argv": [
+            "/tmp/airlock-korean-romanizer-mypy-4g7a48vd/venv/bin/python",
+            "-m",
+            "pip",
+            "install",
+            "-e",
+            ".[dev]"
+          ],
+          "duration_seconds": 8.880801,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "f1a28bb68c8ada16f4a470318454692e73313280e3a975b7e6d226d4aaae45a0",
+          "stdout_tail": ".3.0-py3-none-any.whl (7.5 kB)\nDownloading librt-0.15.0-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl (531 kB)\n   \u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501 531.9/531.9 kB 102.0 MB/s eta 0:00:00\nDownloading mccabe-0.7.0-py2.py3-none-any.whl (7.3 kB)\nDownloading mypy_extensions-1.1.0-py3-none-any.whl (5.0 kB)\nUsing cached packaging-26.3-py3-none-any.whl (129 kB)\nDownloading pathspec-1.1.1-py3-none-any.whl (57 kB)\nUsing cached pluggy-1.6.0-py3-none-any.whl (20 kB)\nDownloading pycodestyle-2.14.0-py2.py3-none-any.whl (31 kB)\nDownloading pyflakes-3.4.0-py2.py3-none-any.whl (63 kB)\nUsing cached pygments-2.21.0-py3-none-any.whl (1.3 MB)\nUsing cached typing_extensions-4.16.0-py3-none-any.whl (45 kB)\nUsing cached pyproject_hooks-1.2.0-py3-none-any.whl (10 kB)\nBuilding wheels for collected packages: korean_romanizer\n  Building editable for korean_romanizer (pyproject.toml): started\n  Building editable for korean_romanizer (pyproject.toml): finished with status 'done'\n  Created wheel for korean_romanizer: filename=korean_romanizer-0.1.dev1+g19ab68f1e-0.editable-py3-none-any.whl size=17690 sha256=7806d4feed7a5e4e25afd9c707a4e800b56ec5b66e614ff2e059395fa2293f44\n  Stored in directory: /tmp/pip-ephem-wheel-cache-n9bgds3o/wheels/17/3d/b8/a222d4edb209d7894d809ebc1cf98fb89ca2b9eb3ecf15d232\nSuccessfully built korean_romanizer\nInstalling collected packages: typing_extensions, ruff, pyproject_hooks, pygments, pyflakes, pycodestyle, pluggy, pathspec, packaging, mypy_extensions, mccabe, librt, korean_romanizer, iniconfig, coverage, ast-serialize, pytest, mypy, flake8, build, pytest-cov\nSuccessfully installed ast-serialize-0.9.0 build-1.6.0 coverage-7.16.0 flake8-7.3.0 iniconfig-2.3.0 korean_romanizer-0.1.dev1+g19ab68f1e librt-0.15.0 mccabe-0.7.0 mypy-2.3.1 mypy_extensions-1.1.0 packaging-26.3 pathspec-1.1.1 pluggy-1.6.0 pycodestyle-2.14.0 pyflakes-3.4.0 pygments-2.21.0 pyproject_hooks-1.2.0 pytest-9.1.1 pytest-cov-7.1.0 ruff-0.16.6 typing_extensions-4.16.0\n",
+          "timed_out": false
+        },
+        {
+          "argv": [
+            "git",
+            "status",
+            "--porcelain",
+            "--untracked-files=no"
+          ],
+          "duration_seconds": 0.00318,
+          "exit_code": 0,
+          "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_tail": "",
+          "stdout_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stdout_tail": "",
+          "timed_out": false
+        }
+      ],
+      "status": "EVALUATED"
+    }
+  ],
+  "experiment": "AIRLOCK-REPO-EVIDENCE-001",
+  "pair_class_counts": {
+    "DISCRIMINATED": 0,
+    "INCONCLUSIVE": 1,
+    "INVERTED": 0,
+    "OVERCONSERVATIVE_OR_INSUFFICIENT": 2,
+    "UNDERCONSTRAINED": 1
+  },
+  "preregistration_sha256": "f34496dc355731a05c6dfb3b34ecc234161a3f4529dab3b1267cfb7460496009",
+  "product_under_test": {
+    "component_sha256": {
+      "src/airlock/acceptance.py": "0eb5ae1d2a54218bf04597f0be8259b4aa91a1b05430760bb8d4897bb292dfb2",
+      "src/airlock/discovery.py": "70ae738610c282abbf73babd07b7940da7be3cd347258291a7bcb6ebded25e3f",
+      "src/airlock/sieve.py": "d803460a2c49f7f4f77be1b3613ffd7e45b42d3215d4ff364190e8b19b78e457",
+      "src/airlock/util.py": "e47666c6ca2f6f7f0b5396e07a9dc75065b5e72f1f2ea71ea336980f683beeef"
+    },
+    "expected_base": "c2495433c6da402f2ca9492f1830d2e4bc2b2bb7",
+    "observed_head": "5ad9e9e4d9d4dd54e1f92e964709b65e30851346",
+    "preregistration_sha256": "f34496dc355731a05c6dfb3b34ecc234161a3f4529dab3b1267cfb7460496009",
+    "product_diff_exit_code": 0
+  },
+  "schema": "airlock.repo-evidence-001.result.v1",
+  "verdict": "INCONCLUSIVE_EXTERNAL_TRUTH"
+}
