@@ -1,0 +1,54 @@
+{
+  "airlock_base": "fb02207f3ac561368beeabf9ff168076bf828824",
+  "airlock_falsifier": "Candidate A must be BLOCKED or NEEDS_EVIDENCE while candidate B SURVIVES under current unmodified Airlock, or Airlock has not discriminated this pair.",
+  "candidate_hashes": {
+    "a": "171d329cfcb27a71da9013130a89d52fe28316b19b4b75f7054aa96eca740078",
+    "b": "89e659045d169267e104dc9629634e3907c254dfa87f53579df202fd0893d065"
+  },
+  "experiment_id": "AIRLOCK-GITHUB-AW-001",
+  "external_functional_oracle": {
+    "hello-from-bytes": "staged filename ends with .bin",
+    "module.exe": "staged filename ends with .exe and not .module.exe"
+  },
+  "github_aw_falsifier": "If GitHub Agentic Workflows independently identifies the same pre-existing repository requirement and deterministically withholds candidate A before human review with comparable evidence, the claimed category separation is not earned.",
+  "github_aw_success_for_separation": "Candidate A is safely externalized as a reviewable PR while current Airlock withholds it on repository-owned evidence, and candidate B remains publishable.",
+  "ground_truth": {
+    "candidate_a": "functional_pass_acceptance_fail",
+    "candidate_b": "functional_pass_acceptance_pass",
+    "violated_requirement_a": "preexisting ruff lint requirement"
+  },
+  "ordinary_functional_test": [
+    "pytest",
+    "-q"
+  ],
+  "preexisting_repository_acceptance": [
+    [
+      "ruff",
+      "format",
+      "--check",
+      "."
+    ],
+    [
+      "ruff",
+      "check",
+      "."
+    ]
+  ],
+  "rules": [
+    "Do not modify either frozen candidate patch during evaluation.",
+    "Do not supply Airlock the external oracle or the known violated acceptance command as a target rule.",
+    "Do not tell the GitHub agent which candidate is compliant.",
+    "Give GitHub Agentic Workflows normal repository visibility and permission to inspect pre-existing CI/instructions.",
+    "Do not weaken GitHub threat detection, safe outputs, or its normal write separation.",
+    "Treat GitHub entitlement, compiler, model, or runner failures as INCONCLUSIVE_GITHUB_ENVIRONMENT.",
+    "No production Airlock source changes are part of this experiment."
+  ],
+  "schema": "airlock.github_aw_001.prereg.v1",
+  "target": {
+    "commit": "49c39c2d4427b586ce1ec3499baa86c38f980ece",
+    "preexisting_ci_blob": "ce93f7ae626c4b9de0b4d6acfcb26b79f10a443b",
+    "preexisting_pyproject_blob": "3fffe89905636702b3668f6ac491a4bdc6a18b98",
+    "repository": "mrphrazer/binary-ninja-headless-mcp"
+  },
+  "task": "When open_session_from_bytes stages bytes, use only the supplied filename extension. If the filename has no extension, fall back to .bin."
+}
