@@ -1,0 +1,94 @@
+name: AIRLOCK-GITHUB-AW-001
+
+on:
+  push:
+    branches:
+      - main
+      - "proof/**"
+  pull_request:
+
+jobs:
+  airlock-arm:
+    name: Airlock arm
+    runs-on: ubuntu-latest
+    env:
+      BINARY_NINJA_HEADLESS_MCP_FAKE_BACKEND: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Airlock and target tooling
+        run: |
+          python -m pip install -e .
+          python -m pip install pytest "ruff==0.15.13"
+
+      - name: Reproduce Airlock arm
+        run: |
+          rm -rf airlock-github-aw-001-artifacts
+          python proofs/airlock-github-aw-001/run.py \
+            --output airlock-github-aw-001-artifacts
+
+      - name: Verify Airlock arm
+        run: |
+          python proofs/airlock-github-aw-001/verify.py \
+            airlock-github-aw-001-artifacts
+
+      - name: Upload Airlock comparator evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airlock-github-aw-001-airlock-arm
+          path: airlock-github-aw-001-artifacts/
+          if-no-files-found: warn
+
+  compile-github-aw:
+    name: Compile GitHub Agentic Workflow
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install gh-aw
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh extension install github/gh-aw
+
+      - name: Compile comparator workflow
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p .github/workflows
+          cp proofs/airlock-github-aw-001/github-aw/airlock-github-aw-001.md \
+            .github/workflows/airlock-github-aw-001.md
+          gh aw compile .github/workflows/airlock-github-aw-001.md
+
+      - name: Stage live-arm setup artifact
+        if: always()
+        run: |
+          mkdir -p github-aw-live-arm/.github/workflows
+          mkdir -p github-aw-live-arm/.github/airlock-github-aw-001
+          cp proofs/airlock-github-aw-001/github-aw/airlock-github-aw-001.md \
+            github-aw-live-arm/.github/workflows/airlock-github-aw-001.md
+          if [ -f .github/workflows/airlock-github-aw-001.lock.yml ]; then
+            cp .github/workflows/airlock-github-aw-001.lock.yml \
+              github-aw-live-arm/.github/workflows/airlock-github-aw-001.lock.yml
+          fi
+          cp proofs/airlock-github-aw-001/candidate-a.patch \
+            github-aw-live-arm/.github/airlock-github-aw-001/candidate-a.patch
+          cp proofs/airlock-github-aw-001/candidate-b.patch \
+            github-aw-live-arm/.github/airlock-github-aw-001/candidate-b.patch
+          cp proofs/airlock-github-aw-001/prereg.json \
+            github-aw-live-arm/.github/airlock-github-aw-001/prereg.json
+
+      - name: Upload GitHub AW live-arm setup
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: airlock-github-aw-001-github-aw-setup
+          path: github-aw-live-arm/
+          if-no-files-found: warn
+          include-hidden-files: true
