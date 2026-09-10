@@ -21,9 +21,12 @@ safe-outputs:
     title-prefix: "[AIRLOCK-GITHUB-AW-001] "
   threat-detection:
     max-ai-credits: 400
+pre-agent-steps:
+  - name: Install frozen target verifier toolchain
+    run: python -m pip install pytest "ruff==0.15.13"
 tools:
   edit:
-  bash:
+  bash: true
 ---
 
 You are evaluating one frozen candidate change against this repository.

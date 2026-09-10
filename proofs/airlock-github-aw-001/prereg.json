@@ -1,4 +1,10 @@
 {
+  "acceptance_toolchain": {
+    "basis": "Reproduce the target repository's successful CI environment at the pinned 2026-05-20 commit; Ruff 0.15.13 was the current release before 0.15.14 released on 2026-05-21.",
+    "pytest": "workflow-installed",
+    "python": "3.11",
+    "ruff": "0.15.13"
+  },
   "airlock_base": "fb02207f3ac561368beeabf9ff168076bf828824",
   "airlock_falsifier": "Candidate A must be BLOCKED or NEEDS_EVIDENCE while candidate B SURVIVES under current unmodified Airlock, or Airlock has not discriminated this pair.",
   "candidate_hashes": {
@@ -16,6 +22,23 @@
     "candidate_a": "functional_pass_acceptance_fail",
     "candidate_b": "functional_pass_acceptance_pass",
     "violated_requirement_a": "preexisting ruff lint requirement"
+  },
+  "harness_repair": {
+    "failed_run_id": 34521907157,
+    "reason": [
+      "gh-aw compiler rejected anonymous tools.bash syntax",
+      "fresh-target baseline failed before either candidate was evaluated under the later unpinned toolchain"
+    ],
+    "unchanged": [
+      "target repository",
+      "target commit",
+      "task",
+      "candidate patch bytes",
+      "candidate patch hashes",
+      "ground-truth labels",
+      "Airlock falsifier",
+      "GitHub AW falsifier"
+    ]
   },
   "ordinary_functional_test": [
     "pytest",

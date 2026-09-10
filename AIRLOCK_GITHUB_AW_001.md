@@ -134,6 +134,33 @@ The live arm must run in a user-owned fork pinned to the target commit so GitHub
 can use its normal same-repository Safe Output path. Compiler/model entitlement
 or runner failures are environmental inconclusives, not wins for Airlock.
 
+
+## Harness repair after first CI preflight
+
+The first pushed run (`34521907157`) did not evaluate either candidate.
+
+Two setup faults appeared before the comparator:
+
+1. the current `gh-aw` compiler rejected anonymous `tools.bash` syntax and
+   requires `bash: true` (or an explicit command allowlist);
+2. the target baseline was no longer green under the September unpinned Ruff
+   installation, even though the pinned target commit's own CI completed green
+   on 2026-05-20.
+
+The repair freezes Ruff `0.15.13` for both arms. That is the verifier release
+that was current for the target's successful 2026-05-20 CI run; Ruff `0.15.14`
+released the following day. This freezes the acceptance environment rather than
+changing the acceptance requirement.
+
+The target repository, target SHA, task, both candidate patch bytes and hashes,
+ground-truth labels, and both falsifiers remain unchanged.
+
+The GitHub Agentic Workflow source now uses the compiler-required `bash: true`
+syntax and installs the same frozen verifier version before the agent runs.
+
+This is a harness/environment repair. The failed preflight is not evidence for
+or against either system.
+
 ## Frozen falsifier
 
 The separation claim fails if GitHub Agentic Workflows independently discovers

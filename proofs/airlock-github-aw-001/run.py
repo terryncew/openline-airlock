@@ -310,8 +310,25 @@ def reproduce(output: Path) -> dict[str, Any]:
     baseline_format = run(["ruff", "format", "--check", "."], target_root)
     baseline_lint = run(["ruff", "check", "."], target_root)
     if any(row["exit_code"] != 0 for row in (baseline_tests, baseline_format, baseline_lint)):
+        baseline_failure = {
+            "schema": "airlock.github_aw_001.preflight_failure.v1",
+            "experiment_id": "AIRLOCK-GITHUB-AW-001",
+            "target": {"repository": TARGET_FULL, "commit": TARGET_SHA},
+            "acceptance_toolchain": prereg.get("acceptance_toolchain"),
+            "baseline": {
+                "pytest": baseline_tests,
+                "ruff_format": baseline_format,
+                "ruff_lint": baseline_lint,
+            },
+            "status": "INCONCLUSIVE_TARGET_BASELINE_NOT_GREEN",
+        }
+        (output / "baseline-preflight.json").write_text(
+            json.dumps(baseline_failure, indent=2, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        print(json.dumps(baseline_failure, sort_keys=True))
         raise RuntimeError(
-            "fresh target baseline is not green under preregistered repository evidence"
+            "fresh target baseline is not green; see baseline-preflight.json"
         )
 
     ground_truth = {
