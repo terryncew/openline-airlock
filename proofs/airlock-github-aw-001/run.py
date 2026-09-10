@@ -335,6 +335,25 @@ def reproduce(output: Path) -> dict[str, Any]:
         "a": evaluate_ground_truth(target_root, PATCHES["a"], "a"),
         "b": evaluate_ground_truth(target_root, PATCHES["b"], "b"),
     }
+    for label in ("a", "b"):
+        if ground_truth[label].get("status") != "EVALUATED":
+            failure = {
+                "schema": "airlock.github_aw_001.preflight_failure.v1",
+                "experiment_id": "AIRLOCK-GITHUB-AW-001",
+                "target": {"repository": TARGET_FULL, "commit": TARGET_SHA},
+                "failed_candidate": label,
+                "candidate_result": ground_truth[label],
+                "status": "INCONCLUSIVE_CANDIDATE_PATCH_NOT_EVALUATED",
+            }
+            (output / "candidate-preflight.json").write_text(
+                json.dumps(failure, indent=2, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            print(json.dumps(failure, sort_keys=True))
+            raise RuntimeError(
+                f"candidate {label} did not reach evaluation; see candidate-preflight.json"
+            )
+
     if not ground_truth["a"]["functional_pass"] or not ground_truth["b"]["functional_pass"]:
         raise AssertionError("both frozen candidates must pass functional ground truth")
     if ground_truth["a"]["acceptance_pass"]:

@@ -11,6 +11,8 @@ jobs:
   airlock-arm:
     name: Airlock arm
     runs-on: ubuntu-latest
+    env:
+      BINARY_NINJA_HEADLESS_MCP_FAKE_BACKEND: "1"
     steps:
       - uses: actions/checkout@v4
 
@@ -89,3 +91,4 @@ jobs:
           name: airlock-github-aw-001-github-aw-setup
           path: github-aw-live-arm/
           if-no-files-found: warn
+          include-hidden-files: true

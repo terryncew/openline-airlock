@@ -1,6 +1,10 @@
 {
   "acceptance_toolchain": {
     "basis": "Reproduce the target repository's successful CI environment at the pinned 2026-05-20 commit; Ruff 0.15.13 was the current release before 0.15.14 released on 2026-05-21.",
+    "ci_environment": {
+      "BINARY_NINJA_HEADLESS_MCP_FAKE_BACKEND": "1",
+      "basis": "Pinned target .github/workflows/ci.yml job-level environment"
+    },
     "pytest": "workflow-installed",
     "python": "3.11",
     "ruff": "0.15.13"
@@ -8,8 +12,8 @@
   "airlock_base": "fb02207f3ac561368beeabf9ff168076bf828824",
   "airlock_falsifier": "Candidate A must be BLOCKED or NEEDS_EVIDENCE while candidate B SURVIVES under current unmodified Airlock, or Airlock has not discriminated this pair.",
   "candidate_hashes": {
-    "a": "171d329cfcb27a71da9013130a89d52fe28316b19b4b75f7054aa96eca740078",
-    "b": "89e659045d169267e104dc9629634e3907c254dfa87f53579df202fd0893d065"
+    "a": "3197884f643ffb9903c5837d22e9d8e4ef5af0830b75b4f42a26fe7fbeda7829",
+    "b": "8659d1e1bd84e020e22eb6f46d4ab8870ea89486d4b65b83975298277dc04720"
   },
   "experiment_id": "AIRLOCK-GITHUB-AW-001",
   "external_functional_oracle": {
@@ -23,23 +27,43 @@
     "candidate_b": "functional_pass_acceptance_pass",
     "violated_requirement_a": "preexisting ruff lint requirement"
   },
-  "harness_repair": {
-    "failed_run_id": 34521907157,
-    "reason": [
-      "gh-aw compiler rejected anonymous tools.bash syntax",
-      "fresh-target baseline failed before either candidate was evaluated under the later unpinned toolchain"
-    ],
-    "unchanged": [
-      "target repository",
-      "target commit",
-      "task",
-      "candidate patch bytes",
-      "candidate patch hashes",
-      "ground-truth labels",
-      "Airlock falsifier",
-      "GitHub AW falsifier"
-    ]
-  },
+  "harness_repairs": [
+    {
+      "failed_run_id": 34521907157,
+      "reason": [
+        "gh-aw compiler rejected anonymous tools.bash syntax",
+        "fresh-target baseline failed before either candidate was evaluated under the later unpinned toolchain"
+      ],
+      "unchanged": [
+        "target repository",
+        "target commit",
+        "task",
+        "candidate patch bytes",
+        "candidate patch hashes",
+        "ground-truth labels",
+        "Airlock falsifier",
+        "GitHub AW falsifier"
+      ]
+    },
+    {
+      "failed_run_id": 34522701126,
+      "new_candidate_hashes": {
+        "a": "3197884f643ffb9903c5837d22e9d8e4ef5af0830b75b4f42a26fe7fbeda7829",
+        "b": "8659d1e1bd84e020e22eb6f46d4ab8870ea89486d4b65b83975298277dc04720"
+      },
+      "note": "The patch encoding was regenerated from the exact pinned target source; the requested code change and candidate-A unused-import control are unchanged.",
+      "old_candidate_hashes": {
+        "a": "171d329cfcb27a71da9013130a89d52fe28316b19b4b75f7054aa96eca740078",
+        "b": "89e659045d169267e104dc9629634e3907c254dfa87f53579df202fd0893d065"
+      },
+      "reason": [
+        "both frozen candidate files were malformed unified diffs and git apply rejected them before candidate evaluation",
+        "live-arm setup upload excluded the hidden .github directory",
+        "Airlock arm had not inherited the pinned target CI's job-level fake-backend environment"
+      ],
+      "semantic_change_to_candidates": false
+    }
+  ],
   "ordinary_functional_test": [
     "pytest",
     "-q"

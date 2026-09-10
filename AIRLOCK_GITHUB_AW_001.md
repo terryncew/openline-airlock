@@ -161,6 +161,46 @@ syntax and installs the same frozen verifier version before the agent runs.
 This is a harness/environment repair. The failed preflight is not evidence for
 or against either system.
 
+
+## Second harness repair
+
+The second pushed run (`34522701126`) also failed before either candidate reached
+Airlock evaluation.
+
+The pinned target baseline passed with the frozen verifier toolchain, and the
+GitHub Agentic Workflow compiled successfully. The next failure exposed three
+remaining harness defects:
+
+1. both candidate files were malformed unified-diff encodings, so `git apply`
+   rejected them before candidate execution;
+2. the live-arm setup artifact contained only `.github/...` files, but
+   `upload-artifact` excluded hidden files by default;
+3. the Airlock arm had not inherited the target repository's own CI job-level
+   `BINARY_NINJA_HEADLESS_MCP_FAKE_BACKEND=1` environment.
+
+The candidate diffs have been regenerated directly from the exact pinned target
+source and validated with `git apply --check`. Their semantics are unchanged:
+both make the same filename-suffix fix; candidate A alone adds the unused
+standard-library import.
+
+Because malformed patch bytes cannot honestly remain the frozen identity, the
+preregistered hashes are updated transparently:
+
+```text
+candidate A: 3197884f643ffb9903c5837d22e9d8e4ef5af0830b75b4f42a26fe7fbeda7829
+candidate B: 8659d1e1bd84e020e22eb6f46d4ab8870ea89486d4b65b83975298277dc04720
+```
+
+The target, target SHA, task, acceptance requirement, compliant/noncompliant
+semantics, and system falsifiers remain unchanged. No candidate had been
+evaluated under either of the earlier byte strings.
+
+The Airlock arm now inherits the repository-owned fake-backend CI environment,
+and the live-arm artifact upload explicitly includes the hidden `.github`
+directory.
+
+This remains harness repair, not evidence for either comparator.
+
 ## Frozen falsifier
 
 The separation claim fails if GitHub Agentic Workflows independently discovers
