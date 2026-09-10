@@ -201,6 +201,32 @@ directory.
 
 This remains harness repair, not evidence for either comparator.
 
+
+## Third harness repair
+
+The third pushed run (`34523083855`) reached a clean target baseline, valid
+candidate patch encoding, and successful GitHub Agentic Workflow compilation.
+It still stopped before either candidate reached Airlock evaluation.
+
+The remaining preflight problem was introduced by the harness itself:
+`pip install -e .` created an untracked
+`binary_ninja_headless_mcp.egg-info/` directory in the pinned target checkout.
+The target's existing `.gitignore` does not ignore that packaging metadata, so
+Airlock correctly refused `airlock init` with:
+
+```text
+working tree is dirty; Airlock refuses to freeze a moving base
+```
+
+The repair removes only that known installer-created directory before
+`airlock init`. It does not run a general clean/reset and does not suppress
+Airlock's dirty-tree invariant. Any other tracked or untracked pollution must
+still cause the existing refusal.
+
+The target, target SHA, task, candidate bytes and hashes, acceptance requirement,
+and both comparator falsifiers remain unchanged. This failed preflight remains
+evidence about the harness only.
+
 ## Frozen falsifier
 
 The separation claim fails if GitHub Agentic Workflows independently discovers

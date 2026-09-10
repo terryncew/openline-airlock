@@ -302,6 +302,21 @@ def reproduce(output: Path) -> dict[str, Any]:
     if install["exit_code"] != 0:
         raise RuntimeError(f"target install failed: {install}")
 
+    # Editable setuptools installation creates untracked source-tree metadata
+    # in this pinned target. That pollution is produced by the comparator
+    # harness, not by the target or either candidate. Remove only that known
+    # installer artifact before Airlock is asked to freeze the base. Any other
+    # dirty path remains visible to Airlock's own ensure_clean() refusal.
+    installer_metadata = target_root / "binary_ninja_headless_mcp.egg-info"
+    installer_cleanup = {
+        "path": str(installer_metadata.relative_to(target_root)),
+        "existed": installer_metadata.exists(),
+        "removed": False,
+    }
+    if installer_metadata.exists():
+        shutil.rmtree(installer_metadata)
+        installer_cleanup["removed"] = True
+
     baseline_tests = run(
         ["pytest", "-q"],
         target_root,
@@ -430,6 +445,7 @@ def reproduce(output: Path) -> dict[str, Any]:
             "ruff_lint": baseline_lint,
         },
         "ground_truth": ground_truth,
+        "harness_installer_cleanup": installer_cleanup,
         "airlock_config": {
             "protected_paths": list(config.get("protected_paths") or []),
             "verification": config.get("verification") or {},
