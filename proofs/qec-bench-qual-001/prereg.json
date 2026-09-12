@@ -1,0 +1,52 @@
+{
+  "schema": "openline.qec-bench-qual-001.prereg.v1",
+  "experiment_id": "QEC-BENCH-QUAL-001",
+  "airlock_base": "3ef34fb0100516e458cb362a7448c78a72da097b",
+  "external_benchmark": {
+    "repository": "yuewuo/qec-lego-bench",
+    "commit": "9c5b5c582d3733a2e406292c838dfbca6239e710",
+    "status_at_pin": "very early development and may not be ready for use"
+  },
+  "runtime": {
+    "python": "3.11",
+    "runner": "ubuntu-latest"
+  },
+  "baseline": {
+    "code": "rsc(d=3,p=0.01,rounds=3)",
+    "decoder": "mwpf",
+    "accuracy_replicates": 4,
+    "accuracy_shots_per_replicate": 5000,
+    "timing_warmups": 1,
+    "timing_replicates": 5,
+    "timing_min_seconds": 0.75,
+    "timing_min_init_seconds": 0.05,
+    "timing_min_shots": 100,
+    "timing_max_shots": 1000000
+  },
+  "within_run_acceptance": {
+    "minimum_total_logical_errors": 25,
+    "maximum_accuracy_abs_z_from_pooled": 4.0,
+    "maximum_timing_mad_over_median": 0.20,
+    "maximum_timing_max_over_min": 1.75
+  },
+  "cross_run_acceptance": {
+    "required_event_receipts": ["push", "pull_request"],
+    "same_circuit_sha256": true,
+    "maximum_timing_median_ratio": 1.50,
+    "maximum_accuracy_abs_z_between_runs": 4.0
+  },
+  "terminal_verdicts": [
+    "QEC_BENCH_QUAL_PASS",
+    "INCONCLUSIVE_QEC_INSTALL",
+    "INCONCLUSIVE_QEC_RUNTIME",
+    "INCONCLUSIVE_ACCURACY_SIGNAL_TOO_WEAK",
+    "BENCHMARK_UNSTABLE_ACCURACY",
+    "BENCHMARK_UNSTABLE_TIMING"
+  ],
+  "scope": {
+    "agent_optimization": false,
+    "airlock_candidate_search": false,
+    "hardware_claim": false,
+    "purpose": "Qualify one pinned external QEC decoding measurement surface before autonomous optimization is allowed."
+  }
+}

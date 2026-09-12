@@ -1,0 +1,66 @@
+name: QEC-BENCH-QUAL-001
+
+on:
+  push:
+    branches:
+      - main
+      - "proof/**"
+    paths:
+      - ".github/workflows/qec-bench-qual-001.yml"
+      - "QEC_BENCH_QUAL_001.md"
+      - "proofs/qec-bench-qual-001/**"
+  pull_request:
+    paths:
+      - ".github/workflows/qec-bench-qual-001.yml"
+      - "QEC_BENCH_QUAL_001.md"
+      - "proofs/qec-bench-qual-001/**"
+
+permissions:
+  contents: read
+
+jobs:
+  qualify:
+    name: Qualify pinned QEC benchmark
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout Airlock experiment
+        uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Checkout pinned qec-lego-bench
+        uses: actions/checkout@v4
+        with:
+          repository: yuewuo/qec-lego-bench
+          ref: 9c5b5c582d3733a2e406292c838dfbca6239e710
+          path: _external/qec-lego-bench
+          persist-credentials: false
+
+      - name: Set up frozen Python runtime
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Harness self-test
+        run: python proofs/qec-bench-qual-001/run.py --self-test
+
+      - name: Run external benchmark qualification
+        run: |
+          rm -rf qec-bench-qual-001-artifacts
+          python proofs/qec-bench-qual-001/run.py \
+            --qec-root _external/qec-lego-bench \
+            --output qec-bench-qual-001-artifacts
+
+      - name: Verify terminal receipt
+        run: |
+          python proofs/qec-bench-qual-001/verify.py \
+            qec-bench-qual-001-artifacts
+
+      - name: Upload qualification evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qec-bench-qual-001-${{ github.event_name }}
+          path: qec-bench-qual-001-artifacts/
+          if-no-files-found: warn
