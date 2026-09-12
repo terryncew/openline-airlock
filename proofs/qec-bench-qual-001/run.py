@@ -213,6 +213,7 @@ def run(qec_root: Path, output: Path) -> int:
         importlib.invalidate_caches()
         import qec_lego_bench.cli  # noqa: F401  # registers code/noise/decoder names
         from qec_lego_bench.cli.codes import CodeCli
+        from qec_lego_bench.cli.decoders import DecoderCli
         from qec_lego_bench.cli.decoding_speed import decoding_speed
         from qec_lego_bench.cli.logical_error_rate import logical_error_rate
 
@@ -220,14 +221,20 @@ def run(qec_root: Path, output: Path) -> int:
         code = cfg["code"]
         decoder = cfg["decoder"]
 
-        circuit = CodeCli(code)().circuit
+        # Arguably normally converts annotated CLI strings into these wrappers
+        # before calling the functions. Programmatic invocation must do the same:
+        # both benchmark functions later read DecoderCli.decompose_errors.
+        code_arg = CodeCli(code)
+        decoder_arg = DecoderCli(decoder)
+
+        circuit = code_arg().circuit
         circuit_sha = sha256_bytes(str(circuit).encode("utf-8"))
 
         # Warm-up is intentionally excluded from the timing receipt.
         for _ in range(int(cfg["timing_warmups"])):
             decoding_speed(
-                code,
-                decoder=decoder,
+                code_arg,
+                decoder=decoder_arg,
                 min_init_time=float(cfg["timing_min_init_seconds"]),
                 min_init_shots=10,
                 min_time=0.25,
@@ -239,8 +246,8 @@ def run(qec_root: Path, output: Path) -> int:
         timing_rows: list[dict[str, float | int]] = []
         for index in range(int(cfg["timing_replicates"])):
             measured = decoding_speed(
-                code,
-                decoder=decoder,
+                code_arg,
+                decoder=decoder_arg,
                 min_init_time=float(cfg["timing_min_init_seconds"]),
                 min_init_shots=10,
                 min_time=float(cfg["timing_min_seconds"]),
@@ -259,8 +266,8 @@ def run(qec_root: Path, output: Path) -> int:
         shots = int(cfg["accuracy_shots_per_replicate"])
         for index in range(int(cfg["accuracy_replicates"])):
             stats = logical_error_rate(
-                code,
-                decoder=decoder,
+                code_arg,
+                decoder=decoder_arg,
                 max_shots=shots,
                 max_errors=shots,
                 num_workers=1,

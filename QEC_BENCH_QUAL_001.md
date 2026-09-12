@@ -114,3 +114,31 @@ qualification gates remain unchanged.
 
 If the repaired run reaches measurement, its result is evaluated under the
 original preregistration. No further environment repair is automatically earned.
+
+## Second pre-measurement failure: programmatic CLI adapter
+
+The setup dependency repair allowed the pinned package to import, but both the
+push and pull-request receipts again stopped before any timing or logical-error
+measurement was reached:
+
+```text
+INCONCLUSIVE_QEC_RUNTIME
+AttributeError: 'str' object has no attribute 'decompose_errors'
+```
+
+This is a harness invocation defect. The external benchmark's command-line layer
+normally converts annotated decoder strings into `DecoderCli` objects before
+calling `decoding_speed` or `logical_error_rate`. The qualification harness called
+those functions directly with the raw string, while both functions later read
+`decoder.decompose_errors`.
+
+`SETUP_FAILURE_002.json` freezes both receipts and artifact identities.
+
+The bounded repair makes the programmatic call match the external CLI contract:
+construct `CodeCli` and `DecoderCli` wrappers once and pass those objects into the
+same pinned benchmark functions. No dependency, benchmark commit, decoder,
+circuit, shot count, timing budget, or qualification threshold changes.
+
+This remains pre-measurement setup evidence, not a benchmark result.
+
+This is the final pre-measurement harness repair. If the next run still cannot reach the frozen measurements, qualification stops as inconclusive rather than opening another setup-repair loop.
