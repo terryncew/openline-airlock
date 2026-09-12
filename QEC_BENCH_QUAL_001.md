@@ -1,9 +1,9 @@
 # QEC-BENCH-QUAL-001
 
-Status: **FROZEN — QEC_BENCH_QUAL_PASS**
+Status: **FROZEN — QUALIFICATION NOT EARNED**
 
-This qualification gate asked whether one pinned software QEC-decoding baseline
-could produce an objective accuracy + timing surface stable enough to justify a
+This experiment asked whether one pinned software QEC-decoding baseline could
+produce an objective accuracy + timing surface stable enough to justify a
 bounded Airlock optimization experiment.
 
 ## Frozen inputs
@@ -12,51 +12,56 @@ bounded Airlock optimization experiment.
 - qec-lego-bench: `9c5b5c582d3733a2e406292c838dfbca6239e710`
 - baseline: `rsc(d=3,p=0.01,rounds=3)` / `mwpf`
 - Python: 3.11
-- circuit SHA256: `156938c69ea77a0053ce60d953a75718fe72eddfb652794b5b2249143203bee2`
+- frozen cross-run timing ceiling: `1.50`
 
-Two pre-measurement setup defects were frozen before this terminal run:
-an undeclared `IPython` import dependency and a direct-call adapter mismatch.
-Neither changed the external benchmark commit, baseline, shot counts, timing
-budgets, or scientific acceptance thresholds.
+Two pre-measurement harness defects were repaired without changing the
+benchmark pin, baseline, sample counts, timing budgets, or acceptance gates.
 
-## Terminal receipts
+The first complete push/PR pair passed the preregistered cross-run gate and is
+preserved in `FROZEN_CROSS_RUN_RECEIPT.json`.
 
-Push run `34711749033`:
+The freeze commit then triggered the same unchanged qualification workflow again.
+Both new runs individually returned `QEC_BENCH_QUAL_PASS`, but the new push/PR
+pair failed the already-frozen cross-run timing criterion.
 
-- verdict: `QEC_BENCH_QUAL_PASS`
-- logical errors: 1143 / 20000 shots (0.057150)
-- median decoder time: 0.000603041117 s/shot
-- within-run timing MAD/median: 0.054831
-- timing max/min: 1.496394
+## Immediate recheck
 
-Pull-request run `34711750375`:
+Push run `34712001537`:
 
-- verdict: `QEC_BENCH_QUAL_PASS`
-- logical errors: 1179 / 20000 shots (0.058950)
-- median decoder time: 0.000886603444 s/shot
-- within-run timing MAD/median: 0.091751
-- timing max/min: 1.297977
+- within-run verdict: `QEC_BENCH_QUAL_PASS`
+- median decoder time: `0.000964777413` s/shot
+- logical errors: 1126 / 20000
 
-## Cross-run gate
+Pull-request run `34712003749`:
 
-- same generated circuit: PASS
-- timing median ratio: `1.470220554` <= `1.50`: PASS
-- accuracy |z| between runs: `0.769763772` <= `4.0`: PASS
+- within-run verdict: `QEC_BENCH_QUAL_PASS`
+- median decoder time: `0.000624716296` s/shot
+- logical errors: 1132 / 20000
 
-Terminal qualification:
+Cross-run recheck:
 
-`BENCHMARK_QUALIFIED_FOR_BOUNDED_PAIRED_OPTIMIZATION`
+- same circuit SHA256: PASS
+- accuracy |z|: `0.129989066` <= `4.0`: PASS
+- timing median ratio: `1.544344880` > `1.50`: **FAIL**
 
-The timing result is usable but not generous: independent GitHub-hosted runs
-differed by roughly 47% in median decoder time. Therefore `QEC-DECODER-001`
-must compare candidate and baseline in paired/interleaved measurements inside
-the same run. It must not claim a small speedup by comparing independent CI
-runs.
+## Terminal decision
 
-## Earned scope
+`QEC-DECODER-001` is **not earned** on this measurement surface.
 
-We earned permission to run one bounded software-only optimization experiment
-against this exact external baseline with frozen correctness constraints.
+The reason is narrow: GitHub-hosted runner timing is not reproducible enough
+under the frozen gate. A first pair barely passed at 1.4702; the immediate
+unchanged recheck crossed the limit at 1.5443. Ignoring the second pair
+would select the favorable measurement after seeing it.
 
-We did **not** earn a hardware-latency claim, a production-decoder claim,
-cross-hardware reproducibility, or any claim about solving quantum scaling.
+The useful result is therefore negative. The benchmark can produce internally
+stable within-run timing and stable logical-error measurements, but this setup
+does not support the cross-run timing claim required for autonomous speed
+optimization.
+
+Do not repair or widen the threshold. Do not launch agent search on this
+qualification. A future QEC experiment would need a different measurement
+substrate, such as a controlled dedicated runner or a benchmark design whose
+primary comparison is paired/interleaved and whose qualification rule is frozen
+around that architecture before candidate search begins.
+
+The workflow is sealed by `FROZEN_TERMINAL_RECEIPT.json`: future branch or main pushes verify the terminal negative receipt and do not rerun the external benchmark. This prevents later noise from reopening or cherry-picking the result.

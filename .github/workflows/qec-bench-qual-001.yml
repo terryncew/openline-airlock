@@ -29,7 +29,40 @@ jobs:
         with:
           persist-credentials: false
 
+      - name: Detect terminal freeze
+        id: terminal
+        shell: bash
+        run: |
+          if [[ -f proofs/qec-bench-qual-001/FROZEN_TERMINAL_RECEIPT.json ]]; then
+            echo "frozen=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "frozen=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Verify terminal freeze
+        if: steps.terminal.outputs.frozen == 'true'
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          p = Path("proofs/qec-bench-qual-001/FROZEN_TERMINAL_RECEIPT.json")
+          r = json.loads(p.read_text(encoding="utf-8"))
+          assert r["experiment_id"] == "QEC-BENCH-QUAL-001"
+          assert r["status"] == "FROZEN"
+          assert r["qualification"] == "NOT_EARNED"
+          assert r["reason"] == "CROSS_RUN_TIMING_VARIABILITY_EXCEEDED_FROZEN_LIMIT_ON_IMMEDIATE_RECHECK"
+          check = r["recheck"]
+          assert check["same_circuit_sha256"] is True
+          assert check["accuracy_pass"] is True
+          assert check["timing_pass"] is False
+          assert float(check["timing_median_ratio"]) > float(r["frozen_cross_run_limit"])
+          print("QEC-BENCH-QUAL-001 terminal negative freeze verified; benchmark rerun suppressed")
+          PY
+
       - name: Checkout pinned qec-lego-bench
+        if: steps.terminal.outputs.frozen != 'true'
         uses: actions/checkout@v4
         with:
           repository: yuewuo/qec-lego-bench
@@ -38,18 +71,22 @@ jobs:
           persist-credentials: false
 
       - name: Set up frozen Python runtime
+        if: steps.terminal.outputs.frozen != 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Install pinned benchmark import dependency
+        if: steps.terminal.outputs.frozen != 'true'
         run: |
           python -m pip install --disable-pip-version-check "ipython==9.17.1"
 
       - name: Harness self-test
+        if: steps.terminal.outputs.frozen != 'true'
         run: python proofs/qec-bench-qual-001/run.py --self-test
 
       - name: Run external benchmark qualification
+        if: steps.terminal.outputs.frozen != 'true'
         run: |
           rm -rf qec-bench-qual-001-artifacts
           python proofs/qec-bench-qual-001/run.py \
@@ -57,12 +94,13 @@ jobs:
             --output qec-bench-qual-001-artifacts
 
       - name: Verify terminal receipt
+        if: steps.terminal.outputs.frozen != 'true'
         run: |
           python proofs/qec-bench-qual-001/verify.py \
             qec-bench-qual-001-artifacts
 
       - name: Upload qualification evidence
-        if: always()
+        if: always() && steps.terminal.outputs.frozen != 'true'
         uses: actions/upload-artifact@v4
         with:
           name: qec-bench-qual-001-${{ github.event_name }}
