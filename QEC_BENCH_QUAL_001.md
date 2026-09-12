@@ -86,3 +86,31 @@ BENCHMARK_UNSTABLE_TIMING
 ```
 
 A valid non-PASS receipt is still useful. If the external substrate is too unstable, we freeze that result and do not launch autonomous search against it.
+
+## Setup failure and bounded repair
+
+The first push and pull-request qualification attempts both stopped before any
+timing or logical-error measurement was reached.
+
+Both receipts returned:
+
+```text
+INCONCLUSIVE_QEC_RUNTIME
+ModuleNotFoundError: No module named 'IPython'
+```
+
+The pinned `qec-lego-bench` package imports its notebook helpers through the CLI
+package import path, but `IPython` is not declared in the pinned package's normal
+installation dependencies. This is an environment/setup defect, not evidence
+that the benchmark is stable or unstable.
+
+`SETUP_FAILURE_001.json` freezes both run IDs, artifact identities, and the zero-
+measurement classification.
+
+The only repair is to install `ipython==9.17.1` before the same pinned benchmark
+is imported. The external benchmark commit, baseline code/decoder, shot counts,
+timing repetitions, logical-error thresholds, and all within-run/cross-run
+qualification gates remain unchanged.
+
+If the repaired run reaches measurement, its result is evaluated under the
+original preregistration. No further environment repair is automatically earned.

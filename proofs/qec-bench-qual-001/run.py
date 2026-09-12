@@ -292,7 +292,7 @@ def run(qec_root: Path, output: Path) -> int:
             "accuracy_summary": accuracy,
             "resolved_versions": package_versions([
                 "qec-lego-bench", "stim", "sinter", "mwpf", "mwpf-rational",
-                "mwpf-fast", "numpy", "ldpc"
+                "mwpf-fast", "numpy", "ldpc", "ipython"
             ]),
             "claim": "BENCHMARK_QUALIFIED_WITHIN_RUN_ONLY" if verdict == PASS else "NONE",
         }
@@ -305,7 +305,7 @@ def run(qec_root: Path, output: Path) -> int:
             "reason": f"pinned benchmark runtime failed: {type(exc).__name__}: {exc}",
             "resolved_versions": package_versions([
                 "qec-lego-bench", "stim", "sinter", "mwpf", "mwpf-rational",
-                "mwpf-fast", "numpy", "ldpc"
+                "mwpf-fast", "numpy", "ldpc", "ipython"
             ]),
         }
         write_json(output / "result.json", result)
