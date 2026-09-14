@@ -1,0 +1,33 @@
+name: AUTORESEARCH-LIVE-001 control checks
+
+on:
+  push:
+    branches:
+      - experiment/autoresearch-live-001
+    paths:
+      - 'experiments/autoresearch-live-001/**'
+      - '.github/workflows/autoresearch-live-001.yml'
+  pull_request:
+    paths:
+      - 'experiments/autoresearch-live-001/**'
+      - '.github/workflows/autoresearch-live-001.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  control-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile live driver
+        run: python -m py_compile experiments/autoresearch-live-001/live_driver.py
+      - name: Test protected-hash guard
+        run: python experiments/autoresearch-live-001/live_driver.py self-test
+      - name: Validate preregistration JSON
+        run: python -m json.tool experiments/autoresearch-live-001/AUTORESEARCH_LIVE_001_PREREGISTRATION.json >/dev/null
+      - name: Shell syntax
+        run: bash -n experiments/autoresearch-live-001/bootstrap_runpod.sh
