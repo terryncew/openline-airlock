@@ -1,0 +1,5 @@
+I can't run this packet as-is — its protocol state is stale.
+
+The packet says round 1, accepted head `0d9adb80…`, no accepted lessons. But my record shows RIL-ANOMALY-001 already went through rounds 1–3 today, and round 3 ended in PROMOTE about six minutes before this packet arrived: head advanced from `0d9adb80…` to `9cc54875…`, with the accepted lesson 'diversity-remainder-sweep'.
+
+Emitting a round-1 proposal sourced at the old head would assert false state against the ratchet, so I held it. Is this packet a replay of an earlier state, a test, or has something reset on your side? Tell me which head and round I should actually be working from and I'll execute it.

@@ -3,6 +3,7 @@ on:
   pull_request:
     paths:
       - 'experiments/ril-isolation-001/**'
+      - 'proofs/ril-anomaly-001/**'
       - '.github/workflows/ril-isolation-001.yml'
   workflow_dispatch:
 
@@ -14,6 +15,27 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+      - name: Verify frozen predecessor
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          prereg = json.loads(Path('experiments/ril-isolation-001/RIL_ISOLATION_001_PREREGISTRATION.json').read_text())
+          freeze = Path(prereg['predecessor']['freeze_path'])
+          assert freeze.is_file(), f'missing predecessor freeze: {freeze}'
+          raw = freeze.read_bytes()
+          actual = hashlib.sha256(raw).hexdigest()
+          expected = prereg['predecessor']['freeze_sha256']
+          assert actual == expected, f'predecessor freeze sha256 mismatch: {actual} != {expected}'
+          obj = json.loads(raw)
+          assert obj['experiment'] == prereg['predecessor']['experiment']
+          assert obj['formal_verdict'] == prereg['predecessor']['formal_verdict']
+          assert obj['terminal_failure'] == prereg['predecessor']['terminal_failure']
+          assert obj['status'] == 'FROZEN_TERMINAL'
+          print(f'PASS predecessor {freeze} sha256={actual}')
+          PY
       - run: python experiments/ril-isolation-001/run_ril_isolation_001.py self-check
       - run: pip install pytest
       - run: pytest -q experiments/ril-isolation-001/tests/test_contract.py
