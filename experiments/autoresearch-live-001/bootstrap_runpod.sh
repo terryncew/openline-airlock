@@ -41,11 +41,15 @@ echo "[$EXPERIMENT_ID] installing the already-proved receiver overlay"
 python "$SETUP" --repo "$RESEARCH_ROOT" --commit
 git -C "$RESEARCH_ROOT" switch -q -c muse/research
 
-# Canonical pinned dependencies. The RunPod image's global torch is not used as
-# scientific state; uv creates the upstream project's environment from its lock.
-echo "[$EXPERIMENT_ID] syncing pinned upstream environment"
-uv sync --project "$RESEARCH_ROOT"
+# Canonical pinned dependencies. RunPod may let uv select Python 3.10, while
+# openline-airlock requires Python >=3.11. Pin the scientific environment to
+# Python 3.12 before syncing the upstream lock.
+echo "[$EXPERIMENT_ID] syncing pinned upstream environment on Python 3.12"
+uv python install 3.12
+uv venv --python 3.12 "$RESEARCH_ROOT/.venv"
+UV_PROJECT_ENVIRONMENT="$RESEARCH_ROOT/.venv" uv sync --project "$RESEARCH_ROOT" --python "$RESEARCH_ROOT/.venv/bin/python"
 uv pip install --python "$RESEARCH_ROOT/.venv/bin/python" -e "$AIRLOCK_ROOT"
+"$RESEARCH_ROOT/.venv/bin/python" -c 'import sys; assert sys.version_info >= (3, 11); print(sys.version)'
 
 # prepare.py resolves ~/.cache/autoresearch. HOME=/workspace makes that cache
 # live on the persistent RunPod volume and matches the receiver's host-cache pin.
