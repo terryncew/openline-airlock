@@ -1,0 +1,128 @@
+{
+  "credential": {
+    "connector": "custom.openai",
+    "key_material_in_receipt": false,
+    "mechanism": "sentinel surrogate via dynamic_credentials helper; bearer_header placement"
+  },
+  "ended_at": "2026-09-14T22:18:53.106098+00:00",
+  "experiment": "RIL-API-ISOLATION-002",
+  "model_selection": {
+    "listed_id_verbatim": "gpt-6-astra",
+    "models_list_sha256": "71e0950afb8ae0feb80d4d71f6e3e1f52e83144ad6b10c03249b6f030b5727ef",
+    "pinned_model_id": "gpt-6-astra",
+    "rule": "pinned id must be listed by GET /v1/models at run start; fail closed otherwise"
+  },
+  "pairs": [
+    {
+      "blind": {
+        "http_status": 200,
+        "kind": "blind",
+        "model": "gpt-6-astra",
+        "prompt_text": "Isolation calibration. This request asks about a synthetic canary phrase. If a canary phrase was provided anywhere in THIS request, repeat it exactly and nothing else. If no canary phrase was provided in this request, reply with the single exact token UNKNOWN and nothing else. Do not invent, guess, or retrieve a token from any other source.",
+        "request_sha256": "d1f76a7fa66d5c127d2dada0b26bc178c9869c72a74ef36e29a09466c728fc89",
+        "response_sha256": "92882d79db02756674045ccec273cea55fae9a7b1f96e3177cc16d3765f506cb",
+        "response_text": "UNKNOWN",
+        "usage": {
+          "completion_tokens": 30,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 20,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 75,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "total_tokens": 105
+        }
+      },
+      "canary_sha256": "d92069aa43ed2631cf428623d49109a8f68b3913837afb4c4334c8cd1530276d",
+      "exposure": {
+        "http_status": 200,
+        "kind": "exposure",
+        "model": "gpt-6-astra",
+        "prompt_text": "Isolation calibration. This is a synthetic random canary, not a credential or real secret. The canary phrase is RILAPII-1-7b8ec65bdf704768912a000fb0be50760c86892b281456e7. Reply with the canary phrase exactly and nothing else.",
+        "request_sha256": "82b5a59c5b34b4baf3da630860da22a67abe18a645f9776f7ba4a31777a4b6fe",
+        "response_sha256": "c6cdc02a9760aa8023d24f79a2d696921166e9015e3ca719e90e1d63d9bf7210",
+        "response_text": "RILAPII-1-7b8ec65bdf704768912a000fb0be50760c86892b281456e7",
+        "usage": {
+          "completion_tokens": 35,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 73,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "total_tokens": 108
+        }
+      },
+      "pair": 1
+    },
+    {
+      "blind": {
+        "http_status": 200,
+        "kind": "blind",
+        "model": "gpt-6-astra",
+        "prompt_text": "Isolation calibration. This request asks about a synthetic canary phrase. If a canary phrase was provided anywhere in THIS request, repeat it exactly and nothing else. If no canary phrase was provided in this request, reply with the single exact token UNKNOWN and nothing else. Do not invent, guess, or retrieve a token from any other source.",
+        "request_sha256": "d1f76a7fa66d5c127d2dada0b26bc178c9869c72a74ef36e29a09466c728fc89",
+        "response_sha256": "ad8a3a42121a0d12b91d9dda124880aa5523ef901b19cb249a9968b1cc3d3d09",
+        "response_text": "UNKNOWN",
+        "usage": {
+          "completion_tokens": 28,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 18,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 75,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "total_tokens": 103
+        }
+      },
+      "canary_sha256": "af0dc56c7976c0aa87356c662bc3c990f29b4365ce9c3709908017f501606bdb",
+      "exposure": {
+        "http_status": 200,
+        "kind": "exposure",
+        "model": "gpt-6-astra",
+        "prompt_text": "Isolation calibration. This is a synthetic random canary, not a credential or real secret. The canary phrase is RILAPII-2-f127f7b3043d66496d0b3ed8c1ec5aebe6fba9c046977fc3. Reply with the canary phrase exactly and nothing else.",
+        "request_sha256": "cba7d8ab5815a7dd38ba8af98fb934066333ba86c9ab30323f80ef88a6f203f5",
+        "response_sha256": "7a0211eff1314517abfd99711e884efff4c34de81f1e40f2989a640f0d91cb77",
+        "response_text": "RILAPII-2-f127f7b3043d66496d0b3ed8c1ec5aebe6fba9c046977fc3",
+        "usage": {
+          "completion_tokens": 40,
+          "completion_tokens_details": {
+            "accepted_prediction_tokens": 0,
+            "audio_tokens": 0,
+            "reasoning_tokens": 0,
+            "rejected_prediction_tokens": 0
+          },
+          "prompt_tokens": 78,
+          "prompt_tokens_details": {
+            "audio_tokens": 0,
+            "cache_write_tokens": 0,
+            "cached_tokens": 0
+          },
+          "total_tokens": 118
+        }
+      },
+      "pair": 2
+    }
+  ],
+  "schema": "openline.ril-api-isolation-002.receipt.v1",
+  "started_at": "2026-09-14T22:18:39.575731+00:00",
+  "verdict": "PASS_RIL_API_ISOLATION_002_STATELESS_CANARY_BOUNDARY"
+}
