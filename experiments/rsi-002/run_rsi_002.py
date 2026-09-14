@@ -292,9 +292,12 @@ def run_nightshift_fixture(fx: Fixture) -> dict[str, Any]:
     from airlock.nightshift import run_nightshift
 
     old = dict(os.environ)
+    fixture_env = fx.env()
+    if shutil.which("git", path=fixture_env.get("PATH")) is None:
+        raise RuntimeError("RSI-002 fixture environment lost git before Nightshift")
     try:
         os.environ.clear()
-        os.environ.update(fx.env())
+        os.environ.update(fixture_env)
         return run_nightshift(
             fx.repo,
             objective_path=".airlock/objective.json",
