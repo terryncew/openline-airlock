@@ -42,5 +42,7 @@ jobs:
           assert w['worker_name'] == 'Prince'
           assert 'may not be delegated' in w['delegation_rule']
           PY
+      - name: Validate frozen result manifest
+        run: python experiments/autoresearch-live-002/verify_frozen_result.py
       - name: Shell syntax
         run: bash -n experiments/autoresearch-live-002/bootstrap_runpod.sh
