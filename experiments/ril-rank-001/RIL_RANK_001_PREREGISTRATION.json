@@ -1,0 +1,133 @@
+{
+  "schema": "openline.ril-rank-001.preregistration.v1",
+  "experiment": "RIL-RANK-001",
+  "title": "Failure-History Ranking Calibration",
+  "minimum_airlock_ancestor": "79c3dbfb4ec3f844c15552720db5480acc311510",
+  "question": "Does correctly bound receiver-observed prior evidence help a frozen ranking rule find an acceptable improvement within a fixed evaluation budget more often on unfamiliar task families?",
+  "predecessor": {
+    "experiment": "RIL-001D",
+    "formal_verdict": "GOVERNED_LIVE_LOOP_COSTLY_NO_GAIN",
+    "artifact_sha256": "b850890e8078dc8e382e57f5bcb8f609e34158fdfb0355e1a704c97a1ee66ba5",
+    "result_sha256": "cdf9110788848207b971c89c3f4a8e846be342578349404329025f1cdaf93c03",
+    "run_id": 34807100255,
+    "head_sha": "d9df44b973f1da4348d4629c2621a5f9aabe4b9e",
+    "interpretation": "RIL-001D changed terminal search behavior but did not improve productivity: both arms solved 30/30, the recursive arm cost more, and no recursive-only terminal win occurred. RIL-RANK-001 tests a smaller candidate mechanism instead of rerunning that primary."
+  },
+  "scientific_scope": {
+    "standing": "CONTROLLED_SYNTHETIC_FAMILY_HELD_OUT_CALIBRATION",
+    "purpose": "cheap mechanism falsifier before another live recursive trial",
+    "not_a_rerun_of_predecessor": true,
+    "not_level4": true,
+    "not_live_agent_evidence": true
+  },
+  "family_split": {
+    "calibration_families": [
+      "parsing",
+      "state-transition",
+      "aggregation",
+      "validation"
+    ],
+    "holdout_families": [
+      "caching",
+      "pagination",
+      "retry",
+      "schema-migration"
+    ],
+    "calibration_tasks_per_family": 16,
+    "holdout_tasks_per_family": 24,
+    "candidate_feature_vocabulary_shared": true,
+    "family_identity_available_to_ranker": false,
+    "rule": "No holdout family is used during calibration. Holdout candidate descriptors are generated only after both learned policies are sealed. Holdout outcomes are created only after all three holdout orderings are durably sealed."
+  },
+  "candidate_surface": {
+    "candidates_per_task": 12,
+    "features": {
+      "strategy": ["guard", "normalize", "reorder", "cache", "retry", "vectorize"],
+      "scope": ["narrow", "medium", "broad"],
+      "evidence": ["direct", "derived", "speculative"],
+      "complexity": ["low", "medium", "high"]
+    },
+    "candidate_generation": "HMAC-SHA256-derived feature combinations from receiver CSPRNG candidate nonce; unique candidate descriptors per task",
+    "accept_gain_threshold": 2.2
+  },
+  "receiver_world": {
+    "global_effect_std": 0.8,
+    "family_effect_std": 1.0,
+    "task_bias_std": 0.5,
+    "candidate_noise_std": 0.3,
+    "normal_generation": "deterministic Box-Muller from HMAC-SHA256 uniforms",
+    "calibration_and_holdout_share": "only the hidden global feature effects; each family has separate receiver-generated effects and each task/candidate has separate hidden variation",
+    "interpretation": "The controlled world contains possible cross-family signal without making family identity an input to the ranker. A pass is a mechanism calibration, not evidence that real software failures share the same distribution."
+  },
+  "arms": {
+    "baseline": {
+      "history": "same calibration history exists but policy ignores it",
+      "ordering": "SHA-256 ordering over frozen baseline seed, task id, and candidate id"
+    },
+    "evidence": {
+      "history": "correctly bound receiver calibration evidence",
+      "ordering": "sum of Laplace-smoothed feature-atom log odds learned from calibration accept/reject observations",
+      "laplace_alpha": 1.0,
+      "laplace_beta": 3.0
+    },
+    "history_shuffled": {
+      "history": "same calibration rows and same ranking algorithm, but accepted/gain/reason tuples are shuffled within each calibration task before learning",
+      "purpose": "preserve task difficulty and label counts while breaking candidate-feature/outcome binding"
+    }
+  },
+  "primary_metric": {
+    "name": "acceptable_improvement_found_within_fixed_evaluation_budget",
+    "evaluation_budget": 4,
+    "unit": "holdout task",
+    "positive_rule": "Evidence ranking rate must exceed both baseline and history-shuffled ranking rates by at least 0.08.",
+    "min_rate_advantage_vs_each_control": 0.08,
+    "inferential_significance_claim": false,
+    "family_breakdown": "reported diagnostically for all four holdout families; it is not a second primary endpoint"
+  },
+  "secondary_metrics": {
+    "evaluations_to_first_win": "integer 1..4 on a win; null on a miss; censored summary encodes miss as 5",
+    "evaluations_used": "stop at first acceptable candidate or consume all four evaluations",
+    "gain": "best gain seen inside budget",
+    "regret": "best gain in full bounded candidate pool minus best gain seen inside budget",
+    "all_three_miss_tasks": "reported explicitly"
+  },
+  "economics": {
+    "learning_cost": "count all calibration candidate evaluations conservatively, plus learned-ranker CPU seconds reported separately",
+    "control_overhead": "history-shuffled training is experiment-control overhead and is not charged as production learning cost",
+    "downstream_savings": "baseline evaluations used minus evidence-ranker evaluations used on the identical holdout tasks",
+    "break_even": "if mean downstream evaluation savings per task is positive, report ceil(calibration evaluations / observed mean savings per task); otherwise null",
+    "predictive_and_economic_standing_separate": true
+  },
+  "temporal_sealing": [
+    "Receiver creates and evaluates calibration tasks.",
+    "Calibration evidence is fsync-sealed.",
+    "Evidence model and history-shuffled model are trained and fsync-sealed.",
+    "Only then does the receiver create holdout candidate pools.",
+    "Baseline, evidence, and history-shuffled orderings for every holdout task are fsync-sealed.",
+    "Only after that seal does the receiver draw the holdout-outcome nonce and create holdout outcomes.",
+    "No holdout outcome is returned to either ranker."
+  ],
+  "verdicts": {
+    "PASS_RIL_RANK_001_HISTORY_RANKING_SIGNAL": "Evidence ranker clears the frozen primary advantage versus both controls.",
+    "RANKING_ADVANTAGE_HISTORY_SIGNAL_NOT_ESTABLISHED": "Evidence ranker beats baseline by the frozen margin but not the same ranker trained on shuffled history.",
+    "HISTORY_SIGNAL_NO_BASELINE_ADVANTAGE": "Evidence ranker beats shuffled history by the frozen margin but not baseline.",
+    "NO_PREDICTIVE_RANKING_ADVANTAGE": "Evidence ranker does not clear the frozen margin against both controls."
+  },
+  "anti_rescue": "The first completed RIL-RANK-001 primary is terminal for this experiment ID. After any holdout outcome exists, do not change the task-family split, candidate generator, hidden outcome generator, shared-signal/noise scales, ranking rule, shuffle rule, evaluation budget, primary metric, minimum advantage, or economic accounting and rerun under RIL-RANK-001. A redesign requires a new experiment ID. CI or packaging repairs before the first primary may not change scientific criteria.",
+  "claim_boundary": [
+    "A pass establishes only that correctly bound prior receiver evidence improved candidate ordering in this controlled synthetic family-held-out calibration.",
+    "A pass does not establish Level 4, recursive self-improvement, live-agent productivity advantage, production value, or repeatability across separately initialized runs.",
+    "A pass does not prove that any particular failure reason or signed receipt field caused the advantage; the history-shuffled control tests whether correct evidence binding contributes useful information under this protocol.",
+    "The controlled receiver world is not evidence that real software-search landscapes have the same transfer structure.",
+    "A negative result is frozen rather than rescued by changing the ranking rule or task distribution.",
+    "No hard pruning or irreversible exclusion is performed; ranking changes evaluation order only.",
+    "There is no hostile-process isolation or sandbox claim."
+  ],
+  "frozen_files": {
+    ".github/workflows/ril-rank-001.yml": "50daccbe53038b35040bbec7f857ae4800b5a52f5f860a2c781c72f5a5e66ab5",
+    "experiments/ril-rank-001/README.md": "bb29ccb24589da1aec4bd42eee070c393551b29e6d1d15c38c709c2f10cd95aa",
+    "experiments/ril-rank-001/historical/RIL_001D_PRIMARY_SUMMARY.json": "afa97a27e35f477a5f671be3a139aa3b4ebd02bff1df0c060978defe87a77d30",
+    "experiments/ril-rank-001/run_ril_rank_001.py": "8bd2f24ecfd32059ad6267340cee8fb656965a28c7e9e62003283bf213ec65e3",
+    "experiments/ril-rank-001/tests/test_ril_rank_001.py": "5b736ba63ad58e62fe808902323a871dfc2fdce1b916fab496ed98c0ee32bd80"
+  }
+}

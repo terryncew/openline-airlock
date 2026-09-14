@@ -1,0 +1,108 @@
+name: RIL-RANK-001 failure-history ranking calibration
+
+on:
+  push:
+    branches: [experiment/ril-rank-001]
+    paths:
+      - ".github/workflows/ril-rank-001.yml"
+      - "experiments/ril-rank-001/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ril-rank-001-primary
+  cancel-in-progress: false
+
+jobs:
+  primary:
+    if: ${{ github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout frozen experiment
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: python -m unittest discover -s experiments/ril-rank-001/tests -p 'test_*.py' -v
+
+      - name: Verify frozen preregistration and structural boundary
+        run: python experiments/ril-rank-001/run_ril_rank_001.py --self-check
+
+      - name: Run first RIL-RANK-001 primary
+        shell: bash
+        run: |
+          set -euo pipefail
+          python experiments/ril-rank-001/run_ril_rank_001.py \
+            --output "$RUNNER_TEMP/RIL_RANK_001_RESULT.json" \
+            --evidence-dir "$RUNNER_TEMP/RIL_RANK_001_EVIDENCE"
+
+      - name: Classify without upgrading the claim
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["RUNNER_TEMP"]) / "RIL_RANK_001_RESULT.json"
+          r = json.loads(p.read_text())
+          assert r["schema"] == "openline.ril-rank-001.result.v1"
+          assert r["scientific_standing"] == "CONTROLLED_SYNTHETIC_FAMILY_HELD_OUT_CALIBRATION"
+          assert r["level4_standing"] == "NOT_EARNED"
+          assert r["primary_metric"]["evaluation_budget"] == 4
+          assert r["methods"]["evidence"]["tasks"] == 96
+          assert r["integrity"]["calibration_and_holdout_families_disjoint"] is True
+          assert r["integrity"]["family_identity_excluded_from_rank_model"] is True
+          assert r["integrity"]["all_holdout_orders_sealed_before_holdout_outcome_nonce"] is True
+          allowed = {
+              "PASS_RIL_RANK_001_HISTORY_RANKING_SIGNAL",
+              "RANKING_ADVANTAGE_HISTORY_SIGNAL_NOT_ESTABLISHED",
+              "HISTORY_SIGNAL_NO_BASELINE_ADVANTAGE",
+              "NO_PREDICTIVE_RANKING_ADVANTAGE",
+          }
+          assert r["verdict"] in allowed
+          print(json.dumps({
+              "verdict": r["verdict"],
+              "primary_metric": r["primary_metric"],
+              "economics": r["economics"],
+              "misses": r["misses"],
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Stage receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/RIL_RANK_001_ARTIFACT"
+          mkdir -p "$OUT"
+          cp "$RUNNER_TEMP/RIL_RANK_001_RESULT.json" "$OUT/" || true
+          cp "experiments/ril-rank-001/RIL_RANK_001_PREREGISTRATION.json" "$OUT/" || true
+          cp "experiments/ril-rank-001/historical/RIL_001D_PRIMARY_SUMMARY.json" "$OUT/" || true
+          if [ -d "$RUNNER_TEMP/RIL_RANK_001_EVIDENCE" ]; then
+            cp -a "$RUNNER_TEMP/RIL_RANK_001_EVIDENCE" "$OUT/evidence"
+          fi
+          {
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "head_sha=${GITHUB_SHA}"
+          } > "$OUT/run.txt"
+          find "$OUT" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/MANIFEST.sha256" || true
+
+      - name: Upload RIL-RANK-001 primary receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIL-RANK-001-primary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/RIL_RANK_001_ARTIFACT/
+          if-no-files-found: error
+          retention-days: 90
