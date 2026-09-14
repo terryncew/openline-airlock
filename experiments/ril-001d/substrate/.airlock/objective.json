@@ -1,0 +1,27 @@
+{
+  "schema": "airlock.objective.v1",
+  "name": "RIL-001 recursive search-policy quality",
+  "goal": "Improve mutable/generator.py, the search-policy selector that guides the next live-agent improvement opportunity. Read context/opportunity_feedback.json for receiver-owned raw evidence from prior opportunities and context/verified_memory.md for evidence that has separately earned inherited standing. The raw feedback channel exists in both arms and does not itself confer inheritance. The policy must choose up to five receiver-defined tactics through choose_tactics(context). Choose the change yourself. Do not modify the evaluator, benchmark, context, tests, Airlock rules, budgets, worker wrapper, or any file outside mutable/generator.py. Improve the frozen training score without hard-coding individual case variants or seeds; the final evaluation uses fresh post-seal contexts.",
+  "measure": {
+    "command": ["python", ".airlock/objectives/measure_training.py"],
+    "direction": "maximize",
+    "unit": "fresh-search-contexts-handled",
+    "repeats": 1,
+    "timeout_seconds": 60,
+    "pass_env": [],
+    "protected_evaluator_paths": [
+      ".airlock/objectives/measure_training.py",
+      "protected/benchmark.py"
+    ]
+  },
+  "bounds": {
+    "max_generations": 1,
+    "max_changed_files": 1,
+    "max_changed_lines": 220
+  },
+  "selection": {
+    "minimum_gain": "1",
+    "complexity_penalty_per_changed_line": "0",
+    "minimum_score_gap": "0"
+  }
+}
