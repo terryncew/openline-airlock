@@ -1,0 +1,148 @@
+{
+  "allowed_tools": [
+    "Gemini conversational reasoning"
+  ],
+  "anti_rescue": "After first primary packet is delivered, do not change seed failure, protocols, round count, resource ceilings, promotion rule, researcher substrate, Temporary Chat arm-isolation rule, or scoring threshold under RIL-ANOMALY-002. Redesign requires a new experiment ID.",
+  "arm_limits": {
+    "external_compute_usd": "6.00",
+    "receiver_evaluations": 64,
+    "research_rounds": 4,
+    "wall_seconds": 4800
+  },
+  "arms": {
+    "anomaly_interview": {
+      "method": "Before proposing a mechanism, identify where the current explanation stopped working, state at least two competing explanations, and choose the smallest bounded experiment whose observations distinguish them.",
+      "proposal_authority": "research only"
+    },
+    "ordinary_search": {
+      "method": "Use ordinary reasoning/search to propose the next bounded experiment or mechanism likely to produce an independently confirmed improvement; no anomaly-interview sequence is required.",
+      "proposal_authority": "research only"
+    }
+  },
+  "claim_boundary": {
+    "earned_if_pass": "A single bounded matched-start run in which anomaly-first investigation produced at least two more independently receiver-confirmed promoted research improvements than ordinary search under the frozen ratchet, qualified Temporary Chat substrate, and resource ceilings.",
+    "not_earned": [
+      "recursive self-improvement",
+      "Level 4 autonomous improvement",
+      "general scientific judgment advantage",
+      "universal researcher advantage",
+      "repeatability",
+      "production value",
+      "economic payback",
+      "provider-internal isolation",
+      "hostile-process isolation"
+    ]
+  },
+  "cost_accounting": {
+    "external_compute": "Count actual receiver-side external compute used inside frozen ceilings.",
+    "gemini_membership": "FIXED_SHARED_SUBSTRATE_DOLLAR_ALLOCATION_NOT_OBSERVABLE_NOT_ALLOCATED",
+    "receiver_evaluations": "Count every receiver evaluation invoked by a proposed experiment.",
+    "total_economic_cost_claim": "NOT_EARNED"
+  },
+  "experiment": "RIL-ANOMALY-002",
+  "frozen_files": {
+    "experiments/ril-anomaly-002/ANOMALY_PROTOCOL.md": "19482b6d64ea685404bfb7daa0fafe79e90232118e77347b158d460fd68cd7ad",
+    "experiments/ril-anomaly-002/CONTROL_PROTOCOL.md": "307e5092989fe66fb6feac9d806ebfc0a6c8ee139cbfc81134dbf4e64149873f",
+    "experiments/ril-anomaly-002/OPERATOR_CARD.md": "2e7db57e7859756aeed10fbfe8e4de33a513e7c866f14a5d1d991f332bdd3643",
+    "experiments/ril-anomaly-002/README.md": "2485685f062de9ca2f24a0333770157a859b904d8ab403a05599a913b44e56cf",
+    "experiments/ril-anomaly-002/protected/research_driver.py": "bf1dd4e3ffe3c6445cea20ff073a8076c5b7d4ed4beb1b16380d6c7f2fce4ede",
+    "experiments/ril-anomaly-002/run_ril_anomaly_002.py": "3040c9f81017d1ddc84267c4a8a4ca7cfbc8c9b2333efd2be685824eb606e8fc"
+  },
+  "frozen_main": "734d4e8b6c341fe0f44b0b95c168a97d07493c8c",
+  "lineage": {
+    "failed_match": {
+      "experiment": "RIL-ANOMALY-001",
+      "formal_verdict": "INCONCLUSIVE_RIL_ANOMALY_001_TERMINAL_FAILURE",
+      "freeze_path": "proofs/ril-anomaly-001/RIL_ANOMALY_001_FREEZE.json",
+      "freeze_sha256": "20109925aac11c7a49a0bf27a563b87d465f8b65d39c7b61cf07d7ce4dbe7199",
+      "single_arm_promotions_are_not_inherited": true,
+      "terminal_failure": "PROTOCOL_FAILURE_CROSS_ARM_PRODUCT_MEMORY_CONTAMINATION_BEFORE_CONTROL_ROUND_1"
+    },
+    "seed": {
+      "experiment": "RIL-RANK-LIVE-002",
+      "formal_verdict": "NO_OBSERVED_RIL_RANK_LIVE_002_TRANSFER_ADVANTAGE",
+      "freeze_git_blob_sha1": "af4c4f9e96e6d9dd7bbe5c96fdcd05d9cd9c88bf",
+      "freeze_path": "proofs/ril-rank-live-002/RIL_RANK_LIVE_002_FREEZE.json",
+      "result_sha256": "1005a9073ec099c58171e056bb73230c49a948db6a6b304f42914bf076d7caf2"
+    },
+    "substrate_qualification": {
+      "boundary": "observable exact-canary cross-Temporary-Chat inheritance only; provider-internal isolation not claimed",
+      "experiment": "RIL-ISOLATION-002",
+      "formal_verdict": "PASS_RIL_ISOLATION_002_GEMINI_TEMPORARY_CHAT_BOUNDARY",
+      "freeze_path": "proofs/ril-isolation-002/RIL_ISOLATION_002_FREEZE.json",
+      "freeze_sha256": "ce98f84046481f84f6e26a453fbc6f806e690e68f3d5c9bb6c13ae291f0d6285",
+      "permission": "MAY_PROCEED"
+    }
+  },
+  "matched_start": {
+    "allowed_treatment_difference": "research protocol only",
+    "receiver_private_arm_to_session_mapping": true,
+    "same_allowed_tools": true,
+    "same_empty_accepted_lessons": true,
+    "same_initial_accepted_head": true,
+    "same_receiver_promotion_rule": true,
+    "same_researcher_substrate": true,
+    "same_resource_ceilings": true,
+    "same_round_count": true,
+    "same_seed_failure": true
+  },
+  "null_band": {
+    "condition": "absolute promotion difference < 2",
+    "verdict": "NO_OBSERVED_RIL_ANOMALY_002_ADVANTAGE"
+  },
+  "ordinary_search_advantage": {
+    "condition": "ordinary_search promotions - anomaly_interview promotions >= 2",
+    "verdict": "OBSERVED_RIL_ANOMALY_002_ORDINARY_SEARCH_ADVANTAGE"
+  },
+  "pass_threshold": {
+    "condition": "anomaly_interview promotions - ordinary_search promotions >= 2",
+    "verdict": "PASS_RIL_ANOMALY_002_EARNED_RESEARCH_RATCHET"
+  },
+  "primary_metric": "receiver-confirmed PROMOTE count within four-round arm budget",
+  "ratchet": {
+    "lesson_boundary": "Promoted lesson is evidence-bound inherited memory with scope and invalidation conditions; not universal truth.",
+    "promotion_rule": "PROMOTE only when receiver records protocol_valid=true, confirmed_improvement=true, regression_detected=false, bound receiver evidence, and budget compliance.",
+    "quarantine_rule": "QUARANTINE leaves accepted_head unchanged; quarantined lesson is not inherited.",
+    "reject_rule": "REJECT leaves accepted_head unchanged; rejected lesson is not inherited.",
+    "start_rule": "Every round binds to the current accepted_head for that arm.",
+    "state": "accepted_head",
+    "successor_binding": "source accepted_head + response hash + receiver evidence hash + candidate lesson hash -> successor accepted_head"
+  },
+  "receiver_outcome": {
+    "judge": "receiver evidence only; no LLM quality judge",
+    "required_fields": [
+      "protocol_valid",
+      "confirmed_improvement",
+      "regression_detected",
+      "evidence_artifact_sha256",
+      "receiver_evaluations",
+      "external_compute_usd",
+      "wall_seconds"
+    ]
+  },
+  "research_question": "Does anomaly-first investigation, under a receiver-owned promotion ratchet, produce more independently confirmed research improvements than ordinary search from the same unresolved failure and bounded resources when the two trajectories are isolated in separately qualified Gemini Temporary Chats?",
+  "researcher": {
+    "cross_arm_transfer_forbidden": true,
+    "mode": "Temporary Chat",
+    "model_display": "Flash Extended",
+    "one_fresh_temporary_chat_per_arm": true,
+    "product": "Google Gemini consumer app",
+    "provider_internal_isolation_not_claimed": true,
+    "qualification_lineage": "3.8 Flash + Extended thinking",
+    "same_chat_retained_within_arm_for_four_rounds": true
+  },
+  "round_limits": {
+    "external_compute_usd": "1.50",
+    "receiver_evaluations": 16,
+    "wall_seconds": 1200
+  },
+  "rounds_per_arm": 4,
+  "schema": "openline.ril-anomaly-002.preregistration.v1",
+  "terminal_failures": [
+    "PROTOCOL_FAILURE",
+    "RECEIVER_OUTCOME_INVALID",
+    "BUDGET_EXHAUSTED",
+    "CROSS_ARM_CONTAMINATION"
+  ],
+  "title": "Isolated Interview the Failure / Earned Lesson Ratchet"
+}
