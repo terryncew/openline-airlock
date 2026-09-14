@@ -1,4 +1,4 @@
-name: RIL-RANK-LIVE-001 matched live transfer
+name: RIL-RANK-LIVE-001 matched Prince contact
 
 on:
   push:
@@ -6,14 +6,13 @@ on:
     paths:
       - ".github/workflows/ril-rank-live-001.yml"
       - "experiments/ril-rank-live-001/**"
-  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/ril-rank-live-001.yml"
+      - "experiments/ril-rank-live-001/**"
 
 permissions:
   contents: read
-
-concurrency:
-  group: ril-rank-live-001-primary
-  cancel-in-progress: false
 
 jobs:
   structural:
@@ -29,173 +28,5 @@ jobs:
           python-version: "3.12"
       - name: Unit tests
         run: python -m unittest discover -s experiments/ril-rank-live-001/tests -p 'test_*.py' -v
-      - name: Verify frozen predecessor, lineage, and preregistration
+      - name: Verify frozen predecessor, Prince identity, matched-input invariant, threshold, and hard budget
         run: python experiments/ril-rank-live-001/run_ril_rank_live_001.py --self-check
-
-  primary:
-    if: ${{ github.event_name == 'workflow_dispatch' && github.run_attempt == 1 && github.ref == 'refs/heads/experiment/ril-rank-live-001' }}
-    needs: structural
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    env:
-      RIL_HERMES_COMMIT: afe06f21f45f476c25034c4529818d9a2f9fdf1c
-      RIL_MODEL: gpt-5.6-sol
-      RIL_DEPS_ROOT: /tmp/ril-rank-live-001-deps
-    steps:
-      - name: Checkout committed primary
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.12"
-
-      - name: Require delegated model credential
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          if [ -z "${OPENAI_API_KEY:-}" ]; then
-            echo "::error::RIL-RANK-LIVE-001 requires repository secret OPENAI_API_KEY."
-            exit 2
-          fi
-
-      - name: Install exact pinned Hermes source
-        env:
-          GH_READ_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf "$RIL_DEPS_ROOT"
-          mkdir -p "$RIL_DEPS_ROOT/hermes"
-          ARCHIVE="$RIL_DEPS_ROOT/hermes-${RIL_HERMES_COMMIT}.tar.gz"
-          curl --fail --location --silent --show-error \
-            --retry 5 --retry-delay 2 --retry-all-errors \
-            -H "Accept: application/vnd.github+json" \
-            -H "Authorization: Bearer ${GH_READ_TOKEN}" \
-            -H "X-GitHub-Api-Version: 2022-11-28" \
-            "https://api.github.com/repos/NousResearch/hermes-agent/tarball/${RIL_HERMES_COMMIT}" \
-            -o "$ARCHIVE"
-          test -s "$ARCHIVE"
-          tar -xzf "$ARCHIVE" --strip-components=1 -C "$RIL_DEPS_ROOT/hermes"
-          sha256sum "$ARCHIVE" > "$RIL_DEPS_ROOT/source-archive.sha256"
-          python -m venv "$RIL_DEPS_ROOT/hermes-venv"
-          "$RIL_DEPS_ROOT/hermes-venv/bin/python" -m pip install --disable-pip-version-check --editable "$RIL_DEPS_ROOT/hermes"
-          mkdir -p "$RIL_DEPS_ROOT/bin"
-          ln -sf "$RIL_DEPS_ROOT/hermes-venv/bin/hermes" "$RIL_DEPS_ROOT/bin/hermes"
-          echo "$RIL_DEPS_ROOT/bin" >> "$GITHUB_PATH"
-          printf '%s\n' "$RIL_HERMES_COMMIT" > "$RIL_DEPS_ROOT/hermes.commit"
-
-      - name: Verify exact live runtime limits
-        shell: bash
-        run: |
-          set -euo pipefail
-          command -v hermes
-          test "$(cat "$RIL_DEPS_ROOT/hermes.commit")" = "$RIL_HERMES_COMMIT"
-          "$RIL_DEPS_ROOT/hermes-venv/bin/python" - <<'PY'
-          import inspect
-          from run_agent import AIAgent
-          params = inspect.signature(AIAgent.__init__).parameters
-          assert "max_iterations" in params
-          assert "max_tokens" in params
-          print("pinned Hermes exposes receiver-set max_iterations and max_tokens")
-          PY
-
-      - name: Re-run structural checks before model contact
-        run: |
-          python -m unittest discover -s experiments/ril-rank-live-001/tests -p 'test_*.py' -v
-          python experiments/ril-rank-live-001/run_ril_rank_live_001.py --self-check
-
-      - name: Run first paid matched live primary
-        id: primary
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        shell: bash
-        run: |
-          set -o pipefail
-          python experiments/ril-rank-live-001/run_ril_rank_live_001.py \
-            --output "$RUNNER_TEMP/RIL_RANK_LIVE_001_RESULT.json" \
-            --evidence-dir "$RUNNER_TEMP/RIL_RANK_LIVE_001_EVIDENCE" \
-            2>&1 | tee "$RUNNER_TEMP/RIL_RANK_LIVE_001_CONSOLE.log"
-
-      - name: Classify without upgrading the claim
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          test -f "$RUNNER_TEMP/RIL_RANK_LIVE_001_RESULT.json"
-          python - <<'PY'
-          import json, os
-          from pathlib import Path
-          p = Path(os.environ["RUNNER_TEMP"]) / "RIL_RANK_LIVE_001_RESULT.json"
-          r = json.loads(p.read_text())
-          assert r["schema"] == "openline.ril-rank-live-001.result.v1"
-          assert r["scientific_standing"] == "LIVE_AGENT_SELECTION_MATCHED_TRANSFER_SINGLE_RUN"
-          assert r["repeatability_standing"] == "NOT_TESTED_SINGLE_MATCHED_RUN"
-          assert r["level4_standing"] == "NOT_EARNED"
-          assert r["recursive_improvement_standing"] == "NOT_EARNED"
-          assert r["design"]["tasks_total"] == 16
-          assert r["design"]["evaluation_budget"] == 4
-          assert r["integrity"]["same_history_both_arms"] is True
-          assert r["integrity"]["same_candidate_pool_both_arms"] is True
-          assert r["integrity"]["same_live_model_both_arms"] is True
-          assert r["integrity"]["only_frozen_candidate_order_differs_before_live_call"] is True
-          assert r["integrity"]["ordering_sealed_before_task_data_nonce"] is True
-          allowed = {
-              "PASS_RIL_RANK_LIVE_001_OBSERVED_LIVE_TRANSFER",
-              "LIVE_TRANSFER_WITH_MODEL_COST_PENALTY",
-              "NO_OBSERVED_LIVE_TRANSFER_ADVANTAGE",
-              "OBSERVED_LIVE_RANKING_DISADVANTAGE",
-              "INCONCLUSIVE_RIL_RANK_LIVE_001_LIVE_EXECUTION",
-              "INCONCLUSIVE_RIL_RANK_LIVE_001_ECONOMICS",
-          }
-          assert r["verdict"] in allowed
-          print(json.dumps({
-              "verdict": r["verdict"],
-              "primary_metric": r["primary_metric"],
-              "arms": r["arms"],
-              "economics": r["economics"],
-              "integrity": {
-                  "all_live_orders_valid": r["integrity"]["all_live_orders_valid"],
-                  "economics_valid": r["integrity"]["economics_valid"],
-              },
-          }, indent=2, sort_keys=True))
-          PY
-
-      - name: Stage complete receipt with non-self-referential manifest
-        if: always()
-        shell: bash
-        run: |
-          set -euo pipefail
-          OUT="$RUNNER_TEMP/RIL_RANK_LIVE_001_ARTIFACT"
-          mkdir -p "$OUT"
-          cp "$RIL_DEPS_ROOT/source-archive.sha256" "$OUT/" || true
-          cp "$RIL_DEPS_ROOT/hermes.commit" "$OUT/" || true
-          cp "$RUNNER_TEMP/RIL_RANK_LIVE_001_RESULT.json" "$OUT/" || true
-          cp "$RUNNER_TEMP/RIL_RANK_LIVE_001_CONSOLE.log" "$OUT/" || true
-          cp "experiments/ril-rank-live-001/RIL_RANK_LIVE_001_PREREGISTRATION.json" "$OUT/" || true
-          cp "proofs/ril-rank-exec-001/RIL_RANK_EXEC_001_FREEZE.json" "$OUT/" || true
-          if [ -d "$RUNNER_TEMP/RIL_RANK_LIVE_001_EVIDENCE" ]; then
-            cp -a "$RUNNER_TEMP/RIL_RANK_LIVE_001_EVIDENCE" "$OUT/evidence"
-          fi
-          {
-            echo "run_id=${GITHUB_RUN_ID}"
-            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
-            echo "head_sha=${GITHUB_SHA}"
-          } > "$OUT/run.txt"
-          (
-            cd "$OUT"
-            find . -type f ! -name MANIFEST.sha256 -print0 | sort -z | xargs -0 sha256sum > MANIFEST.sha256
-          )
-
-      - name: Upload primary receipt
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: RIL-RANK-LIVE-001-primary-${{ github.run_id }}-${{ github.run_attempt }}
-          path: ${{ runner.temp }}/RIL_RANK_LIVE_001_ARTIFACT/
-          if-no-files-found: error
-          retention-days: 90
