@@ -1,0 +1,118 @@
+{
+  "schema": "openline.experiment.preregistration.v1",
+  "experiment_id": "AUTORESEARCH-LIVE-004",
+  "title": "Exact Inheritance of Confirmed A and Search for Confirmed B",
+  "lineage": {
+    "airlock_minimum_ancestor": "536c080a03a9de0dff72ef7c9748f37833ca1f9c",
+    "predecessor_experiment": "AUTORESEARCH-LIVE-003",
+    "required_predecessor_verdict": "CONFIRMED_LIVE_IMPROVEMENT_PROMOTED",
+    "required_predecessor_baseline_commit": "effe44963da4d8b81ecc9be1ba3f115ac3ef2dab",
+    "required_inherited_a_commit": "20a0df6cc98778ffb53957d6b4fafccda3a4973e",
+    "required_predecessor_freeze_manifest": "experiments/autoresearch-live-003/AUTORESEARCH_LIVE_003_FREEZE.json",
+    "predecessor_transport_rule": "the carrier may vary, but the supplied git bundle must hash-match the frozen predecessor manifest and must materialize the exact inherited A commit",
+    "predecessor_metric_reused_as_baseline": false
+  },
+  "upstream": {
+    "repository": "karpathy/autoresearch",
+    "commit": "228791fb499afffb54b46200aca536f79142f117",
+    "default_branch": "master"
+  },
+  "worker": {
+    "provider": "Meta",
+    "product": "Muse personal AI agent",
+    "model": "Muse Spark 1.3",
+    "worker_name": "Prince",
+    "role": "research generator only",
+    "identity_attestation": "self-declared; not independently verified by runtime",
+    "same_generator_as_live003": true,
+    "delegation_rule": "mechanical browser transport is permitted; research reasoning, candidate selection, hyperparameter choice, train.py authorship, and scientific judgment may not be delegated to another model or subagent",
+    "external_patch_rule": "no external leaderboard, known-winning autoresearch patch, operator-supplied candidate idea, TOE conditioning, or post-outcome tuning may be introduced after preregistration"
+  },
+  "question": "Starting from the exact confirmed A accepted in AUTORESEARCH-LIVE-003, can the same preregistered researcher produce a second train.py candidate B that clears the same receiver-owned objective twice before promotion?",
+  "invariant": "exact inherited accepted state A precedes all B-search work; researcher proposal authority != receiver measurement authority != promotion authority",
+  "inheritance": {
+    "exact_a_commit_required": "20a0df6cc98778ffb53957d6b4fafccda3a4973e",
+    "exact_a_parent_required": "effe44963da4d8b81ecc9be1ba3f115ac3ef2dab",
+    "a_must_descend_from_upstream_pin": true,
+    "predecessor_delta_scope_required": ["train.py"],
+    "frozen_live003_manifest_must_confirm_a": true,
+    "git_bundle_sha256_must_match_frozen_manifest": true,
+    "fresh_receiver_state_required": true,
+    "fresh_a_baseline_measurement_required": true,
+    "a_is_never_reconstructed_from_a_textual_description": true
+  },
+  "measurement": {
+    "primary_metric": "val_bpb",
+    "direction": "minimize",
+    "training_time_budget_seconds_per_measurement": 300,
+    "upstream_seed_policy": "unchanged upstream fixed seeds: torch.manual_seed(42) and torch.cuda.manual_seed(42)",
+    "inherited_a_baseline_runs": 1,
+    "discovery_runs_per_candidate": 1,
+    "confirmation_runs_for_first_apparent_b": 1,
+    "minimum_gain": "0.000001",
+    "score_source": "receiver-intercepted protected prepare.evaluate_bpb result",
+    "confirmation_semantics": "fresh receiver invocation and fresh candidate training measurement from the same still-unpromoted inherited-A accepted base, using the identical candidate commit and same fixed-seed protocol",
+    "independent_seed_claim": false,
+    "statistical_superiority_claim": false
+  },
+  "search_budget": {
+    "maximum_researcher_calls": 12,
+    "maximum_discovery_evaluations": 12,
+    "maximum_confirmation_evaluations": 1,
+    "maximum_receiver_measurements_including_inherited_a_baseline": 14,
+    "maximum_training_seconds": 4200,
+    "first_apparent_b_ends_discovery": true,
+    "confirmation_failure_is_terminal": true,
+    "no_second_apparent_b_search_after_failed_confirmation": true
+  },
+  "total_budget": {
+    "setup_counted": true,
+    "inheritance_transport_and_verification_counted": true,
+    "researcher_calls_counted": true,
+    "inherited_a_baseline_counted": true,
+    "discovery_measurements_counted": true,
+    "confirmation_counted": true,
+    "maximum_pod_wall_seconds": 9000,
+    "maximum_paid_gpu_spend_usd": "4.00",
+    "hourly_gpu_rate_must_be_recorded_before_bootstrap": true,
+    "available_credit_must_cover_projected_wall_ceiling_before_bootstrap": true,
+    "note": "At $1.60/hour the 150-minute wall ceiling is $4.00. Do not add funding or exceed the spend ceiling without ending this preregistered experiment and defining a successor."
+  },
+  "promotion_rule": {
+    "discovery_accept_is_not_promotion_authority": true,
+    "first_apparent_b_requires_confirmation": true,
+    "confirmation_must_bind_same_base_and_same_candidate": true,
+    "confirmation_accept_receipt_is_the_only_receipt_authorized_for_b_promotion": true,
+    "no_code_or_threshold_change_between_discovery_and_confirmation": true,
+    "promotion_occurs_once_after_confirmation_accept": true
+  },
+  "integrity": {
+    "mutable_research_path": "train.py",
+    "all_other_tracked_files_are_snapshotted_after_exact_a_checkout_and_before_worker_contact": true,
+    "clean_worktree_required_before_receiver_evaluation": true,
+    "protected_snapshot_verified_before_and_after_each_receiver_decision": true,
+    "new_untracked_files_abort_the_protocol": true,
+    "receiver_receipts_bind_exact_inherited_a_lineage_base_and_candidate": true,
+    "push_from_experiment_clone_disabled": true
+  },
+  "terminal_outcomes": [
+    "CUMULATIVE_GOVERNED_OPTIMIZATION_PROMOTED",
+    "APPARENT_B_NOT_CONFIRMED",
+    "INHERITED_A_NO_CONFIRMED_B",
+    "INHERITED_A_SEARCH_BUDGET_EXHAUSTED",
+    "ABORT_INHERITANCE_FAILURE",
+    "ABORT_INTEGRITY_FAILURE",
+    "ABORT_EXECUTION_FAILURE",
+    "ABORT_BUDGET_EXCEEDED"
+  ],
+  "claim_boundary": [
+    "A positive result earns exact accepted-state inheritance of A followed by a separately confirmed and promoted B under the receiver boundary.",
+    "A positive result establishes cumulative governed optimization: accepted state advanced from confirmed A to separately confirmed B.",
+    "A positive result does not by itself establish recursive improvement because A changed the training system being optimized, not the process that generates subsequent improvements.",
+    "A failed B confirmation is preserved and the search stops; another apparent B is not sought in this experiment.",
+    "The worker identity and no-subagent rule are procedural, not cryptographically attested.",
+    "The experiment does not claim hostile-process or OS-level isolation.",
+    "Because upstream seed 42 remains fixed, confirmation is an operational repeat under the same fixed-seed protocol, not an independent-seed statistical replication.",
+    "Recursive-improvement language remains unearned unless a later experiment changes and validates the improvement-generating process itself."
+  ]
+}
