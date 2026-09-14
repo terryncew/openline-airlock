@@ -1,0 +1,49 @@
+{
+  "experiment": "RIL-RANK-EXEC-001",
+  "future_rule": "Do not rewrite or sanitize this historical artifact. Future workflows must generate manifests without including the manifest file itself (or must seal the manifest in a separate post-generation digest).",
+  "original_manifest": {
+    "absolute_runner_paths_preserved": true,
+    "actual_manifest_sha256": "e6d3cb4e9b586beb84e5ae2ddef51ae5afc2736b7cab8af96a164ad1c53f9831",
+    "defect": "The workflow hashed MANIFEST.sha256 while that same file was still being written, so the manifest self-entry records the SHA-256 of an empty file. The original manifest also stores absolute runner paths. Both defects are preserved unchanged.",
+    "entry_count": 8,
+    "preserved_filename": "RIL_RANK_EXEC_001_ORIGINAL_MANIFEST.sha256",
+    "self_entry_recorded_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "self_entry_verifies": false,
+    "sha256": "e6d3cb4e9b586beb84e5ae2ddef51ae5afc2736b7cab8af96a164ad1c53f9831",
+    "size_bytes": 1168
+  },
+  "payload_verification": {
+    "all_seven_payload_hashes_match_original_manifest_entries": true,
+    "payload_count": 7,
+    "payloads": {
+      "RIL_RANK_001_POLICY_SEAL.json": "51e8bbf519d4c36e86081eb9cf33be3aaf1c065ae897798cf168f1fc1df4cc29",
+      "RIL_RANK_EXEC_001_PREREGISTRATION.json": "1a993b6610985833460fb8fbd3541813e9d0ab31f096febe1230ed07f2d5c9ca",
+      "RIL_RANK_EXEC_001_RESULT.json": "ff7c40b065331fe9beffd739fbaa1dc8e357a48b1a87cc59e1c4253c5a7e469b",
+      "evidence/executable-outcomes.json": "50e4191ba63861d7263d17666beb1fcc90e8e6f5bcf12030273425de06332614",
+      "evidence/rankings-sealed-before-task-data.json": "ff48b37049ded920e8b18a99b9cdc6d693528616d4b18531ecad104f5adb96ed",
+      "evidence/scored-orders.json": "bfeb7a03b0c48c5693c6b0d082c30029137b950f5186d0c9dee67cad02e8d474",
+      "run.txt": "9acb58280036050102cc484b3f39dabac572db5eb7a673260807bcfa389292f9"
+    }
+  },
+  "schema": "openline.ril-rank-exec-001.artifact-verification.v1",
+  "scientific_effect": {
+    "classification": "ARCHIVE_MANIFEST_GENERATION_DEFECT_NO_OBSERVED_EFFECT_ON_SEVEN_PAYLOADS",
+    "executable_outcomes_payload_verified": true,
+    "policy_seal_payload_verified": true,
+    "ranking_seal_payload_verified": true,
+    "reason": "Every non-manifest payload in the downloaded artifact matches the hash recorded for it in the original manifest. The defect is confined to manifest self-hashing/path portability and does not alter the frozen result or evidence bytes.",
+    "result_payload_verified": true,
+    "scored_orders_payload_verified": true
+  },
+  "source": {
+    "artifact_id": 10352864070,
+    "artifact_name": "RIL-RANK-EXEC-001-primary-34857118806-1",
+    "artifact_zip_sha256": "7156a86b0831b23849ca0286e8f172cebbc0b27b76c2a06b7ee70a2b8730e064",
+    "artifact_zip_size_bytes": 51227,
+    "merge_commit_sha": "e077905ad77a4f70ba9d9e04f4178a6e4bd67321",
+    "merged_by_pr": 126,
+    "primary_head_sha": "9e90ae1c402fbeb915256d587ad3db80e8db4abf",
+    "run_attempt": 1,
+    "workflow_run_id": 34857118806
+  }
+}
