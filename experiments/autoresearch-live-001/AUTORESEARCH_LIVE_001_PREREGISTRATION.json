@@ -1,0 +1,64 @@
+{
+  "schema": "openline.experiment.preregistration.v1",
+  "experiment_id": "AUTORESEARCH-LIVE-001",
+  "title": "Receiver-Owned Live Advancement on Karpathy Autoresearch",
+  "frozen_at_utc": "2026-09-14T06:00:00Z",
+  "openline_airlock_base_commit": "85951e26ae0cc3b38ff69850939bb9c5cf9640e8",
+  "upstream": {
+    "repository": "karpathy/autoresearch",
+    "commit": "228791fb499afffb54b46200aca536f79142f117",
+    "default_branch": "master"
+  },
+  "worker": {
+    "product": "Meta Muse Code",
+    "role": "research generator only",
+    "version_capture": "recorded at runtime from muse --version when available",
+    "github_rule": "the experiment clone has an invalid push URL; local commits are proposals, not advancement"
+  },
+  "hardware": {
+    "provider": "RunPod",
+    "target": "single NVIDIA A100 80GB",
+    "observed_identity": "recorded before baseline with nvidia-smi"
+  },
+  "question": "Can Muse Code propose real train.py research changes while Airlock alone measures val_bpb and decides which exact commit, if any, advances?",
+  "invariant": "worker proposal authority != receiver measurement authority != promotion authority",
+  "measurement": {
+    "primary_metric": "val_bpb",
+    "direction": "minimize",
+    "training_time_budget_seconds": 300,
+    "upstream_seed_policy": "unchanged upstream fixed seeds: torch.manual_seed(42) and torch.cuda.manual_seed(42)",
+    "baseline_runs": 1,
+    "runs_per_candidate": 1,
+    "minimum_gain": "0.000001",
+    "score_source": "receiver-intercepted protected prepare.evaluate_bpb result",
+    "repeatability_claim": false
+  },
+  "proposal_budget": {
+    "maximum_proposals": 2,
+    "stop_after_first_accept": true,
+    "stop_after_second_proposal_regardless": true,
+    "no_threshold_or_arena_changes_after_baseline": true
+  },
+  "integrity": {
+    "mutable_research_path": "train.py",
+    "all_other_tracked_files_are_snapshotted_before_worker_contact": true,
+    "clean_worktree_required_before_receiver_evaluation": true,
+    "protected_snapshot_verified_before_and_after_each_receiver_decision": true,
+    "new_untracked_files_abort_the_protocol": true,
+    "receiver_receipts_bind_exact_base_and_candidate": true,
+    "push_from_experiment_clone_disabled": true
+  },
+  "terminal_outcomes": [
+    "GOVERNANCE_PASS_PROMOTION",
+    "GOVERNANCE_PASS_NO_PROMOTION",
+    "ABORT_INTEGRITY_FAILURE",
+    "ABORT_EXECUTION_FAILURE"
+  ],
+  "claim_boundary": [
+    "A positive result is a receiver-owned governance result plus an observed fixed-seed val_bpb result, not statistical ML superiority.",
+    "A rejected proposal is still a valid governance outcome if Airlock measured it and refused promotion.",
+    "The experiment does not claim hostile-process or OS-level isolation.",
+    "The experiment does not claim Muse lacks all network or GitHub capability; it proves the local accepted state cannot advance through the experiment protocol without an Airlock receipt.",
+    "No third proposal is permitted in AUTORESEARCH-LIVE-001."
+  ]
+}
