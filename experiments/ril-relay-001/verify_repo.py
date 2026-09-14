@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 import hashlib,json
 from pathlib import Path
-ROOT=Path(__file__).resolve().parents[3]
+ROOT=Path(__file__).resolve().parents[2]
 def sha(p): return hashlib.sha256(p.read_bytes()).hexdigest()
 freeze=ROOT/'proofs/ril-anomaly-002/RIL_ANOMALY_002_FREEZE.json'
 iso=ROOT/'proofs/ril-isolation-002/RIL_ISOLATION_002_FREEZE.json'
