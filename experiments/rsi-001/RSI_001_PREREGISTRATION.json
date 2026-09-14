@@ -1,0 +1,52 @@
+{
+  "schema": "airlock.rsi-001.preregistration.v1",
+  "experiment": "RSI-001",
+  "question": "Can an improving system inherit only what receiver evidence shows it actually earned?",
+  "base": {
+    "repository": "terryncew/openline-airlock",
+    "main_commit": "74f24d6a094053b7304b2660c6c8a8b47710fa18"
+  },
+  "dependency": {
+    "repository": "terryncew/openline-verified-memory",
+    "commit": "454c5a3b28f2b7da673f6acf0007fc1d7b6f4d8e",
+    "role": "derive candidate, inherited, and questioned standing from signed receiver evidence"
+  },
+  "frozen_generator": {
+    "provider": "fake Hermes adapter through the real Nightshift path",
+    "rule": "the Hermes executable and harness fingerprint must not change during generation",
+    "allowed_candidate_change": "ordinary fixture source code only"
+  },
+  "sequence": [
+    "Nightshift selects one independently measured ordinary-code winner and writes its signed generation receipt.",
+    "The selection process exits before receiver installation; memory must remain candidate and the installation ref must remain at base.",
+    "A new process reconstructs standing only from disk, installs the exact selected commit, observes the receiver ref, and signs an exact promotion-execution receipt; memory must become inherited.",
+    "A controlled support witness is removed and a later receiver-signed REOPEN is issued; memory must become questioned for the next generation while installed code remains unchanged."
+  ],
+  "pass_conditions": [
+    "selection alone derives candidate with survived=0",
+    "no promotion receipt exists across the interruption boundary",
+    "restart reconstructs candidate from persisted evidence",
+    "a validly signed promotion for the wrong commit is rejected",
+    "exact observed installation derives inherited with survived=1",
+    "inherited appears in the established next-generation set",
+    "signed REOPEN after controlled support loss derives questioned",
+    "questioned is absent from the established next-generation set",
+    "REOPEN leaves the installed ref unchanged",
+    "generator executable hash and Nightshift harness remain frozen"
+  ],
+  "falsifiers": [
+    "selection alone yields inherited",
+    "restart needs volatile state from the selection process",
+    "wrong-commit promotion earns inheritance",
+    "REOPEN fails to remove memory from the next-generation established set",
+    "REOPEN changes installed code",
+    "Hermes generator or harness changes during the generation"
+  ],
+  "claim_boundary": [
+    "No hostile-process-isolation claim.",
+    "No paid live-Hermes claim; the provider is a deterministic fake executable exercised through Nightshift.",
+    "No production deployment claim; receiver installation is an isolated synthetic Git ref.",
+    "No general evidence-loss detector claim; support loss is a controlled missing-witness falsifier.",
+    "No Generator Gate claim; generator self-modification is RSI-002."
+  ]
+}
