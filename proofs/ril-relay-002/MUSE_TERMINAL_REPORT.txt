@@ -1,0 +1,55 @@
+RIL-RELAY-002 — terminal report (host egress preflight)
+Recorded 2026-09-14 14:54 PDT by Muse, operator of the assigned run.
+
+EVIDENCE NOTE (read first): the original /tmp working evidence for this run
+(/tmp/ril-relay-002: HOST_INVENTORY.txt, RIL_RELAY_002_EGRESS_PREFLIGHT.json,
+RIL_RELAY_002_EGRESS_PREFLIGHT.png, preflight.stdout.log, preflight.stderr.log)
+was lost when the VM's /tmp was cleaned after the session, before this freeze
+was written. What follows is the contemporaneous terminal record reconstructed
+verbatim from the 2026-09-14 session log. It is the primary record; it does not
+pretend the raw /tmp files survived.
+
+**Terminal verdict: RIL-RELAY-002 egress preflight FAILED — no qualified host,
+no primary contact, no result file, no retry.**
+
+Assignment: end-to-end execution of RIL-RELAY-002 from terryncew/openline-airlock
+at expected main 0533da16e37dc4881846ea310c35a33a38ecb3e4, with the new
+requirement to preflight candidate hosts before any authenticated Gemini
+experimental contact, freeze the first PASS host for primary qualification, and
+never retry a failed primary contact.
+
+What passed:
+- Repo fetched and checked out exactly at
+  0533da16e37dc4881846ea310c35a33a38ecb3e4; worktree clean.
+- experiments/ril-relay-002/verify_repo.py PASS; RIL-RELAY-001 freeze hash
+  d2bc80967450e12da848577b5eb4e1fce1085bd7b8673aaf7d7f847331bfd0de verified.
+- relay_driver.py self-check PASS, retry policy FORBIDDEN, credential input false.
+- Playwright reinstalled; Chrome 152 launched with localhost CDP on port 9222.
+
+What failed:
+- Formal egress preflight of the current Muse Linux VM (htch-runtime):
+  verdict FAIL, exit code 2.
+- Exact failure: Page.goto: net::ERR_EMPTY_RESPONSE at
+  https://gemini.google.com/app
+- The preflight receipt recorded authenticated_primary_contact: false and was
+  preserved at /tmp/ril-relay-002/RIL_RELAY_002_EGRESS_PREFLIGHT.json, with
+  screenshot and logs (since lost — see evidence note above).
+
+What was NOT done (frozen boundary):
+- No candidate host produced a PASS preflight, so no host was selected or
+  frozen and the RIL-RELAY-002 primary qualification was not run.
+- RIL_RELAY_002_RESULT.json was never created.
+- No primary retry occurred. No credential material was supplied, requested,
+  or touched.
+- Available-host checks showed GitHub CLI present but not authenticated for
+  Codespaces (gh auth login -s codespace required), no RunPod API credential
+  or saved RunPod login available, no SSH hosts configured, and the only
+  paired device was Terrynce's iPhone (not Linux). No new paid host was
+  provisioned; these blocked autonomous migration beyond the failed VM
+  preflight.
+
+Bottom line: the only available execution host failed the formal
+unauthenticated Gemini egress preflight before any primary contact, and no
+other host could be reached, so RIL-RELAY-002 terminated with no qualified
+host. This is a network-path/transport failure, not a login or credential
+event.

@@ -1,0 +1,58 @@
+{
+  "anti_rescue_note": "No authenticated primary contact ever occurred, so the anti-rescue clause was never triggered by a primary event. This freeze closes RIL-RELAY-002 terminally: do not provision, buy, or repurpose infrastructure for this experiment ID without a new explicit authorization.",
+  "claim_boundary": {
+    "earned": "On the reported Linux VM (htch-runtime), the frozen RIL-RELAY-002 egress preflight failed with net::ERR_EMPTY_RESPONSE before any primary contact; no host passed preflight, no host was frozen, no credential material was touched, and no primary retry occurred.",
+    "not_earned": [
+      "deterministic Gemini relay qualification",
+      "Temporary Chat boundary reproduction through automation",
+      "provider-wide Gemini outage",
+      "claim that Google intentionally blocked the VM",
+      "claim that another execution host will work",
+      "anomaly-first advantage"
+    ]
+  },
+  "credentials_supplied": false,
+  "evidence": {
+    "raw_vm_artifacts": {
+      "included_in_this_freeze": false,
+      "lost_paths": [
+        "/tmp/ril-relay-002/HOST_INVENTORY.txt",
+        "/tmp/ril-relay-002/RIL_RELAY_002_EGRESS_PREFLIGHT.json",
+        "/tmp/ril-relay-002/RIL_RELAY_002_EGRESS_PREFLIGHT.png",
+        "/tmp/ril-relay-002/preflight.stdout.log",
+        "/tmp/ril-relay-002/preflight.stderr.log"
+      ],
+      "reason": "The VM's /tmp was cleaned after the session, before this freeze was written. The original preflight receipt, screenshot, and logs do not survive. This freeze preserves the contemporaneous terminal record reconstructed from the 2026-09-14 session log rather than pretending the raw files are present."
+    },
+    "terminal_report_file": "MUSE_TERMINAL_REPORT.txt",
+    "terminal_report_sha256": "c9dc2d7c27bfa9db2dec33a3cb3a65db05db43d91da5f178e172ddf887aa99ae"
+  },
+  "execution": {
+    "cdp_port": 9222,
+    "chrome_major": 152,
+    "host": "htch-runtime",
+    "preflight_authentication_required": false,
+    "preflight_exit_code": 2,
+    "preflight_failure": "playwright._impl._errors.Error: Page.goto: net::ERR_EMPTY_RESPONSE at https://gemini.google.com/app",
+    "preflight_url": "https://gemini.google.com/app",
+    "preflight_verdict": "FAIL",
+    "primary_retry_used": false,
+    "repo_commit_verified": "0533da16e37dc4881846ea310c35a33a38ecb3e4",
+    "self_check": "PASS",
+    "verify_repo": "PASS"
+  },
+  "experiment": "RIL-RELAY-002",
+  "experiment_merge_commit": "0533da16e37dc4881846ea310c35a33a38ecb3e4",
+  "formal_verdict": "TERMINAL_RIL_RELAY_002_NO_QUALIFIED_HOST",
+  "primary_contact": "NEVER_MADE",
+  "result_file_created": false,
+  "schema": "openline.ril-relay-002.freeze.v1",
+  "scientific_standing": "INCONCLUSIVE_TRANSPORT_BLOCKED_NO_QUALIFIED_HOST",
+  "selected_host": null,
+  "status": "FROZEN_TERMINAL",
+  "successor": {
+    "constraint": "No Google credential material may be supplied to automation. Any future browser-courier work belongs to its own infrastructure experiment, not to the anomaly program.",
+    "experiment": "none \u2014 terminal by user decision 2026-09-14",
+    "note": "User decision was scientific, not financial: RIL-API-ISOLATION-002 had already qualified the observable Temporary Chat boundary manually; proving browser-courier transport on a paid host would not advance the anomaly-first question."
+  }
+}
