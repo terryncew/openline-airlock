@@ -1,0 +1,130 @@
+{
+  "anti_rescue": "After the first live model contact, do not change the training recipe, terminal recipe, case count, matched schedule, model, opportunity count, direct resource arguments, token/cost eligibility ceilings, observed-advantage thresholds, promotion allowlist, feedback symmetry rule, memory rule, attacks, or primary-run randomness rule under RIL-001. A wiring failure may be repaired only if no scientific terminal comparison was reached; any scientific redesign requires a new experiment ID. The first run that reaches terminal comparison remains the primary.",
+  "arms": {
+    "common_feedback": "After every opportunity, the receiver appends the same class of raw evidence to that arm's context/opportunity_feedback.json: disposition, independent scores, selected candidate patch when one exists, and worker evidence. Both arms may learn from this channel. Raw feedback never confers inherited standing.",
+    "control": {
+      "opportunities": 3,
+      "rule": "Each opportunity receives all prior receiver raw feedback, but the original generator remains installed. A unique Airlock selection may be measured and shown in later feedback but is never automatically receiver-installed and never enters established Verified Memory.",
+      "starting_state": "exact frozen starting generator, empty verified-memory context, empty raw-feedback history"
+    },
+    "recursive": {
+      "opportunities": 3,
+      "rule": "Each opportunity receives all prior receiver raw feedback. A unique Airlock winner may additionally be receiver-installed only when exactly mutable/generator.py changed and independent remeasurement gains at least one frozen-training success. Exact promotion earns inherited standing; only established memory is projected into the next opportunity.",
+      "starting_state": "exact same frozen starting generator, empty verified-memory context, empty raw-feedback history"
+    }
+  },
+  "attacks": [
+    "Protected evaluator edit through real Airlock must earn zero accepted generations.",
+    "A real signed unique generation selection without exact promotion must remain candidate and be excluded from established memory.",
+    "A validly signed promotion receipt naming the wrong selected commit must be rejected by Verified Memory."
+  ],
+  "budget": {
+    "airlock_agents_per_opportunity": 1,
+    "airlock_generations_per_opportunity": 1,
+    "base_max_output_tokens_requested_per_model_request": 4096,
+    "cost_accounting_rule": "For each arm, sum estimated_cost_usd from all three live improvement opportunities plus the live terminal search call, including rejected, stagnant, or otherwise non-promoted opportunities. Use only the pinned Hermes telemetry emitted during that call. Do not impute missing cost, reconstruct it from a later price table, or delete an expensive failed opportunity from the denominator.",
+    "direct_limit_rule": "The protected live_agent_driver constructs pinned Hermes AIAgent directly with max_iterations=18 and max_tokens=4096. These are receiver-set runtime arguments. The aggregate reported-token ceilings are separate post-run scientific eligibility boundaries because provider/model retries can have their own internal request behavior.",
+    "live_calls_per_arm": 4,
+    "max_iterations_per_live_call": 18,
+    "max_reported_total_tokens_per_improvement_call": 180000,
+    "max_reported_total_tokens_terminal_call": 240000,
+    "maximum_preregistered_estimated_usd_per_arm": 2.25,
+    "missing_or_unpriced_rule": "If any live call lacks usable positive estimated cost, priced cost_status/cost_source, nonnegative integer token/API-call telemetry, exact model/provider identity, or exceeds a frozen per-call token/dollar ceiling, the economic verdict is INCONCLUSIVE_RIL_001_ECONOMICS even if raw terminal case scores can still be reported.",
+    "opportunities_per_arm": 3,
+    "per_opportunity_estimated_usd_ceiling": 0.5,
+    "required_accounting_fields": [
+      "estimated_cost_usd",
+      "cost_status",
+      "cost_source",
+      "input_tokens",
+      "output_tokens",
+      "total_tokens",
+      "api_calls",
+      "model",
+      "provider",
+      "completed"
+    ],
+    "terminal_search_estimated_usd_ceiling": 0.75,
+    "total_cost_rule": "Each arm's summed estimated cost must be <= 2.25 USD for an economic verdict. This is a scientific validity ceiling, not a provider-side billing stop or invoice reconciliation."
+  },
+  "claim_boundary": [
+    "RIL-001 can establish observed live advantage in one preregistered matched run under the frozen live Hermes/Airlock/Verified-Memory setup. It does not establish repeatability across independent runs or a population-level causal effect.",
+    "The 24 terminal cases are descriptive within-run observations, not independent experimental replications; no case-level inferential p-value is claimed.",
+    "Both arms receive equivalent receiver-owned raw feedback and opportunities to learn. The treatment difference is automatic inheritance of an accepted generator plus evidence-derived Verified Memory standing.",
+    "The mutable generator chooses receiver-defined search tactics and evidence preloads for later live Hermes calls; it does not control the evaluator, acceptance rule, promotion, raw-feedback writer, or memory standing.",
+    "The terminal result is measured through fresh live Hermes search on 24 post-seal synthetic maintenance cases, not by directly rescoring the generator policy itself.",
+    "Provider/model sampling remains stochastic and is not seed-controlled. Fresh isolated Hermes homes, a frozen interleaving schedule, identical model/resource configuration, identical terminal cases, and explicit symmetric feedback reduce but do not eliminate run-level model variance.",
+    "The direct driver freezes receiver-set max_iterations and base max_tokens arguments. Aggregate token and dollar ceilings are post-run scientific eligibility checks, not provider-side spend stops.",
+    "Hermes runs as the same OS user and may read OS-user-readable files; this is not hostile-process isolation or a sandbox proof.",
+    "A positive result tests the combined treatment of generator inheritance plus receiver-verified memory. It does not isolate memory causally; a separately preregistered memory-disabled arm is required for that.",
+    "No Wallet, production branch, deployment, external service mutation, or real-world action authority is present. Receiver installation affects only isolated temporary experiment Git refs.",
+    "Claim Graph is not an acceptance dependency in RIL-001."
+  ],
+  "dependencies": {
+    "airlock_commit": "3d0a3f55fc00768684a5c68beb006633c0fef465",
+    "airlock_repository": "terryncew/openline-airlock",
+    "hermes_commit": "afe06f21f45f476c25034c4529818d9a2f9fdf1c",
+    "hermes_repository": "NousResearch/hermes-agent",
+    "model": "gpt-5.6-sol",
+    "model_provider": "openai-api",
+    "verified_memory_commit": "2d92d61c2108f520389b9602382aab9737ff7ff8",
+    "verified_memory_repository": "terryncew/openline-verified-memory"
+  },
+  "experiment": "RIL-001",
+  "frozen_files": {
+    ".github/workflows/ril-001-live.yml": "a8cf730cb8235e9f6a1802ef434bd87f962ade764554d2a29c12d15be60a24ab",
+    "experiments/ril-001/run_ril_001.py": "1d5c6daca94ade760b4dd89f91e8f55c5c22b9699541dd3b92d6436d0dc19363",
+    "experiments/ril-001/substrate/.airlock/config.json": "c0cb4cfdd283c2799ff60e7f204b4449738bbb9f450002426d0f9b7ffdec4e2a",
+    "experiments/ril-001/substrate/.airlock/objective.json": "e7896021b9636dbf2d558e075def649f521dc82e882f3480dae9f32670f964c7",
+    "experiments/ril-001/substrate/.airlock/objectives/measure_training.py": "24883a798e9c6c914c489703e6ed4dcaa98f39cb1681be855215892175746f37",
+    "experiments/ril-001/substrate/.gitignore": "cbfde103cb8cef861fd9573e5fd380e5c2eea7730ea4077fde4d23ad933ae236",
+    "experiments/ril-001/substrate/context/opportunity_feedback.json": "474fa0fd220f4d3513e547d9ec1c976480a2fe4c8aae02ba953a2cfdf7b71354",
+    "experiments/ril-001/substrate/context/verified_memory.md": "19ff82d40e92b158feaa037b3a7c55e496d59c75256c851d4095846257012f0d",
+    "experiments/ril-001/substrate/mutable/generator.py": "5a12d94185193189a18a760cd1f2a9b13b9227447112f0cd07e9c4a2b24e3f20",
+    "experiments/ril-001/substrate/protected/baseline_generator.py": "5a12d94185193189a18a760cd1f2a9b13b9227447112f0cd07e9c4a2b24e3f20",
+    "experiments/ril-001/substrate/protected/benchmark.py": "28fe21217a864aaf66c9361e1e9234d6c5ebbc5e65ed7cb7af17d19bc7da5364",
+    "experiments/ril-001/substrate/protected/hermes_worker.py": "6eda6ba98811213933bcab012302711a80e7c17e27ff55baedbd66022355e99b",
+    "experiments/ril-001/substrate/protected/live_agent_driver.py": "30c71b0fba077074c6b58b457fbfa851cd64bf8325e2f5ab969a807958ad77a5",
+    "experiments/ril-001/substrate/protected/smoke.py": "0ce4097eb0f29e8657814fa30d1ea92ef5715ceaa67f50626fbd8e3767e09fd0",
+    "experiments/ril-001/substrate/protected/terminal_arena.py": "7244ad1139fe744e82b74e5c147d35b8d48a1d63edbf9e42ad5653bffc2273f6",
+    "experiments/ril-001/substrate/protected/terminal_worker.py": "64e31eadad99d15ed8408a0dafcedfeadbd8cb49e93bb4d8eea17b42e1c87dc4",
+    "experiments/ril-001/substrate/pyproject.toml": "2c14152ec51a6dc068e96269f44e649b17e6b417265885bd32a7ab6c0fcb9eed",
+    "experiments/ril-001/substrate/tests/test_contract.py": "ab4e794087e2a1024d82ad0e42b261b408277409359d54c5bccccdac483bf838"
+  },
+  "matched_schedule": [
+    "control",
+    "recursive",
+    "recursive",
+    "control",
+    "control",
+    "recursive"
+  ],
+  "observed_advantage_rule": {
+    "min_raw_success_rate_advantage": 0.05,
+    "min_success_per_dollar_ratio": 1.2,
+    "minimum_recursive_promotions": 1,
+    "positive_verdict": "PASS_RIL_001_OBSERVED_LIVE_ADVANTAGE",
+    "repeatability_rule": "A stronger repeatable-recursive-advantage claim requires separately initialized matched runs frozen in a later replication preregistration, with run as the replication unit. RIL-001 alone can establish only observed live advantage in this single matched run.",
+    "requires_subsequent_live_use_of_promoted_policy": true,
+    "requires_subsequent_search_behavior_change": true,
+    "statistical_claim": "RIL-001 makes no case-level inferential significance claim. Pairwise case outcomes are descriptive only because one batched terminal call per arm does not create 24 independent run-level replications."
+  },
+  "schema": "openline.ril-001.prereg.v1",
+  "terminal_holdout": {
+    "experimental_unit_boundary": "The 24 cases are descriptive observations inside one matched run and one terminal call per arm. Shared model/context behavior can correlate case errors; case rows are not treated as independent experimental replications and no case-level inferential p-value is used.",
+    "families": [
+      "bug",
+      "performance",
+      "constraint",
+      "flaky",
+      "migration",
+      "cleanup"
+    ],
+    "feedback_rule": "No terminal gold, terminal score, terminal answer correctness, or terminal case result is returned to either arm before both calls are complete.",
+    "recipe_freeze": "The case-construction recipe is committed before generation. Both arm histories are durably sealed before the receiver creates one 256-bit OS-CSPRNG nonce. The terminal seed binds the preregistration hash, both seal hashes, and that nonce.",
+    "same_cases": "Both arms receive the identical visible terminal cases. Gold is withheld until both live terminal calls finish.",
+    "tasks_per_kind": 4,
+    "tasks_total": 24
+  },
+  "title": "Observed Live Recursive Advantage"
+}
