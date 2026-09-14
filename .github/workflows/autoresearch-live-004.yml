@@ -1,0 +1,54 @@
+name: AUTORESEARCH-LIVE-004 control checks
+
+on:
+  push:
+    branches:
+      - experiment/autoresearch-live-004
+    paths:
+      - 'experiments/autoresearch-live-004/**'
+      - '.github/workflows/autoresearch-live-004.yml'
+  pull_request:
+    paths:
+      - 'experiments/autoresearch-live-004/**'
+      - '.github/workflows/autoresearch-live-004.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  control-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install Airlock package
+        run: python -m pip install .
+      - name: Compile LIVE-004 control plane
+        run: |
+          python -m py_compile \
+            experiments/autoresearch-live-004/protocol.py \
+            experiments/autoresearch-live-004/inheritance.py \
+            experiments/autoresearch-live-004/receiver.py \
+            experiments/autoresearch-live-004/live_driver.py
+      - name: Run protocol and inheritance tests
+        run: |
+          cd experiments/autoresearch-live-004
+          python -m unittest discover -s tests -v
+      - name: Validate preregistration JSON
+        run: python -m json.tool experiments/autoresearch-live-004/AUTORESEARCH_LIVE_004_PREREGISTRATION.json >/dev/null
+      - name: Require frozen LIVE-003 predecessor evidence
+        run: |
+          cd experiments/autoresearch-live-004
+          python - <<'PY'
+          from pathlib import Path
+          import inheritance
+          info = inheritance.verify_live003_freeze(Path('../..'))
+          assert info['freeze']['final_accepted_commit'] == inheritance.INHERITED_A
+          print('PASS LIVE-003 frozen predecessor binding')
+          PY
+      - name: Validate frozen constants and claim boundary
+        run: python experiments/autoresearch-live-004/live_driver.py self-test
+      - name: Shell syntax
+        run: bash -n experiments/autoresearch-live-004/bootstrap_runpod.sh
