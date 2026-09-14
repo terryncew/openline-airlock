@@ -1,29 +1,33 @@
-# AUTORESEARCH-LIVE-003 — confirmed improvement search
+# AUTORESEARCH-LIVE-003 — frozen confirmed live improvement
 
-LIVE-002 answered the governance question positively but the research question negatively: two real `train.py` proposals were measured by the receiver, both were worse than the fresh baseline, both were rejected, and the accepted state did not move. That result does **not** establish that the generator is inadequate. It establishes only that two attempts did not produce a surviving improvement.
+**Status: terminal and frozen.** The preregistered terminal verdict is `CONFIRMED_LIVE_IMPROVEMENT_PROMOTED`.
 
-LIVE-003 changes one scientific variable: **search depth**. The same self-declared Prince / Muse Spark 1.3 researcher may receive at most 12 bounded proposal calls against the same pinned Karpathy `autoresearch` substrate. The upstream pin, fixed five-minute objective, fixed seed policy, protected paths, minimum-gain rule, and Airlock receiver boundary remain unchanged.
+LIVE-003 began from fresh receiver baseline `effe44963da4d8b81ecc9be1ba3f115ac3ef2dab` at `val_bpb = 1.123087368232`. The same self-declared Prince / Muse Spark 1.3 researcher used two of the twelve authorized research calls.
 
-The new protection is confirmation-before-promotion. A discovery candidate that clears the objective once is only an apparent winner. Airlock leaves the accepted ref unchanged, invokes a fresh receiver measurement for the exact same candidate from the same still-unpromoted base, and permits promotion only if that confirmation also clears the frozen rule. The confirmation receipt—not the discovery receipt—is the only receipt authorized to advance accepted state.
+Proposal 1 (`60a4ad14c8a8bcd2cba0091d94439ca079c465c5`) changed the MLP to a parameter-matched SwiGLU form. Receiver measurement was `1.127078192171`, so Airlock rejected it and restored the accepted baseline.
 
-If the first apparent winner fails confirmation, the experiment stops with `APPARENT_WIN_NOT_CONFIRMED`. It does not keep searching for another apparent winner. That rule is deliberately strict: repeated post-selection attempts would create additional chances to promote noise.
+Proposal 2 (`20a0df6cc98778ffb53957d6b4fafccda3a4973e`) changed one training setting: `TOTAL_BATCH_SIZE` from `2**19` to `2**18`. Discovery measured `1.049689693833` and returned ACCEPT. Under the frozen protocol that was only an apparent win; accepted state did not move. Airlock then ran the exact untouched candidate again. Confirmation measured `1.049345578535`, returned ACCEPT, and the confirmation receipt authorized promotion of that exact commit.
 
-## What a positive result earns
+All 15 protected files matched before and after every receiver measurement. The run used two researcher calls and four receiver measurements, observed 3009.316 seconds of pod wall time, and recorded estimated GPU spend of $1.337474 at $1.60/hour, all within preregistered ceilings.
 
-`CONFIRMED_LIVE_IMPROVEMENT_PROMOTED` earns one bounded result: a real external research generator produced **A**, A cleared the receiver objective twice under the same fixed-seed protocol, and the exact confirmed candidate was promoted while the researcher remained unable to change the evaluator or promotion rule.
+## Preserved evidence
 
-It does **not** earn cumulative optimization, recursive improvement, repeatability, statistical superiority, or hostile-process isolation.
+The off-pod archive is not vendored into this repository. Its SHA256 is:
 
-The next experiment is conditional. Only after A exists do we test exact inheritance of A and search for a separately confirmed B. A → inherited A → B would establish cumulative governed optimization. The stronger recursive-improvement claim requires something more: an inherited accepted change must improve the process that generates subsequent improvements, not merely the training code being optimized.
+`a66e354a5d46e1549484498593e01b2a7d43674c0985b739d4cc2df513cd05f1`
 
-## Budget
+The archive contains the complete receiver evidence directory, all three decision receipts, the final result, protected snapshot, a complete git bundle, the promoted `train.py`, and the exact baseline-to-A patch.
 
-The preregistration counts the full experiment rather than calling twelve five-minute evaluations “one hour.” The hard ceilings are 12 researcher calls, 12 discovery evaluations, one confirmation, one fresh baseline, 14 total receiver measurements, 4,200 seconds of training budget, 150 minutes of pod wall time from bootstrap start, and $5.00 estimated paid GPU spend at the recorded hourly rate. Setup and handoff time consume the wall/spend budget too.
+The git bundle SHA256 is:
 
-Because the pinned upstream uses seed 42, the confirmation is an operational repeat under the same fixed-seed protocol. It is not represented as an independent-seed statistical replication.
+`46f688458039507d753ed8ef2421727ad10703dd52d116b80d17c6bd6893370e`
 
-## Execution boundary
+The uploaded archive was independently inspected before this freeze. `git bundle verify` reports complete history. The bundle materializes exact A, exact parent `effe44963da4d8b81ecc9be1ba3f115ac3ef2dab`, and a one-file `train.py` delta. The archived promoted `train.py` and patch match the bundle byte-for-byte by SHA256.
 
-The live researcher may change only `train.py`. The existing `AUTORESEARCH-GATE-001` receiver overlay remains the authority for measurement and exact promotion. LIVE-003 adds an outer state machine that prevents a discovery ACCEPT from reaching `promote` until the exact candidate earns a second receiver ACCEPT.
+The receiver verification key itself was not included in the archive, so this repository does **not** claim an independent post-hoc re-verification of the receipt HMACs. It preserves the signed receipt bytes and their hashes. During the live run, promotion required the receiver gate to verify the confirmation receipt before advancing `openline/accepted`.
 
-The pure protocol state machine is exercised in CI without GPU spend. The live driver additionally snapshots every protected tracked file except `train.py`, requires clean state around receiver calls, counts researcher contacts before they occur, and records receiver measurement attempts before invoking them so failed attempts cannot disappear from the budget.
+## Claim boundary
+
+This result earns one confirmed live improvement A under the frozen **same-fixed-seed** protocol. It does not establish independent-seed statistical replication, repeatability across independent runs, statistical ML superiority, cumulative optimization, recursive improvement, or hostile-process isolation.
+
+The next earned experiment may inherit exact A and search for a separately confirmed B. A → inherited A → confirmed B would establish **cumulative governed optimization**. A stronger recursive-improvement claim requires more: the inherited accepted change must improve the process that generates subsequent improvements, rather than merely improve the training code being optimized.
