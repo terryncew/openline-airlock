@@ -1,0 +1,32 @@
+name: RIL-RANK-LIVE-001 matched Prince contact
+
+on:
+  push:
+    branches: [experiment/ril-rank-live-001]
+    paths:
+      - ".github/workflows/ril-rank-live-001.yml"
+      - "experiments/ril-rank-live-001/**"
+  pull_request:
+    paths:
+      - ".github/workflows/ril-rank-live-001.yml"
+      - "experiments/ril-rank-live-001/**"
+
+permissions:
+  contents: read
+
+jobs:
+  structural:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover -s experiments/ril-rank-live-001/tests -p 'test_*.py' -v
+      - name: Verify frozen predecessor, Prince identity, matched-input invariant, threshold, and hard budget
+        run: python experiments/ril-rank-live-001/run_ril_rank_live_001.py --self-check
