@@ -1,0 +1,36 @@
+{
+  "schema": "airlock.config.v1",
+  "parallelism": 1,
+  "protected_paths": [
+    ".airlock/**",
+    ".github/**",
+    "context/**",
+    "protected/**",
+    "tests/**",
+    "pyproject.toml",
+    ".gitignore"
+  ],
+  "verification": {
+    "static_commands": [
+      ["python", "-m", "py_compile", "mutable/generator.py"]
+    ],
+    "test_commands": [
+      ["python", "tests/test_contract.py"]
+    ],
+    "target_commands": [
+      ["python", "protected/smoke.py"]
+    ],
+    "timeout_seconds": 60,
+    "coverage_mode": "changed-module-reference"
+  },
+  "providers": {
+    "hermes": {
+      "command": ["python", "protected/hermes_worker.py", "{prompt}"],
+      "pass_env": ["HERMES_HOME"],
+      "timeout_seconds": 900
+    }
+  },
+  "init_baseline": {
+    "green": true
+  }
+}
