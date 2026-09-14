@@ -1,0 +1,63 @@
+{
+  "candidate_lesson": {
+    "invalidation_conditions": [
+      "Exhaustive candidate evaluation achieves a higher confirmed improvement rate than pre-evaluation thresholding under identical evaluation budget caps.",
+      "Prince pre-evaluation candidate scores show zero statistical correlation with receiver-confirmed improvements across benchmark tasks."
+    ],
+    "scope": "Multi-candidate search and evaluation workflows using LLM agents (Prince/Muse Spark lineage) operating under bounded receiver evaluation budgets.",
+    "statement": "In bounded LLM agent search over fixed candidate pools, prompt presentation order fails to transfer ranking preference; enforcing an explicit pre-evaluation verification threshold that restricts receiver dispatch to the single top-verified candidate eliminates unproductive evaluations and improves search yield per evaluation budget."
+  },
+  "experiment": "RIL-ANOMALY-002",
+  "proposed_experiment": {
+    "falsifier": "If Prince with pre-evaluation verification scoring achieves <= 1 confirmed improvement across the 16 benchmark tasks, or if evaluation consumption exceeds 16 receiver evaluations without producing a success count advantage, the proposed mechanism is falsified.",
+    "mechanism_change": "Replace unconstrained sequential candidate evaluation with a score-gated pre-filter: Prince inspects all 4 candidates per task, computes an internal verification score against task requirements, and dispatches only the single highest-scoring candidate that meets a strict confidence threshold (score >= 7/10) to the receiver, evaluating at most 1 candidate per task across all 16 tasks.",
+    "name": "Score-Gated Single-Candidate Search (SGSCS-16)",
+    "predictions": [
+      {
+        "condition": "If E1 (canonical key iteration / no semantic discrimination) governs Prince's search",
+        "expected": "Pre-evaluation scores will not distinguish candidate viability, resulting in arbitrary or identical candidate dispatch that yields <= 1 confirmed improvement across all 16 tasks."
+      },
+      {
+        "condition": "If E2 (semantic discrimination masked by exhaustive evaluation) governs Prince's search",
+        "expected": "Pre-evaluation filtering concentrates evaluations on high-viability candidates, pruning unviable candidates and achieving >= 2 receiver-confirmed improvements within <= 16 receiver evaluations, generating a success count advantage >= 1 over baseline."
+      }
+    ],
+    "procedure": [
+      "Initialize Prince/Muse Spark 1.3 under the RIL-ANOMALY-002 protocol across the frozen 16 benchmark tasks.",
+      "For each task, require Prince to perform an internal critique and scoring pass (1-10 scale) on all 4 available candidates against task constraints prior to issuing any receiver evaluation request.",
+      "Select only the candidate with the highest pre-evaluation score, provided the score satisfies threshold >= 7; if no candidate meets the threshold, skip receiver evaluation for that task.",
+      "Dispatch the selected candidate to the receiver for formal evaluation, consuming exactly 1 receiver evaluation per evaluated task and at most 16 receiver evaluations across the full benchmark.",
+      "Log receiver-confirmed improvements, total receiver evaluations consumed, and regression status against the LIVE-002 baseline."
+    ],
+    "success_metric": "Receiver-confirmed improvement count >= 2 across the 16 tasks (success_count_advantage >= 1 over baseline) with total receiver evaluations <= 16 and regression_detected == false."
+  },
+  "research_basis": {
+    "competing_explanations": [
+      {
+        "explanation": "Canonical Key Iteration (Presentation-Blind Sweep): Prince parses candidates into a dictionary or list ordered by structural keys/indices and sequentially dispatches them to the receiver without evaluating candidate quality beforehand. Prompt presentation order is ignored because Prince executes an unranked, brute-force traversal over candidate keys.",
+        "id": "E1"
+      },
+      {
+        "explanation": "Semantic Discrimination Masked by Exhaustive Execution: Prince is capable of semantic differentiation, but lacks an early-stopping or quality-filtering criterion. Because it attempts to evaluate every candidate presented (consuming 63 evaluations across 16 tasks in LIVE-002), budget is exhausted on poor candidates without translating model discrimination into selective search advantage.",
+        "id": "E2"
+      }
+    ],
+    "discriminating_observation": "Under a budget cap of 16 receiver evaluations (at most 1 evaluation per task): If E1 holds, Prince cannot reliably pick the winning candidate on the single attempt per task, producing <= 1 confirmed improvement. If E2 holds, Prince's semantic pre-filtering concentrates the 16 evaluations on top-scoring candidates, successfully isolating viable solutions and achieving >= 2 confirmed improvements.",
+    "observations": [
+      "In LIVE-002, varying candidate presentation order resulted in Prince producing the exact same 4-candidate evaluation sequence on all 16 tasks (16/16 concordance), demonstrating that presentation order exerts zero control over evaluation order.",
+      "Both LIVE-002 arms consumed 63 receiver evaluations (near-exhaustive evaluation of all 4 candidates per task) to obtain only 1 confirmed improvement each, indicating extreme search inefficiency.",
+      "Round 1 proposal IPCOT-16 was quarantined with protocol_valid: false and 0 evaluations executed, indicating that modifying benchmark task labeling or using non-improvement concordance metrics violates the frozen evaluation protocol."
+    ]
+  },
+  "resources_requested": {
+    "external_compute_usd": "0.50",
+    "receiver_evaluations": 16,
+    "wall_seconds": 900
+  },
+  "round": 2,
+  "session_id": "session-1",
+  "source_accepted_head": "73099ab2b1b14de10d2927474d4786442f8afc72a659d21910ff249d0f68174d",
+  "tools_used": [
+    "Gemini conversational reasoning"
+  ]
+}

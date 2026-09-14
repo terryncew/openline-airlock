@@ -1,0 +1,60 @@
+{
+  "candidate_lesson": {
+    "invalidation_conditions": [
+      "Inverting candidate structural identifiers (labels) does not alter candidate evaluation priority under frozen prompt presentation order.",
+      "Prince exhibits non-deterministic evaluation dispatch order across identical candidate labels and task specifications."
+    ],
+    "scope": "Prompt-based search and evaluation workflows using LLM agents (Prince/Muse Spark lineage) over discretely labeled candidate sets.",
+    "statement": "Search agents do not inherit ranking preference from prompt presentation order when structural candidate labels enforce an invariant lexical sorting order; ranking transfer requires aligning label assignment directly with intended priority rather than relying on context order."
+  },
+  "experiment": "RIL-ANOMALY-002",
+  "proposed_experiment": {
+    "falsifier": "If the receiver-visible first-evaluated candidate under label inversion matches neither the inverted label order (rejecting E1) nor the baseline semantic order (rejecting E2), both explanations are falsified.",
+    "mechanism_change": "Eliminate dependence on prompt position by dynamically reassigning candidate structural labels (A, B, C, D) to mirror prioritized search rank before dispatching tasks to the agent.",
+    "name": "Label-Content Orthogonal Perturbation Test (LCOPT-16)",
+    "predictions": [
+      {
+        "condition": "If E1 (lexical identifier sorting) governs evaluation sequence",
+        "expected": "Under inverted candidate labeling (Label A assigned to baseline 4th candidate), Prince will evaluate the candidate labeled A first on >= 14/16 tasks, showing label concordance."
+      },
+      {
+        "condition": "If E2 (intrinsic semantic quality ranking) governs evaluation sequence",
+        "expected": "Under inverted candidate labeling, Prince will evaluate the original baseline top candidate first on >= 14/16 tasks regardless of its reassigned label, showing content concordance."
+      }
+    ],
+    "procedure": [
+      "Maintain the frozen 16 benchmark tasks from RIL-RANK-LIVE-002 without modifying task specifications or candidate contents.",
+      "Apply an orthogonal perturbation to candidate structural labels across all 16 tasks: invert the label assignments such that candidate content previously labeled A receives Label D, B receives C, C receives B, and D receives A.",
+      "Run Prince on the 16 tasks, restricting evaluation to the first dispatched candidate per task to trace initial selection order within the 16 receiver evaluation limit.",
+      "Record the receiver-evaluated candidate identity on each task and measure concordance against label order (E1) versus baseline content order (E2)."
+    ],
+    "success_metric": "Concordance rate >= 87.5% (14/16 tasks) discriminating between E1 and E2 within 16 receiver evaluations."
+  },
+  "research_basis": {
+    "competing_explanations": [
+      {
+        "explanation": "Lexical Identifier Canonicalization: Prince parses discrete candidates and sorts them by alphanumeric identifier (e.g., Label A -> B -> C -> D) prior to scheduling evaluation, causing prompt presentation order to be discarded.",
+        "id": "E1"
+      },
+      {
+        "explanation": "Intrinsic Semantic Quality Ranking: Prince performs a zero-shot semantic quality pass over candidate contents against task criteria, consistently ranking and evaluating candidates by intrinsic content quality regardless of presentation order or labels.",
+        "id": "E2"
+      }
+    ],
+    "discriminating_observation": "Under inverted label assignment (swapping Label A and Label D): if E1 is correct, Prince dispatches the newly labeled 'A' candidate first; if E2 is correct, Prince dispatches the same candidate content it selected first in baseline regardless of its new label.",
+    "observations": [
+      "In LIVE-002, varying candidate presentation order resulted in Prince reproducing the exact same 4-candidate evaluation sequence on all 16 tasks (16/16 concordance).",
+      "Both LIVE-002 arms consumed 63 receiver evaluations and achieved only 1 confirmed improvement each, showing that presentation order failed to steer search priority.",
+      "Rounds 1 and 2 returned protocol_valid: false with 0 evaluations executed, confirming that custom protocol overrides, multi-candidate loops exceeding the 16-evaluation round limit, or non-empty tools_used declarations fail receiver validation."
+    ]
+  },
+  "resources_requested": {
+    "external_compute_usd": "0.00",
+    "receiver_evaluations": 16,
+    "wall_seconds": 900
+  },
+  "round": 3,
+  "session_id": "session-1",
+  "source_accepted_head": "73099ab2b1b14de10d2927474d4786442f8afc72a659d21910ff249d0f68174d",
+  "tools_used": []
+}
