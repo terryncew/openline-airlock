@@ -1,0 +1,128 @@
+{
+  "schema": "openline.ril-anomaly-001.preregistration.v1",
+  "experiment": "RIL-ANOMALY-001",
+  "title": "Interview the Failure / Earned Lesson Ratchet",
+  "frozen_main": "3c610ba2840c7a5e4d90d677940b2898977bfb78",
+  "seed": {
+    "experiment": "RIL-RANK-LIVE-002",
+    "freeze_path": "proofs/ril-rank-live-002/RIL_RANK_LIVE_002_FREEZE.json",
+    "freeze_git_blob_sha1": "af4c4f9e96e6d9dd7bbe5c96fdcd05d9cd9c88bf",
+    "formal_verdict": "NO_OBSERVED_RIL_RANK_LIVE_002_TRANSFER_ADVANTAGE",
+    "result_sha256": "1005a9073ec099c58171e056bb73230c49a948db6a6b304f42914bf076d7caf2",
+    "observation": "Prince returned the same exact four-candidate evaluation order on all 16 matched LIVE-002 tasks; each arm produced one receiver-confirmed improvement and 63 receiver evaluations.",
+    "boundary": "The null applies to Prince under the frozen LIVE-002 protocol. It does not establish that every live agent erases inherited signal and does not test whether Prince can investigate a failure and earn a better search strategy."
+  },
+  "research_question": "Does anomaly-first investigation, under a receiver-owned promotion ratchet, produce more independently confirmed research improvements than ordinary search from the same unresolved failure and bounded resources?",
+  "researcher": {
+    "product": "Muse",
+    "model": "Muse Spark 1.3",
+    "name": "Prince",
+    "fresh_trajectory_per_arm": true,
+    "persistent_product_memory_absence_not_claimed": true
+  },
+  "arms": {
+    "anomaly_interview": {
+      "method": "Before proposing a mechanism, identify where the current explanation stopped working, state at least two competing explanations, and choose the smallest bounded experiment whose observations distinguish them.",
+      "proposal_authority": "research only"
+    },
+    "ordinary_search": {
+      "method": "Use ordinary research/search to propose the next bounded experiment or mechanism likely to produce an independently confirmed improvement; no anomaly-interview sequence is required.",
+      "proposal_authority": "research only"
+    }
+  },
+  "matched_start": {
+    "same_seed_failure": true,
+    "same_initial_accepted_head": true,
+    "same_researcher_substrate": true,
+    "same_allowed_tools": true,
+    "same_round_count": true,
+    "same_resource_ceilings": true,
+    "same_receiver_promotion_rule": true,
+    "receiver_private_arm_to_session_mapping": true,
+    "allowed_treatment_difference": "research protocol only"
+  },
+  "ratchet": {
+    "state": "accepted_head",
+    "start_rule": "Every round must bind its proposal to the current accepted_head for that arm.",
+    "promotion_rule": "PROMOTE only when the receiver records protocol_valid=true, confirmed_improvement=true, regression_detected=false, a bound receiver evidence artifact, and budget compliance.",
+    "reject_rule": "REJECT leaves accepted_head unchanged. The observed result may remain in history but the candidate lesson is not inherited.",
+    "quarantine_rule": "QUARANTINE leaves accepted_head unchanged. The candidate lesson is not inherited.",
+    "successor_binding": "source accepted_head + response hash + receiver evidence hash + candidate lesson hash -> successor accepted_head",
+    "lesson_boundary": "A promoted lesson is evidence-bound inherited memory with explicit scope and invalidation conditions. Promotion does not establish universal truth or generality."
+  },
+  "rounds_per_arm": 4,
+  "round_limits": {
+    "receiver_evaluations": 16,
+    "external_compute_usd": "1.50",
+    "wall_seconds": 1200
+  },
+  "arm_limits": {
+    "receiver_evaluations": 64,
+    "external_compute_usd": "6.00",
+    "wall_seconds": 4800,
+    "research_rounds": 4
+  },
+  "cost_accounting": {
+    "muse_subscription": "FIXED_SHARED_SUBSTRATE_DOLLAR_ALLOCATION_NOT_OBSERVABLE_NOT_ALLOCATED",
+    "external_compute": "Count actual external compute used by receiver execution inside the frozen ceilings.",
+    "receiver_evaluations": "Count every receiver evaluation invoked by the proposed experiment.",
+    "total_economic_cost_claim": "NOT_EARNED"
+  },
+  "allowed_tools": [
+    "Muse conversational reasoning",
+    "Muse Linux VM shell/filesystem",
+    "Muse browser/internet",
+    "RunPod GPU"
+  ],
+  "receiver_outcome": {
+    "required_fields": [
+      "protocol_valid",
+      "confirmed_improvement",
+      "regression_detected",
+      "evidence_artifact_sha256",
+      "receiver_evaluations",
+      "external_compute_usd",
+      "wall_seconds"
+    ],
+    "judge": "receiver evidence only; no LLM quality judge"
+  },
+  "primary_metric": "receiver-confirmed PROMOTE count within the fixed four-round arm budget",
+  "pass_threshold": {
+    "condition": "anomaly_interview promotions - ordinary_search promotions >= 2",
+    "verdict": "PASS_RIL_ANOMALY_001_EARNED_RESEARCH_RATCHET"
+  },
+  "ordinary_search_advantage": {
+    "condition": "ordinary_search promotions - anomaly_interview promotions >= 2",
+    "verdict": "OBSERVED_RIL_ANOMALY_001_ORDINARY_SEARCH_ADVANTAGE"
+  },
+  "null_band": {
+    "condition": "absolute promotion difference < 2",
+    "verdict": "NO_OBSERVED_RIL_ANOMALY_001_ADVANTAGE"
+  },
+  "terminal_failures": [
+    "PROTOCOL_FAILURE",
+    "RECEIVER_OUTCOME_INVALID",
+    "BUDGET_EXHAUSTED"
+  ],
+  "anti_rescue": "After the first primary packet is delivered, do not change the seed failure, protocols, round count, resource ceilings, receiver promotion rule, researcher substrate, or scoring threshold under RIL-ANOMALY-001. Any redesign requires a new experiment ID.",
+  "frozen_files": {
+    "experiments/ril-anomaly-001/run_ril_anomaly_001.py": "bffd52a41ef714d8926a042ab2ae0ff3829cd8a45e3e528b5e9f6a08ae54da18",
+    "experiments/ril-anomaly-001/protected/research_driver.py": "4c3b2a93f399d448fda45763df6df3a7da41a12bb39ba15d4da32fda8725c9d9",
+    "experiments/ril-anomaly-001/PRINCE_PROTOCOL.md": "fe1760108d68dfa9d2f62efa35d1632ceb2669682ea2736f92eda057404029d5",
+    "experiments/ril-anomaly-001/CONTROL_PROTOCOL.md": "c2f52c10c9fe7b6e586b3965a03d644516f35ed38492054c648af0e374ff3d9d",
+    "experiments/ril-anomaly-001/README.md": "4d3f850df25e7e0b9fb9f041dc3ba7c71cf51375be9a0d65a05201270d0252fa"
+  },
+  "claim_boundary": {
+    "earned_if_pass": "A single bounded matched-start run in which anomaly-first investigation produced at least two more independently receiver-confirmed promoted research improvements than ordinary search under the frozen ratchet and resource ceilings.",
+    "not_earned": [
+      "recursive self-improvement",
+      "Level 4 autonomous improvement",
+      "general scientific judgment advantage",
+      "universal researcher advantage",
+      "repeatability",
+      "production value",
+      "economic payback",
+      "hostile-process isolation"
+    ]
+  }
+}
