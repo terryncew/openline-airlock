@@ -1,0 +1,74 @@
+name: RIL-RANK-EXEC-001 executable ranking transfer
+
+on:
+  push:
+    branches: [experiment/ril-rank-exec-001]
+    paths:
+      - ".github/workflows/ril-rank-exec-001.yml"
+      - "experiments/ril-rank-exec-001/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ril-rank-exec-001-primary
+  cancel-in-progress: false
+
+jobs:
+  primary:
+    if: ${{ github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover -s experiments/ril-rank-exec-001/tests -p 'test_*.py' -v
+      - name: Verify frozen predecessor and experiment boundary
+        run: python experiments/ril-rank-exec-001/run_ril_rank_exec_001.py --self-check
+      - name: Run first primary
+        run: |
+          python experiments/ril-rank-exec-001/run_ril_rank_exec_001.py \
+            --output "$RUNNER_TEMP/RIL_RANK_EXEC_001_RESULT.json" \
+            --evidence-dir "$RUNNER_TEMP/RIL_RANK_EXEC_001_EVIDENCE"
+      - name: Classify without upgrading claim
+        run: |
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          r=json.loads((Path(os.environ['RUNNER_TEMP'])/'RIL_RANK_EXEC_001_RESULT.json').read_text())
+          assert r['schema']=='openline.ril-rank-exec-001.result.v1'
+          assert r['scientific_standing']=='CONTROLLED_EXECUTABLE_MICROTASK_TRANSFER'
+          assert r['level4_standing']=='NOT_EARNED'
+          assert r['live_agent_standing']=='NOT_TESTED'
+          assert r['primary_metric']['evaluation_budget']==4
+          assert r['primary_metric']['tasks']==80
+          assert r['integrity']['rankings_sealed_before_task_data_nonce'] is True
+          allowed={'PASS_RIL_RANK_EXEC_001_EXECUTABLE_TRANSFER','EXECUTABLE_RANKING_ADVANTAGE_HISTORY_BINDING_NOT_ESTABLISHED','EXECUTABLE_HISTORY_SIGNAL_NO_BASELINE_ADVANTAGE','NO_EXECUTABLE_TRANSFER_ADVANTAGE'}
+          assert r['verdict'] in allowed
+          print(json.dumps({'verdict':r['verdict'],'primary_metric':r['primary_metric'],'economics':r['economics']},indent=2,sort_keys=True))
+          PY
+      - name: Stage receipt
+        if: always()
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/RIL_RANK_EXEC_001_ARTIFACT"; mkdir -p "$OUT"
+          cp "$RUNNER_TEMP/RIL_RANK_EXEC_001_RESULT.json" "$OUT/" || true
+          cp "experiments/ril-rank-exec-001/RIL_RANK_EXEC_001_PREREGISTRATION.json" "$OUT/" || true
+          cp "experiments/ril-rank-exec-001/frozen/RIL_RANK_001_POLICY_SEAL.json" "$OUT/" || true
+          if [ -d "$RUNNER_TEMP/RIL_RANK_EXEC_001_EVIDENCE" ]; then cp -a "$RUNNER_TEMP/RIL_RANK_EXEC_001_EVIDENCE" "$OUT/evidence"; fi
+          printf 'run_id=%s\nrun_attempt=%s\nhead_sha=%s\n' "$GITHUB_RUN_ID" "$GITHUB_RUN_ATTEMPT" "$GITHUB_SHA" > "$OUT/run.txt"
+          find "$OUT" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/MANIFEST.sha256" || true
+      - name: Upload primary receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIL-RANK-EXEC-001-primary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/RIL_RANK_EXEC_001_ARTIFACT/
+          if-no-files-found: error
+          retention-days: 90
