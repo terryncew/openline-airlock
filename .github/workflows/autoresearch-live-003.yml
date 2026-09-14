@@ -29,6 +29,7 @@ jobs:
         run: |
           python -m py_compile experiments/autoresearch-live-003/protocol.py
           python -m py_compile experiments/autoresearch-live-003/live_driver.py
+          python -m py_compile experiments/autoresearch-live-003/verify_frozen_result.py
       - name: Protocol state-machine tests
         run: python -m unittest discover -s experiments/autoresearch-live-003/tests -p 'test_*.py' -v
       - name: Validate preregistration JSON
@@ -51,5 +52,7 @@ jobs:
           assert x['total_budget']['researcher_calls_counted'] is True
           assert x['total_budget']['confirmation_counted'] is True
           PY
+      - name: Validate frozen terminal result
+        run: python experiments/autoresearch-live-003/verify_frozen_result.py
       - name: Shell syntax
         run: bash -n experiments/autoresearch-live-003/bootstrap_runpod.sh

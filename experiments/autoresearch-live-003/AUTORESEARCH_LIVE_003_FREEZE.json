@@ -1,0 +1,148 @@
+{
+  "schema": "openline.autoresearch.live003-freeze.v1",
+  "experiment_id": "AUTORESEARCH-LIVE-003",
+  "status": "FROZEN_TERMINAL_RESULT",
+  "terminal_verdict": "CONFIRMED_LIVE_IMPROVEMENT_PROMOTED",
+  "airlock_execution_base_main": "e8a5f64bb993ad09726c1a4db8f4c5030f26b675",
+  "airlock_preregistration_merge_main": "536c080a03a9de0dff72ef7c9748f37833ca1f9c",
+  "upstream": {
+    "repository": "karpathy/autoresearch",
+    "commit": "228791fb499afffb54b46200aca536f79142f117",
+    "seed_policy": "unchanged upstream fixed seed 42"
+  },
+  "preregistration_sha256": "4bd6c0ac3a6ef222fdd149bc12d14f0d52918be39001f3378cbfd657318c45a1",
+  "worker": {
+    "provider": "Meta",
+    "product": "Muse personal AI agent",
+    "model": "Muse Spark 1.3",
+    "worker_name": "Prince",
+    "role": "research generator only",
+    "identity_attestation": "self-declared; not independently verified by runtime"
+  },
+  "baseline": {
+    "accepted_commit": "effe44963da4d8b81ecc9be1ba3f115ac3ef2dab",
+    "val_bpb": "1.123087368232",
+    "steps": 387,
+    "parameters_millions": "50.3"
+  },
+  "discoveries": [
+    {
+      "index": 1,
+      "researcher_call": 1,
+      "candidate_commit": "60a4ad14c8a8bcd2cba0091d94439ca079c465c5",
+      "description": "parameter-matched SwiGLU MLP",
+      "val_bpb": "1.127078192171",
+      "decision": "REJECT",
+      "reason": "MINIMUM_GAIN_NOT_CLEARED",
+      "receipt_sha256": "32f43d94297b6f1b7b83721d26e458f0f82172e8339aafecea8c596b07e88f10"
+    },
+    {
+      "index": 2,
+      "researcher_call": 2,
+      "candidate_commit": "20a0df6cc98778ffb53957d6b4fafccda3a4973e",
+      "description": "TOTAL_BATCH_SIZE 2**19 -> 2**18",
+      "val_bpb": "1.049689693833",
+      "decision": "ACCEPT",
+      "reason": "OBJECTIVE_CLEARED",
+      "receipt_sha256": "95cf61a22f0d5f683d34d2f8cc87c77160172fcb43a853767568c9085da85898"
+    }
+  ],
+  "confirmation": {
+    "candidate_commit": "20a0df6cc98778ffb53957d6b4fafccda3a4973e",
+    "base_commit": "effe44963da4d8b81ecc9be1ba3f115ac3ef2dab",
+    "val_bpb": "1.049345578535",
+    "decision": "ACCEPT",
+    "reason": "OBJECTIVE_CLEARED",
+    "receipt_sha256": "1abd2a3e160d1322e03459ef708b3b2ab93a17b7f114d0207b03a7322ea7ba7b",
+    "promotion_authority": true
+  },
+  "final_accepted_commit": "20a0df6cc98778ffb53957d6b4fafccda3a4973e",
+  "accepted_commit_parent": "effe44963da4d8b81ecc9be1ba3f115ac3ef2dab",
+  "accepted_change": {
+    "changed_paths": [
+      "train.py"
+    ],
+    "changed_lines": 2,
+    "lines_added": 1,
+    "lines_deleted": 1,
+    "train_py_sha256": "9dabafb32b147c5ce62568f66a86df15024ee6fd70ac9610364211c40d1beed4",
+    "baseline_to_a_patch_sha256": "1416c36c3473d5dd6c85e13bab688417a4ac4b90de635e8802bd6e6ce824dbd4"
+  },
+  "integrity": {
+    "protected_file_count": 15,
+    "protected_integrity_before_after_every_measurement": "MATCH",
+    "bundle_verification": "COMPLETE_HISTORY",
+    "bundle_head": "20a0df6cc98778ffb53957d6b4fafccda3a4973e"
+  },
+  "budget": {
+    "researcher_calls": 2,
+    "researcher_call_ceiling": 12,
+    "receiver_measurements": 4,
+    "receiver_measurement_ceiling": 14,
+    "pod_wall_seconds_observed": 3009.316,
+    "pod_wall_seconds_ceiling": 9000,
+    "gpu_hourly_rate_usd": "1.60",
+    "estimated_gpu_spend_usd": "1.337474",
+    "paid_gpu_spend_ceiling_usd": "5.00"
+  },
+  "off_pod_archive": {
+    "filename": "AUTORESEARCH-LIVE-003 evidence archive.gz",
+    "sha256": "a66e354a5d46e1549484498593e01b2a7d43674c0985b739d4cc2df513cd05f1",
+    "tar_entries": 13,
+    "vendored_in_repository": false,
+    "result_sha256": "756cfb21947515cce27d7a36fbd7b73f7d26e60ed12fad33496fae9bf768305e",
+    "state_sha256": "5d73090d5f434a83d56787d3b9337df049e62fcd636c45876d0b9de67ab9e102",
+    "protected_snapshot_sha256": "991c5ee9f611f9fd57b3a9a6fb8dd169d0cf8914216ad4537a09685b7bee0e96",
+    "git_bundle_sha256": "46f688458039507d753ed8ef2421727ad10703dd52d116b80d17c6bd6893370e",
+    "promoted_train_py_sha256": "9dabafb32b147c5ce62568f66a86df15024ee6fd70ac9610364211c40d1beed4",
+    "baseline_to_a_patch_sha256": "1416c36c3473d5dd6c85e13bab688417a4ac4b90de635e8802bd6e6ce824dbd4"
+  },
+  "evidence_verification": {
+    "archive_sha256_verified_from_uploaded_bytes": true,
+    "bundle_sha256_verified_from_uploaded_bytes": true,
+    "git_bundle_verify": "PASS_COMPLETE_HISTORY",
+    "accepted_commit_parent_verified_from_bundle": true,
+    "promoted_train_py_matches_bundle_commit": true,
+    "baseline_to_a_patch_matches_bundle_diff": true,
+    "result_state_receipt_hash_bindings_checked": true,
+    "receipt_signatures_reverified_post_hoc": false,
+    "receipt_signature_note": "The receiver verification key lives in receiver-owned git metadata and was not included in the off-pod archive. The archived signed receipts and their hashes are preserved; this freeze does not claim an independent post-hoc signature re-verification. Promotion during the live run required the receiver gate to verify the confirmation receipt before advancing accepted state."
+  },
+  "earned_claims": [
+    "One live train.py improvement A cleared the receiver objective in discovery and again in one fresh same-fixed-seed confirmation before exact promotion.",
+    "The exact promoted A is preserved off-pod in a complete git bundle and binds to the exact LIVE-003 baseline parent.",
+    "The researcher did not control the evaluator, confirmation rule, or promotion authority."
+  ],
+  "not_earned": [
+    "independent-seed statistical replication",
+    "repeatability across independent runs",
+    "statistical ML superiority",
+    "cumulative optimization",
+    "recursive improvement",
+    "hostile-process isolation"
+  ],
+  "next_experiment_boundary": "A successor may start only from exact inherited A and may claim cumulative governed optimization only if it earns a separately confirmed B. A stronger recursive-improvement claim additionally requires the inherited accepted change to improve the process that generates subsequent improvements.",
+  "protected_integrity": {
+    "status": "MATCH",
+    "protected_file_count": 15,
+    "scope": "before and after every receiver measurement"
+  },
+  "artifacts": {
+    "archive": {
+      "filename": "AUTORESEARCH-LIVE-003 evidence archive.gz",
+      "sha256": "a66e354a5d46e1549484498593e01b2a7d43674c0985b739d4cc2df513cd05f1",
+      "vendored_in_repository": false
+    },
+    "git_bundle": {
+      "filename": "autoresearch-live-003-commits.bundle",
+      "sha256": "46f688458039507d753ed8ef2421727ad10703dd52d116b80d17c6bd6893370e",
+      "bundle_verify": "PASS_COMPLETE_HISTORY"
+    },
+    "promoted_train_py": {
+      "sha256": "9dabafb32b147c5ce62568f66a86df15024ee6fd70ac9610364211c40d1beed4"
+    },
+    "baseline_to_a_patch": {
+      "sha256": "1416c36c3473d5dd6c85e13bab688417a4ac4b90de635e8802bd6e6ce824dbd4"
+    }
+  }
+}
