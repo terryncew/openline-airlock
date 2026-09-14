@@ -1,0 +1,125 @@
+{
+  "anti_rescue": "Anti-rescue begins with the first primary API request under RIL-ANOMALY-003. After that, model, prompts/protocols, evaluator, truth table, round blocks, promotion rule, thresholds, budgets, and starting evidence cannot change under this experiment ID. Redesign requires a new experiment ID. Note: the earlier ea82b802... draft package was never canonical (no primary contact, never published); this v2 preregistration replaces it under the same experiment ID before publication.",
+  "arms": {
+    "anomaly_interview": {
+      "method": "Anomaly-first investigation. Before proposing a fix: identify where the current explanation or search strategy stopped working, state at least two competing explanations consistent with the frozen evidence, and specify the smallest bounded discriminating test (the proposed selection rule for the round's block) whose receiver-visible observations distinguish them. Only then propose the mechanism.",
+      "proposal_authority": "research only"
+    },
+    "ordinary_search": {
+      "method": "Ordinary reasoning/search: propose the next bounded selection-method change most likely to produce a receiver-confirmed improvement. No anomaly-interview sequence is required.",
+      "proposal_authority": "research only"
+    }
+  },
+  "claim_boundary": {
+    "earned_if_pass": "In one preregistered matched run, anomaly-first research produced at least two more receiver-confirmed promotions than ordinary search under the same starting evidence, researcher, evaluator, round budget, and API-cost ceiling. Each promotion is evidence that the proposed method caused the receiver to accept better work (more task successes, or the same successes with fewer evaluations) against the sealed hidden truth.",
+    "explicitly_not_earned": [
+      "recursive self-improvement",
+      "Level 4 standing",
+      "general superiority of anomaly-first research",
+      "repeatability beyond this run",
+      "provider-internal claims",
+      "production safety or economic payback"
+    ]
+  },
+  "evaluator_sanity_check": {
+    "record": "proofs/ril-anomaly-003/RIL_ANOMALY_003_EVALUATOR_SANITY.json",
+    "result": "remainder sweeps PROMOTE on blocks 1/2/4 by genuine gain where the head has 0 successes; REJECT on block 3 with lost_task_successes=['sliding-window-001'] \u2014 the no-regression gate vetoes sacrificing a confirmed success",
+    "standing": "diagnostic only; cannot affect either arm's starting state"
+  },
+  "experiment": "RIL-ANOMALY-003",
+  "frozen_files": {
+    "ANOMALY_PROTOCOL.md": "d11cecc006caea6e7349b175cadaef2e594cc06518ad300f10bf0f99d66ae265",
+    "CONTROL_PROTOCOL.md": "c33f8f9427f18b12867cdc1cc8a43b59130ea3059e48f7d3591072eba9bcfd31",
+    "OPERATOR_CARD.md": "5d840922f562fea0a03cf96b36865fb40da45baa8f3653f94e3bc307d34dc1c2",
+    "README.md": "75fde7443f303777354ce31f4571233ec9671f1133d781b507fe2f4445892535",
+    "RIL_ANOMALY_003_PREREGISTRATION.json": "608460d8b2dd7e45e64c2e817a1f66c81292b163aecaa305ad21b04557b1ddb8",
+    "build_truth_table.py": "2b41a83fde7dace1729e7ae8753414eaf5b2acd7d7825209c5045967d7a39698",
+    "protected/anomaly_core.py": "72398d3da75d5fde6cd32b67bc7d4f102c7ff424587e004c65924ed5fac2ede3",
+    "protected/anomaly_driver.py": "007938d6372d690cbf7f9232dcc2e2bf82c57f239f057b8a3529d17112bea4e2",
+    "tests/test_contract.py": "6d0c68a6533ba93e2e254e147c33678339bf5505f59a484962808f4847540e6c"
+  },
+  "frozen_files_note": "sha256 of each frozen package file; the preregistration's own entry is the sha256 of the preregistration with that entry blanked (self-hash convention).",
+  "lineage": {
+    "replaces": "RIL-ANOMALY-002 (inconclusive: control-arm memory contamination before round 1)",
+    "substrate_qualified_by": "RIL-API-ISOLATION-002 PASS (stateless canary boundary; provider-returned model identifier 'gpt-6-astra' in all four /v1/chat/completions response bodies; receipt evidence/ril-api-isolation-002/RIL_API_ISOLATION_002_RECEIPT.json sha256 37b636a1d515d4b8c4b539327d8392c0859211e48d1edd7cd7c85d0a25aa27dd, frozen in commit fb54967)",
+    "task_pool_source": "RIL-RANK-LIVE-002 frozen rows (16 tasks x 12 candidates; receiver_result reproduced exactly by the rebuilt truth table, 32/32)"
+  },
+  "matched_start": {
+    "allowed_treatment_difference": "research protocol only (anomaly_interview vs ordinary_search)",
+    "same_api_cost_ceiling": true,
+    "same_evaluator": true,
+    "same_initial_accepted_head": true,
+    "same_model": true,
+    "same_public_packets": true,
+    "same_round_blocks": true,
+    "same_round_count": true,
+    "same_sealed_truth": true
+  },
+  "null_band": {
+    "condition": "absolute promotion difference < 2",
+    "verdict": "NO_OBSERVED_RIL_ANOMALY_003_ADVANTAGE"
+  },
+  "ordinary_search_advantage": {
+    "condition": "ordinary_search promotions - anomaly_interview promotions >= 2",
+    "verdict": "REVERSE_RIL_ANOMALY_003_ORDINARY_SEARCH_ADVANTAGE"
+  },
+  "pass_threshold": {
+    "condition": "anomaly_interview promotions - ordinary_search promotions >= 2",
+    "verdict": "PASS_RIL_ANOMALY_003_EARNED_RESEARCH_RATCHET"
+  },
+  "preflight": {
+    "also_runs": "automatically at the start of `run --spend`, before the first primary API call",
+    "command": "python3 protected/anomaly_driver.py preflight [--output DIR]",
+    "fails_closed_unless": [
+      "provider-returned isolation model lineage is exactly gpt-6-astra in all four -002 call records",
+      "isolation receipt sha256 == 37b636a1d515d4b8c4b539327d8392c0859211e48d1edd7cd7c85d0a25aa27dd",
+      "truth-table and schedule sha256 verify against sealed_artifacts",
+      "exactly 192 truth evaluations exist (16 tasks x 12 candidates)",
+      "both arms have identical starting state/resources (same head, empty lessons, same budget)",
+      "no primary API receipt already exists",
+      "spend ceilings frozen ($4/arm, $8 total, $1/call)"
+    ]
+  },
+  "primary_metric": "receiver-confirmed PROMOTE count within the four-round arm budget",
+  "promotion_rule": {
+    "formal": "PROMOTE iff the proposed method loses no receiver-confirmed task success relative to the current accepted head on that round's block AND (gains >= 1 task success OR preserves all successes while reducing total evaluations-to-first-success). Otherwise REJECT. A non-executable rule (invented labels, unspecified 'top four', IDs outside the task's 12, non-unique or out-of-range indices) -> QUARANTINE. REJECT and QUARANTINE leave the head unmoved and inherit no lesson.",
+    "head_advance": "On PROMOTE the head advances to the proposed method for that block; a general rule (positional/complement_positional) also becomes the head for all not-yet-scored blocks; an explicit_ids rule is block-local. The accepted lesson is inherited into the arm's later rounds.",
+    "no_proxy": "No proxy coverage metric may trigger promotion. The mean-remainder-coverage evaluator from the non-canonical draft is rejected: it can reward exploring unknown space without proving the method causes the receiver to accept better work.",
+    "scoring_semantics": "Original LIVE-002 semantics: task success iff an acceptable candidate appears in the ordered selected four; evaluations-to-first-success is its 1-based ordered position, scored by the receiver against the sealed hidden truth."
+  },
+  "receiver_truth_table": {
+    "accepted_definition": "candidate accepted iff the frozen engine's evaluate_candidate returns accepted=true (correct AND operation_ratio <= ACCEPT_RATIO)",
+    "build": "experiments/ril-anomaly-003/build_truth_table.py, local only, no API, no credentials",
+    "cross_validation": "scoring the frozen historical selections against the rebuilt truth reproduces all 32 frozen RIL-RANK-LIVE-002 receiver_results exactly (0 mismatches)",
+    "determinism": "built twice; byte-identical",
+    "evaluations": "192 = 16 tasks x 12 candidates, executed once before primary contact",
+    "sealed": "sha256 pinned in sealed_artifacts; driver re-verifies before every primary call",
+    "visibility": "GPT never sees the hidden truth or candidate implementations; packets carry only opaque IDs, public descriptions, and public features"
+  },
+  "research_question": "Does anomaly-first investigation, under a receiver-owned promotion ratchet scored against a sealed acceptance truth, produce more receiver-confirmed method improvements than ordinary search from the same unresolved failure and bounded resources?",
+  "researcher": {
+    "model": "gpt-6-astra",
+    "model_binding": "provider-returned model identifier recorded in all four RIL-API-ISOLATION-002 receipt call records (api_driver.py lines 154/167: model=str(response_body.get(\"model\", \"\")), default \"\" proves the recorded 'gpt-6-astra' came from the response, not the request)",
+    "request_pattern": "one fresh independent Chat Completions request per round; no threads, no previous-response IDs, no model-native history; receiver owns memory",
+    "substrate": "GPT via the OpenAI API"
+  },
+  "resource_ceilings": {
+    "arm_spend_cap_usd": 4.0,
+    "per_call_hard_ceiling_usd": 1.0,
+    "pricing": "$10/1M input, $50/1M output (pinned from the -002 run; computed from returned usage)",
+    "total_spend_cap_usd": 8.0
+  },
+  "rounds_per_arm": 4,
+  "rsi_bar_distinction": "This experiment does not test recursive self-improvement. The higher OpenLine RSI bar remains: the system changes its own improvement-generating method, independently earns promotion of that change, inherits it into fresh work, and beats a matched control on verified results per dollar.",
+  "schema": "openline.ril-anomaly-003.preregistration.v2",
+  "sealed_artifacts": {
+    "evaluator_sanity_sha256": "b74464a2d2b5eb688602967dde52e91e338306567698b249e812a032c42402e6",
+    "schedule_sha256": "af8a0d368291c8a9de3fa7a745d02cb3fee5d7a73556e86813cfc15d06bfa603",
+    "seal_sha256": "e5809fe144cc7a5b6fbea14f7822245cd2caf94e1ddbdf388363f9d30c5d7a39",
+    "seal_supplement_sha256": "5ed83a7e3fac190f7b2d4a68028f349706bd0dedb0ef557514a58a331f4601ee",
+    "truth_table_sha256": "3b26f17f34c2c3dc1608c863e72bad0b3c486ff4cb8d228c6102ab0d80ad0563"
+  },
+  "seed_failure": "The historical researcher reconstructed the same exact four-candidate evaluation order on all 16 frozen tasks in two sessions despite different candidate presentation orders; the receiver confirmed improvement on 1 of 16 tasks in each session. Per-task historical success is NOT disclosed to GPT (hidden); only the aggregate 1/16 and the behavior pattern are public evidence.",
+  "task_structure": "16 frozen tasks (4 families x 4 tasks: dedupe-stream, normalized-join, sliding-window, transient-fetch), 12 opaque candidate IDs per task with public features/descriptions. Fresh matched schedule: 4 disjoint round blocks, one task per family per round, fresh seeded presentation orders. Same schedule, same packets, same truth for both arms.",
+  "title": "Matched anomaly-first vs ordinary search on the qualified API substrate, scored against a sealed receiver truth table"
+}

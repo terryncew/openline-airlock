@@ -1,0 +1,128 @@
+# RIL-ANOMALY-003 CI gate.
+#
+# Allowed: verify predecessor hashes, verify the truth seal, run self-check,
+# run contract tests, run offline prepare.
+#
+# Forbidden: rebuilding the truth table, executing any candidate, any OpenAI
+# API call, starting the primary experiment. This workflow never passes
+# --spend, never installs credentials, and the driver refuses to run without
+# the explicit spend flag.
+name: ril-anomaly-003
+
+on:
+  pull_request:
+    paths:
+      - 'experiments/ril-anomaly-003/**'
+      - 'proofs/ril-anomaly-003/**'
+      - '.github/workflows/ril-anomaly-003.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'experiments/ril-anomaly-003/**'
+      - 'proofs/ril-anomaly-003/**'
+
+jobs:
+  anomaly-003-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Verify predecessor hashes
+        run: |
+          set -e
+          for c in 9c439ee2528f096de2751526749aed40922a3bc6 \
+                   f8df6b6c6a5c51621f8eb20c4c6f99b48443979e \
+                   fb54967f71168d673229ad48899e26617eb3cb5a; do
+            git merge-base --is-ancestor "$c" HEAD || { echo "missing predecessor $c"; exit 1; }
+          done
+          echo "predecessors OK"
+
+      - name: Verify frozen bindings (content hashes)
+        run: |
+          set -e
+          check() { test "$(sha256sum "$1" | cut -d' ' -f1)" = "$2" || { echo "MISMATCH $1"; exit 1; }; }
+          check evidence/ril-api-isolation-002/RIL_API_ISOLATION_002_RECEIPT.json \
+            37b636a1d515d4b8c4b539327d8392c0859211e48d1edd7cd7c85d0a25aa27dd
+          check experiments/ril-anomaly-003/RIL_ANOMALY_003_PREREGISTRATION.json \
+            53177e7b21fca49f0634bda74046c54212302c4786cd4da0e0efd3f1899ead1a
+          check proofs/ril-anomaly-003/RIL_ANOMALY_003_SEAL.json \
+            e5809fe144cc7a5b6fbea14f7822245cd2caf94e1ddbdf388363f9d30c5d7a39
+          check proofs/ril-anomaly-003/RIL_ANOMALY_003_SEAL_SUPPLEMENT.json \
+            5ed83a7e3fac190f7b2d4a68028f349706bd0dedb0ef557514a58a331f4601ee
+          check proofs/ril-anomaly-003/RIL_ANOMALY_003_TRUTH_TABLE.json \
+            3b26f17f34c2c3dc1608c863e72bad0b3c486ff4cb8d228c6102ab0d80ad0563
+          check proofs/ril-anomaly-003/RIL_ANOMALY_003_SCHEDULE.json \
+            af8a0d368291c8a9de3fa7a745d02cb3fee5d7a73556e86813cfc15d06bfa603
+          echo "frozen bindings OK"
+
+      - name: Contract tests (offline)
+        run: python3 experiments/ril-anomaly-003/tests/test_contract.py
+
+      - name: Self-check (offline, no API)
+        run: |
+          python3 - self-check <<'EOF'
+          import sys, types
+          # The driver imports the Sentinel credential helper at module load;
+          # self-check/preflight/prepare never touch it, so stub it for CI.
+          fake = types.ModuleType("dynamic_credentials")
+          class DynamicCredentialError(Exception): pass
+          fake.DynamicCredentialError = DynamicCredentialError
+          sys.modules["dynamic_credentials"] = fake
+          sys.path.insert(0, "experiments/ril-anomaly-003/protected")
+          import anomaly_driver as drv
+          sys.argv = ["anomaly_driver.py", sys.argv[1]]
+          raise SystemExit(drv.main())
+          EOF
+
+      - name: Preflight (offline, no API)
+        run: |
+          python3 - preflight <<'EOF'
+          import sys, types
+          fake = types.ModuleType("dynamic_credentials")
+          class DynamicCredentialError(Exception): pass
+          fake.DynamicCredentialError = DynamicCredentialError
+          sys.modules["dynamic_credentials"] = fake
+          sys.path.insert(0, "experiments/ril-anomaly-003/protected")
+          import anomaly_driver as drv
+          sys.argv = ["anomaly_driver.py", sys.argv[1]]
+          raise SystemExit(drv.main())
+          EOF
+
+      - name: Offline prepare (must execute zero candidates)
+        run: |
+          python3 - <<'EOF'
+          import sys, types
+          fake = types.ModuleType("dynamic_credentials")
+          class DynamicCredentialError(Exception): pass
+          fake.DynamicCredentialError = DynamicCredentialError
+          sys.modules["dynamic_credentials"] = fake
+          sys.path.insert(0, "experiments/ril-anomaly-003")
+          sys.path.insert(0, "experiments/ril-anomaly-003/protected")
+          import build_truth_table as btt
+          engine = btt.load_engine()
+          calls = []
+          orig = engine.evaluate_candidate
+          def counting(*a, **k):
+              calls.append(1)
+              return orig(*a, **k)
+          engine.evaluate_candidate = counting
+          import anomaly_driver as drv
+          rc = drv.cmd_prepare("/tmp/anom003-prepare-ci")
+          print("prepare exit:", rc, "| candidate executions:", len(calls))
+          assert rc == 0 and not calls, "prepare executed candidates"
+          print("prepare performed zero candidate executions: OK")
+          EOF
+
+      - name: Guardrails (forbidden operations absent)
+        run: |
+          set -e
+          # The live run requires --spend; this workflow never passes it.
+          ! grep -q -- "--spend" .github/workflows/ril-anomaly-003.yml
+          # No OpenAI endpoint is ever contacted by the steps above.
+          ! grep -q "api.openai.com" .github/workflows/ril-anomaly-003.yml
+          echo "guardrails OK: no rebuild, no candidates executed, no --spend, no API calls"
