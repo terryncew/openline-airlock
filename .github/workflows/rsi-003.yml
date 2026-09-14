@@ -1,0 +1,88 @@
+name: RSI-003 recursive standing propagation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "experiments/rsi-003/**"
+      - ".github/workflows/rsi-003.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-003/**"
+      - ".github/workflows/rsi-003.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-003:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Airlock and exact Verified Memory dependency
+        run: |
+          python -m pip install .
+          python -m pip install "git+https://github.com/terryncew/openline-verified-memory.git@454c5a3b28f2b7da673f6acf0007fc1d7b6f4d8e"
+
+      - name: RSI-003 self-check (prereg bindings)
+        run: |
+          python experiments/rsi-003/run_rsi_003.py --self-check
+
+      - name: Run RSI-003
+        run: |
+          python experiments/rsi-003/run_rsi_003.py --output "$RUNNER_TEMP/RSI_003_RESULT.json"
+
+      - name: Require the clean negative receipt and boundaries
+        run: |
+          python - <<'PY'
+          import hashlib, json, os
+          from pathlib import Path
+          p = Path(os.environ["RUNNER_TEMP"]) / "RSI_003_RESULT.json"
+          r = json.loads(p.read_text())
+          # The predicted finding: the pinned projector is generation-local.
+          assert r["verdict"] == "FAIL_RSI_003_QUESTIONED_ANCESTRY_NOT_PROPAGATED", r["verdict"]
+          assert r["post_projection_standings"] == {"gen1": "questioned", "gen2": "inherited"}, r
+          assert r["pre_reopen_standings"] == {"gen1": "inherited", "gen2": "inherited"}, r
+          assert r["pre_reopen_established"] == [
+              "rsi-003-gen1-earned-policy", "rsi-003-gen2-inherited-policy"], r
+          assert r["post_projection_established"] == ["rsi-003-gen2-inherited-policy"], r
+          # The hole has operational consequence: the gate would admit gen3.
+          assert r["gen3_admission_probe"] == "ADMIT", r
+          assert r["gen3_executed"] is False, r
+          assert r["forged_reopen_rejected"] is True, r
+          assert r["gen1_wrong_install_rejected"] is True, r
+          assert r["gen2_wrong_install_rejected"] is True, r
+          # REOPEN changes standing, not history.
+          assert r["installed_refs_unchanged"] is True, r
+          hashes = r["installed_ref_byte_hashes"]
+          for ref, h in hashes.items():
+              assert len(set(h.values())) == 1, (ref, h)
+          # No lineage input reached the projector for either generation.
+          for gen, inputs in r["derivation_inputs"].items():
+              assert inputs["lineage_records_passed"] == [], (gen, inputs)
+              assert inputs["standing_sha256"] is None or gen == "gen1", (gen, inputs)
+          # Pins.
+          assert r["verified_memory_commit"] == "454c5a3b28f2b7da673f6acf0007fc1d7b6f4d8e", r
+          assert r["evidence_py_sha256"] == "1eae4f6c1b33f218a27dfcfca0a98b6d1bb6ead85be539e07501b988bfb18e71", r
+          assert r["airlock_base_main_commit"] == "d4da44a1abbabc35672d9a39f2e6c75f5adfdf49", r
+          prereg = Path("experiments/rsi-003/RSI_003_PREREGISTRATION.json").read_bytes()
+          assert r["preregistration_sha256"] == hashlib.sha256(prereg).hexdigest(), r
+          print(json.dumps({k: r[k] for k in (
+              "verdict", "post_projection_standings", "gen3_admission_probe",
+              "installed_refs_unchanged")}, indent=2, sort_keys=True))
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: RSI-003-result
+          path: ${{ runner.temp }}/RSI_003_RESULT.json
+          if-no-files-found: error
