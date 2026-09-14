@@ -1,0 +1,61 @@
+name: AUTORESEARCH-GATE-001
+
+on:
+  push:
+    paths:
+      - "experiments/autoresearch-gate-001/**"
+      - ".github/workflows/autoresearch-gate-001.yml"
+  pull_request:
+    paths:
+      - "experiments/autoresearch-gate-001/**"
+      - ".github/workflows/autoresearch-gate-001.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  control-plane:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout Airlock
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install current Airlock
+        run: python -m pip install -e .
+
+      - name: Unit-test receiver-owned score capture
+        run: python -m unittest discover -s experiments/autoresearch-gate-001/tests -v
+
+      - name: Fetch exact Karpathy autoresearch pin
+        run: |
+          git clone -q https://github.com/karpathy/autoresearch.git /tmp/autoresearch
+          git -C /tmp/autoresearch checkout -q 228791fb499afffb54b46200aca536f79142f117
+          git -C /tmp/autoresearch config user.name "OpenLine Evidence"
+          git -C /tmp/autoresearch config user.email "evidence@example.invalid"
+
+      - name: Install frozen OpenLine overlay
+        run: |
+          python experiments/autoresearch-gate-001/setup_overlay.py \
+            --repo /tmp/autoresearch --commit
+
+      - name: Run external control-plane proof
+        run: |
+          mkdir -p /tmp/autoresearch-gate-result
+          python experiments/autoresearch-gate-001/run_control_plane_proof.py \
+            --repo /tmp/autoresearch \
+            --result /tmp/autoresearch-gate-result/AUTORESEARCH_GATE_001_RESULT.json
+
+      - name: Upload frozen result
+        uses: actions/upload-artifact@v4
+        with:
+          name: AUTORESEARCH-GATE-001-result-${{ github.run_id }}-${{ github.run_attempt }}
+          path: /tmp/autoresearch-gate-result/AUTORESEARCH_GATE_001_RESULT.json
+          if-no-files-found: error
+          retention-days: 90

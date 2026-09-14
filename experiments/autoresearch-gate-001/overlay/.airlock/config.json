@@ -1,0 +1,30 @@
+{
+  "schema": "airlock.config.v1",
+  "parallelism": 1,
+  "protected_paths": [
+    ".airlock/**",
+    ".github/**",
+    ".gitignore",
+    ".python-version",
+    "README.md",
+    "analysis.ipynb",
+    "prepare.py",
+    "program.md",
+    "progress.png",
+    "pyproject.toml",
+    "uv.lock"
+  ],
+  "verification": {
+    "static_commands": [
+      ["python", "-m", "py_compile", "train.py"]
+    ],
+    "test_commands": [],
+    "target_commands": [],
+    "timeout_seconds": 60,
+    "coverage_mode": "changed-module-reference"
+  },
+  "providers": {},
+  "init_baseline": {
+    "green": true
+  }
+}
