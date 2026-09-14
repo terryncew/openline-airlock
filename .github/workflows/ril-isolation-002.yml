@@ -1,0 +1,35 @@
+name: RIL-ISOLATION-002
+on:
+  pull_request:
+    paths:
+      - 'experiments/ril-isolation-002/**'
+      - 'proofs/ril-isolation-001/**'
+      - '.github/workflows/ril-isolation-002.yml'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Verify predecessor freeze
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from pathlib import Path
+          p=json.loads(Path('experiments/ril-isolation-002/RIL_ISOLATION_002_PREREGISTRATION.json').read_text())
+          f=Path(p['predecessor']['freeze_path'])
+          assert f.is_file()
+          raw=f.read_bytes()
+          assert hashlib.sha256(raw).hexdigest()==p['predecessor']['freeze_sha256']
+          o=json.loads(raw)
+          assert o['formal_verdict']==p['predecessor']['formal_verdict']
+          assert o['status']=='FROZEN_TERMINAL'
+          print('PASS predecessor')
+          PY
+      - run: python experiments/ril-isolation-002/run_ril_isolation_002.py self-check
+      - run: pip install pytest
+      - run: pytest -q experiments/ril-isolation-002/tests/test_contract.py

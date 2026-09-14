@@ -1,0 +1,60 @@
+{
+  "anti_rescue": "After first canary exposure, do not change substrate, prompts, trial count, pass rule, or mode requirement under this ID.",
+  "claim_boundary": {
+    "earned_if_pass": "Two paired manual trials showed no observable exact-canary inheritance across fresh Gemini Temporary Chats under the frozen procedure.",
+    "not_earned": [
+      "provider-internal deletion",
+      "absence of hidden state",
+      "hostile-process isolation",
+      "anomaly-first advantage",
+      "repeatability beyond this qualification"
+    ]
+  },
+  "experiment": "RIL-ISOLATION-002",
+  "pass_rule": "Both trials pass same-chat recall, both blind probes contain no exact canary, Temporary Chat is verified for all four chats, operator payload is clean, and exposure chats are absent from Recent and Gemini Apps Activity.",
+  "precontact_preflight": {
+    "fields": [
+      "temporary_chat_indicator_visible",
+      "model_display",
+      "canary_exposure_started"
+    ],
+    "must_occur_before_canary_generation": true,
+    "required": true
+  },
+  "predecessor": {
+    "experiment": "RIL-ISOLATION-001",
+    "formal_verdict": "PROTOCOL_FAILURE_TEMPORARY_MODE_UNVERIFIED",
+    "freeze_path": "proofs/ril-isolation-001/RIL_ISOLATION_001_FREEZE.json",
+    "freeze_sha256": "346b1167acc56dee069f3d8ae18e120e3d8274288266daef86c8d13b4a7f1153"
+  },
+  "research_question": "Can fresh Gemini Temporary Chats preserve the observable cross-chat memory boundary needed for a matched research comparison?",
+  "schema": "openline.ril-isolation-002.preregistration.v1",
+  "substrate": {
+    "api_key_required": false,
+    "mode": "Temporary Chat",
+    "model_display": "3.8 Flash",
+    "provider": "Google Gemini consumer app"
+  },
+  "successor_if_fail": "Do not use this substrate for the matched comparison without a new qualification ID.",
+  "successor_if_pass": "RIL-ANOMALY-002 may use this exact substrate for both arms with separate receiver-held histories.",
+  "title": "Fast Preflight-Qualified Gemini Temporary Chat Boundary",
+  "trial_count": 2,
+  "trial_design": {
+    "canaries_per_trial": 1,
+    "final_activity_check_once": true,
+    "final_recent_check_once": true,
+    "fresh_blind_probe_chat": true,
+    "same_chat_positive_control": true
+  },
+  "verdicts": [
+    "PASS_RIL_ISOLATION_002_GEMINI_TEMPORARY_CHAT_BOUNDARY",
+    "FAIL_CROSS_CHAT_SEMANTIC_LEAK",
+    "FAIL_TEMP_CHAT_VISIBLE_IN_RECENTS",
+    "FAIL_TEMP_CHAT_VISIBLE_IN_ACTIVITY",
+    "FAIL_OPERATOR_CROSS_ARM_PAYLOAD_CONTAMINATION",
+    "PROTOCOL_FAILURE_TEMPORARY_MODE_UNVERIFIED",
+    "INCONCLUSIVE_PROBE_SENSITIVITY",
+    "PROTOCOL_FAILURE_INCOMPLETE_TRIAL_SET",
+    "PROTOCOL_FAILURE_UNCLASSIFIED"
+  ]
+}
