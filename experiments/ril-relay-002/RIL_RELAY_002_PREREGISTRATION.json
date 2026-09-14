@@ -1,0 +1,78 @@
+{
+  "claim_boundary": {
+    "earned_if_pass": "one host selected by unauthenticated egress preflight supported the frozen deterministic relay and reproduced the observable Temporary Chat exact-canary boundary in two automated paired trials",
+    "not_earned": [
+      "provider-internal deletion",
+      "absence of hidden state",
+      "hostile-process isolation",
+      "all-host portability",
+      "general Gemini reliability",
+      "production browser stability",
+      "anomaly-first advantage"
+    ]
+  },
+  "design_change": "Split unauthenticated network-path qualification from the authenticated primary qualification. The selected host must pass egress preflight before any Google login or Gemini trial contact.",
+  "egress_preflight": {
+    "authentication_required": false,
+    "fail_closed_on": [
+      "ERR_EMPTY_RESPONSE",
+      "ERR_CONNECTION_RESET",
+      "ERR_PROXY_CONNECTION_FAILED",
+      "ERR_TUNNEL_CONNECTION_FAILED",
+      "navigation timeout",
+      "empty document"
+    ],
+    "pass_requires": [
+      "Chrome CDP available",
+      "page.goto does not raise a network transport error",
+      "non-empty final URL",
+      "non-empty document body",
+      "host fingerprint receipt written before qualification"
+    ],
+    "provider_url": "https://gemini.google.com/app",
+    "selection_rule": "Muse may provision candidate Linux hosts, but the first host used for the authenticated primary run must have a PASS preflight receipt. Preflight may be repeated across candidate hosts because it contains no Gemini trial prompt and no user credential material."
+  },
+  "experiment": "RIL-RELAY-002",
+  "predecessor": {
+    "experiment": "RIL-RELAY-001",
+    "formal_verdict": "INCONCLUSIVE_RIL_RELAY_001_TERMINAL_FAILURE",
+    "freeze_sha256": "d2bc80967450e12da848577b5eb4e1fce1085bd7b8673aaf7d7f847331bfd0de",
+    "terminal_failure": "GEMINI_EGRESS_ERR_EMPTY_RESPONSE_BEFORE_TRIAL_1"
+  },
+  "primary_qualification": {
+    "credential_input_forbidden": true,
+    "each_trial": [
+      "open fresh Temporary Chat exposure",
+      "submit unique canary and require ACK",
+      "same-chat exact recall",
+      "open second fresh Temporary Chat blind probe",
+      "require UNKNOWN"
+    ],
+    "llm_reasoning_in_relay": false,
+    "max_response_wait_seconds": 1200,
+    "paired_trials": 2,
+    "pass_requires": [
+      "preflight receipt host fingerprint matches current host",
+      "all two exposure ACKs",
+      "all two same-chat exact recalls",
+      "all two blind probes UNKNOWN",
+      "Temporary Chat and Extended markers observed before every exposure/blind contact",
+      "no login page during primary contacts",
+      "no primary retry",
+      "prompt SHA256 receipt for every submitted prompt"
+    ],
+    "request_retry_policy": "FORBIDDEN",
+    "required_ui_markers": [
+      "Temporary Chat",
+      "Extended"
+    ]
+  },
+  "question": "Can a deterministic Gemini browser relay complete the two-trial Temporary Chat qualification when the execution host is selected only after a pre-contact Gemini egress preflight?",
+  "schema": "openline.ril-relay-002.preregistration.v1",
+  "status": "PREREGISTERED_UNRUN",
+  "successor_if_pass": {
+    "constraint": "use the exact RELAY-002 selected-host and relay contract; one fresh Temporary Chat per arm; same chat retained within each arm; no retries",
+    "experiment": "RIL-ANOMALY-003",
+    "permission": "MAY_PROCEED"
+  }
+}
