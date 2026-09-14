@@ -1,0 +1,80 @@
+{
+  "claim_boundary": {
+    "earned_if_pass": "the deterministic relay reproduced the same observable Temporary Chat exact-canary boundary in two automated paired trials and preserved receiver packet hashes",
+    "not_earned": [
+      "provider-internal deletion",
+      "absence of hidden state",
+      "hostile-process isolation",
+      "general Gemini reliability",
+      "anomaly-first advantage",
+      "production browser stability"
+    ]
+  },
+  "experiment": "RIL-RELAY-001",
+  "isolation_lineage": {
+    "experiment": "RIL-ISOLATION-002",
+    "formal_verdict": "PASS_RIL_ISOLATION_002_GEMINI_TEMPORARY_CHAT_BOUNDARY",
+    "freeze_sha256": "ce98f84046481f84f6e26a453fbc6f806e690e68f3d5c9bb6c13ae291f0d6285"
+  },
+  "predecessor": {
+    "experiment": "RIL-ANOMALY-002",
+    "formal_verdict": "INCONCLUSIVE_RIL_ANOMALY_002_TERMINAL_FAILURE",
+    "freeze_sha256": "3e19d031ee2a98cf55ed31f862b9ad45826588c57642a2edf7750aabb2987ad3"
+  },
+  "qualification": {
+    "each_trial": [
+      "open fresh Temporary Chat exposure",
+      "submit unique canary and require ACK",
+      "same-chat exact recall",
+      "open second fresh Temporary Chat blind probe",
+      "require UNKNOWN"
+    ],
+    "fail_closed_on": [
+      "UI marker missing",
+      "login detected",
+      "CDP unavailable",
+      "response timeout",
+      "response parse failure",
+      "unexpected blind recall",
+      "prompt hash mismatch"
+    ],
+    "paired_trials": 2,
+    "pass_requires": [
+      "all two exposure ACKs",
+      "all two same-chat exact recalls",
+      "all two blind probes UNKNOWN",
+      "Temporary Chat and Extended markers observed before every exposure/blind contact",
+      "no login page",
+      "no primary retry",
+      "relay emits byte/hash receipt for every submitted prompt"
+    ]
+  },
+  "question": "Can a deterministic non-LLM browser relay preserve exact receiver packets and the qualified observable Gemini Temporary Chat boundary without credentials or cross-arm state?",
+  "relay_contract": {
+    "allowed_connection": "already-authenticated browser exposed at an operator-supplied localhost CDP URL",
+    "capture": [
+      "prompt sha256",
+      "page transcript",
+      "screenshot",
+      "response JSON",
+      "timestamps"
+    ],
+    "credential_input_forbidden": true,
+    "llm_reasoning_in_relay": false,
+    "max_response_wait_seconds": 1200,
+    "provider": "Google Gemini consumer app",
+    "request_retry_policy": "FORBIDDEN",
+    "required_ui_markers": [
+      "Temporary Chat",
+      "Extended"
+    ],
+    "transport": "Playwright over localhost Chrome DevTools Protocol"
+  },
+  "schema": "openline.ril-relay-001.preregistration.v1",
+  "status": "PREREGISTERED_UNRUN",
+  "successor_if_pass": {
+    "constraint": "use the exact frozen relay contract; one fresh Temporary Chat per arm, same chat retained within an arm, no retries, same causal treatment as ANOMALY-002",
+    "experiment": "RIL-ANOMALY-003",
+    "permission": "MAY_PROCEED"
+  }
+}

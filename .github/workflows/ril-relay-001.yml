@@ -1,0 +1,19 @@
+name: RIL-RELAY-001 deterministic Gemini relay
+on:
+  pull_request:
+    paths:
+      - 'experiments/ril-relay-001/**'
+      - 'proofs/ril-anomaly-002/**'
+      - '.github/workflows/ril-relay-001.yml'
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install pytest
+      - run: python experiments/ril-relay-001/verify_repo.py
+      - run: python experiments/ril-relay-001/protected/relay_driver.py self-check
+      - run: pytest -q experiments/ril-relay-001/tests
