@@ -1,0 +1,32 @@
+name: RIL-RANK-LIVE-002 GPU-metered Prince transfer
+
+on:
+  push:
+    branches: [experiment/ril-rank-live-002]
+    paths:
+      - ".github/workflows/ril-rank-live-002.yml"
+      - "experiments/ril-rank-live-002/**"
+  pull_request:
+    paths:
+      - ".github/workflows/ril-rank-live-002.yml"
+      - "experiments/ril-rank-live-002/**"
+
+permissions:
+  contents: read
+
+jobs:
+  structural:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Unit tests
+        run: python -m unittest discover -s experiments/ril-rank-live-002/tests -p 'test_*.py' -v
+      - name: Verify predecessor freezes, Prince identity, order-only invariant, threshold, and GPU budget contract
+        run: python experiments/ril-rank-live-002/run_ril_rank_live_002.py --self-check
