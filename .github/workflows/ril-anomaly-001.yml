@@ -1,0 +1,38 @@
+name: RIL-ANOMALY-001 earned lesson ratchet
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - experiment/ril-anomaly-001
+    paths:
+      - ".github/workflows/ril-anomaly-001.yml"
+      - "experiments/ril-anomaly-001/**"
+
+permissions:
+  contents: read
+
+jobs:
+  instrument:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Airlock
+        run: python -m pip install -e . pytest
+
+      - name: Verify frozen predecessor and current lineage
+        run: python experiments/ril-anomaly-001/run_ril_anomaly_001.py verify-repo
+
+      - name: Verify experiment instrument power
+        run: python experiments/ril-anomaly-001/run_ril_anomaly_001.py self-check
+
+      - name: Run contract tests
+        run: pytest -q experiments/ril-anomaly-001/tests/test_contract.py
