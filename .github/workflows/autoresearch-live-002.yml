@@ -1,0 +1,46 @@
+name: AUTORESEARCH-LIVE-002 control checks
+
+on:
+  push:
+    branches:
+      - experiment/autoresearch-live-002
+    paths:
+      - 'experiments/autoresearch-live-002/**'
+      - '.github/workflows/autoresearch-live-002.yml'
+  pull_request:
+    paths:
+      - 'experiments/autoresearch-live-002/**'
+      - '.github/workflows/autoresearch-live-002.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  control-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile live driver
+        run: python -m py_compile experiments/autoresearch-live-002/live_driver.py
+      - name: Test protected-hash guard
+        run: python experiments/autoresearch-live-002/live_driver.py self-test
+      - name: Validate preregistration JSON
+        run: python -m json.tool experiments/autoresearch-live-002/AUTORESEARCH_LIVE_002_PREREGISTRATION.json >/dev/null
+      - name: Validate frozen worker identity
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('experiments/autoresearch-live-002/AUTORESEARCH_LIVE_002_PREREGISTRATION.json')
+          w = json.loads(p.read_text())['worker']
+          assert w['provider'] == 'Meta'
+          assert w['product'] == 'Muse personal AI agent'
+          assert w['model'] == 'Muse Spark 1.3'
+          assert w['worker_name'] == 'Prince'
+          assert 'may not be delegated' in w['delegation_rule']
+          PY
+      - name: Shell syntax
+        run: bash -n experiments/autoresearch-live-002/bootstrap_runpod.sh
