@@ -1,0 +1,19 @@
+name: RIL-ISOLATION-001
+on:
+  pull_request:
+    paths:
+      - 'experiments/ril-isolation-001/**'
+      - '.github/workflows/ril-isolation-001.yml'
+  workflow_dispatch:
+
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python experiments/ril-isolation-001/run_ril_isolation_001.py self-check
+      - run: pip install pytest
+      - run: pytest -q experiments/ril-isolation-001/tests/test_contract.py

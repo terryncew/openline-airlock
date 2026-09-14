@@ -1,0 +1,75 @@
+{
+  "anti_rescue": "After the first canary exposure is sent to Gemini, do not change model, Temporary Chat requirement, trial count, canary scheme, prompts, Recent/Activity checks, or pass rule under RIL-ISOLATION-001. Any redesign or another provider requires a new experiment ID.",
+  "canary_scheme": "two independent CSPRNG 192-bit synthetic canaries per trial",
+  "claim_boundary": {
+    "earned_if_pass": "Four paired consumer-interface trials showed no observable exact-canary inheritance across fresh Temporary Chats and respected the documented Recent/Activity boundary.",
+    "not_earned": [
+      "provider-internal deletion",
+      "absence of provider-side retention",
+      "absence of all hidden state",
+      "hostile-process isolation",
+      "isolation outside the frozen Gemini Temporary Chat procedure",
+      "anomaly-first research advantage",
+      "recursive self-improvement",
+      "production value"
+    ]
+  },
+  "documented_boundary": {
+    "provider_internal_deletion_claimed": false,
+    "provider_internal_retention_up_to_hours": 72,
+    "temporary_chat_not_in_gemini_apps_activity": true,
+    "temporary_chat_not_in_recent": true,
+    "temporary_chat_not_personalized": true,
+    "temporary_chat_not_saved_for_future_personalization": true
+  },
+  "experiment": "RIL-ISOLATION-001",
+  "frozen_files": {
+    "experiments/ril-isolation-001/README.md": "73cceecf4aef805687aa379312fdf3a288231aa00565ff7aefdacd43bd35a188",
+    "experiments/ril-isolation-001/protected/isolation_core.py": "c3ef0f499630f46d1999073230a43b9abdce610aa05171fc4ac970cb8abfc3d2",
+    "experiments/ril-isolation-001/provider_contracts/GEMINI_TEMPORARY_CHAT_CONTRACT.md": "d8eb4e92d512944657d51b52e63bba0a7af75202b631ab0e39011445fd8012a9",
+    "experiments/ril-isolation-001/run_ril_isolation_001.py": "8cd5d00b26eda9a3be3b790b012ad2fc73c3a8c6c3249b4aab1985d63645d23e"
+  },
+  "pass_rule": "All four trials must have both positive controls pass, zero exact canary leaks in blind probes, Temporary Chat verified on every chat, exposure chats absent from Recent and Apps Activity, and clean operator payload attestations.",
+  "predecessor": {
+    "experiment": "RIL-ANOMALY-001",
+    "formal_verdict": "INCONCLUSIVE_RIL_ANOMALY_001_TERMINAL_FAILURE",
+    "freeze_path": "proofs/ril-anomaly-001/RIL_ANOMALY_001_FREEZE.json",
+    "freeze_sha256": "20109925aac11c7a49a0bf27a563b87d465f8b65d39c7b61cf07d7ce4dbe7199",
+    "terminal_failure": "PROTOCOL_FAILURE_CROSS_ARM_PRODUCT_MEMORY_CONTAMINATION_BEFORE_CONTROL_ROUND_1"
+  },
+  "research_question": "Can the Gemini consumer interface preserve the observable arm-local memory boundary needed for a matched research comparison when every trajectory uses Temporary Chat?",
+  "schema": "openline.ril-isolation-001.preregistration.v2",
+  "substrate": {
+    "api_key_required": false,
+    "connected_apps": false,
+    "cross_chat_copying": false,
+    "gems": false,
+    "manual_operator": true,
+    "mode": "Temporary Chat",
+    "model_display": "3.8 Flash",
+    "provider": "Google Gemini consumer app"
+  },
+  "successor_if_fail": "Do not run RIL-ANOMALY-002 on this substrate. Qualify a different researcher substrate under a new experiment ID.",
+  "successor_if_pass": "RIL-ANOMALY-002 may use this exact Gemini consumer-app Temporary Chat substrate for both arms, with separate receiver-held histories and ratchets and no cross-arm content transfer.",
+  "supersedes_unrun_draft": "Gemini API/store=false draft; never contacted provider and must not be pushed or interpreted as primary",
+  "title": "Gemini Temporary Chat Qualification",
+  "trial_count": 4,
+  "trial_design": {
+    "activity_boundary_probe": "closed exposure Temporary Chat must not appear in Gemini Apps Activity",
+    "blind_cross_chat_probe": "fresh Temporary Chat receives no canary and must not reproduce any exact canary from prior exposure chats",
+    "mode_probe": "Temporary Chat indicator and model display are operator-verified before each exposure/probe",
+    "payload_audit": "operator attests no canary, prior response, or prior-chat content was copied into blind probe",
+    "recent_boundary_probe": "closed exposure Temporary Chat must not appear in Recent chats",
+    "same_chat_positive_control": "each exposure chat must reproduce its own canary exactly when asked within that same chat"
+  },
+  "verdicts": [
+    "PASS_RIL_ISOLATION_001_GEMINI_TEMPORARY_CHAT_BOUNDARY",
+    "FAIL_CROSS_CHAT_SEMANTIC_LEAK",
+    "FAIL_TEMP_CHAT_VISIBLE_IN_RECENTS",
+    "FAIL_TEMP_CHAT_VISIBLE_IN_ACTIVITY",
+    "FAIL_OPERATOR_CROSS_ARM_PAYLOAD_CONTAMINATION",
+    "PROTOCOL_FAILURE_TEMPORARY_MODE_UNVERIFIED",
+    "INCONCLUSIVE_PROBE_SENSITIVITY",
+    "PROTOCOL_FAILURE_UNCLASSIFIED"
+  ]
+}
