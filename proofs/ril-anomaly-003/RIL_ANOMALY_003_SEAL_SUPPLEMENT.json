@@ -1,0 +1,45 @@
+{
+  "builder": "Muse (Prince) \u2014 local, no API contact",
+  "built_utc": "2026-09-14T22:55:38.438392+00:00",
+  "contract_tests": {
+    "script": "experiments/ril-anomaly-003/tests/test_contract.py",
+    "sha256": "6d0c68a6533ba93e2e254e147c33678339bf5505f59a484962808f4847540e6c"
+  },
+  "driver": {
+    "role": "preflight, prepare, spend-gated live run, receipt",
+    "script": "experiments/ril-anomaly-003/protected/anomaly_driver.py",
+    "sha256": "007938d6372d690cbf7f9232dcc2e2bf82c57f239f057b8a3529d17112bea4e2"
+  },
+  "evaluator": {
+    "accepted_definition": "evaluate_candidate accepted=true (correct AND operation_ratio <= ACCEPT_RATIO)",
+    "engine": "experiments/ril-rank-exec-001/run_ril_rank_exec_001.py",
+    "sha256": "bd350e1144068d10e9354ccec4a67de42810658f0ea9303899bc741f980c060a"
+  },
+  "evaluator_sanity": {
+    "record": "proofs/ril-anomaly-003/RIL_ANOMALY_003_EVALUATOR_SANITY.json",
+    "sha256": "b74464a2d2b5eb688602967dde52e91e338306567698b249e812a032c42402e6",
+    "standing": "diagnostic only"
+  },
+  "experiment": "RIL-ANOMALY-003",
+  "generator": {
+    "role": "one-time truth-table + schedule builder (refuses second builds)",
+    "script": "experiments/ril-anomaly-003/build_truth_table.py",
+    "sha256": "2b41a83fde7dace1729e7ae8753414eaf5b2acd7d7825209c5045967d7a39698"
+  },
+  "isolation_binding": {
+    "frozen_commit": "fb54967",
+    "provider_returned_model": "gpt-6-astra",
+    "receipt": "evidence/ril-api-isolation-002/RIL_API_ISOLATION_002_RECEIPT.json",
+    "receipt_sha256": "37b636a1d515d4b8c4b539327d8392c0859211e48d1edd7cd7c85d0a25aa27dd"
+  },
+  "purpose": "Records the generator/scorer/evaluator versions required to reproduce receiver scoring. Supplements the original single-write seal; it does not replace or modify it.",
+  "schema": "openline.ril-anomaly-003.seal-supplement.v1",
+  "scorer": {
+    "module": "experiments/ril-anomaly-003/protected/anomaly_core.py",
+    "note": "2026-09-14: score_selections fixed to read record['accepted'] (dict-valued truth entries are not themselves truthy); regression test added",
+    "role": "normalize_rule / score_selections / promotion_decision / packet building",
+    "scoring_semantics": "task success iff the candidate record with accepted=true appears in the ordered selected four; evaluations-to-first-success is its 1-based ordered position",
+    "sha256": "72398d3da75d5fde6cd32b67bc7d4f102c7ff424587e004c65924ed5fac2ede3"
+  },
+  "supplements_seal_sha256": "e5809fe144cc7a5b6fbea14f7822245cd2caf94e1ddbdf388363f9d30c5d7a39"
+}
