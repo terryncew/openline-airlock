@@ -1,0 +1,31 @@
+{
+  "schema": "airlock.objective.v1",
+  "name": "autoresearch receiver-owned val_bpb",
+  "goal": "Follow Karpathy autoresearch's research intent while changing only train.py. Lower receiver-measured validation bits per byte; the generator does not decide whether a candidate survives.",
+  "measure": {
+    "command": ["python", ".airlock/objectives/measure_autoresearch.py"],
+    "direction": "minimize",
+    "unit": "val_bpb",
+    "repeats": 1,
+    "timeout_seconds": 600,
+    "pass_env": [
+      "AUTORESEARCH_HOST_CACHE",
+      "CUDA_VISIBLE_DEVICES"
+    ],
+    "protected_evaluator_paths": [
+      "prepare.py",
+      ".airlock/objectives/measure_autoresearch.py",
+      ".airlock/autoresearch-upstream.json"
+    ]
+  },
+  "bounds": {
+    "max_generations": 12,
+    "max_changed_files": 1,
+    "max_changed_lines": 10000
+  },
+  "selection": {
+    "minimum_gain": "0.000001",
+    "complexity_penalty_per_changed_line": "0",
+    "minimum_score_gap": "0"
+  }
+}
