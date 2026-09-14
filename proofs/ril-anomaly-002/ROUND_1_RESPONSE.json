@@ -1,0 +1,63 @@
+{
+  "candidate_lesson": {
+    "invalidation_conditions": [
+      "A candidate presentation order permutation alone produces a statistically significant change in Prince evaluation sequence without modifying candidate labels or contents.",
+      "Prince exhibits non-deterministic evaluation ordering across identical prompt presentations under frozen default inference settings."
+    ],
+    "scope": "Multi-candidate prompt-based search and evaluation workflows using LLM agents (Prince/Muse Spark lineage) over discrete candidate sets.",
+    "statement": "Live search agents do not inherit ranking preferences from prompt presentation order when structural identifiers or strong zero-shot semantic priors enforce an invariant candidate evaluation sequence; effective search transfer requires actively disrupting canonicalization or applying explicit score-gated early termination."
+  },
+  "experiment": "RIL-ANOMALY-002",
+  "proposed_experiment": {
+    "falsifier": "If Prince's evaluation order under identifier permutation matches neither the identifier sequence nor the original content sequence (e.g., non-deterministic or random order across runs), or if candidate evaluation order is strictly tied to prompt context position rather than identifier or content, both E1 and E2 are falsified.",
+    "mechanism_change": "Transition from passive presentation-order dependency to an active candidate selection protocol: once the diagnostic test determines whether ordering is identifier-driven (E1) or content-driven (E2), replace implicit prompt ordering with an explicit candidate scoring and early-stopping search filter that terminates task evaluations immediately upon the first receiver-confirmed improvement rather than exhausting all 4 candidates.",
+    "name": "Identifier-Permuted Candidate Order Trace (IPCOT-16)",
+    "predictions": [
+      {
+        "condition": "If E1 (syntactic/identifier canonicalization) governs search order",
+        "expected": "The observed evaluation sequence across all 4 tasks will follow alphabetical labels (A->B->C->D), meaning candidate contents previously evaluated 4th (now labeled A) will be evaluated 1st, showing a 100% inversion of content evaluation order relative to baseline."
+      },
+      {
+        "condition": "If E2 (content semantic salience) governs search order",
+        "expected": "The observed evaluation sequence across all 4 tasks will preserve the original content evaluation order regardless of label permutation, showing 0% inversion of content evaluation order relative to baseline."
+      }
+    ],
+    "procedure": [
+      "Select 4 representative tasks from the LIVE-002 benchmark where baseline evaluation sequences and candidate contents are fully recorded.",
+      "For each task, invert the candidate identifier labels (swap Label A with Label D, and Label B with Label C) while leaving candidate solution text and task specifications identical.",
+      "Execute Prince/Muse Spark 1.3 on these 4 tasks under the permuted-label condition, logging the exact sequence in which candidates are dispatched to the receiver for evaluation (up to 4 evaluations per task, totaling 16 receiver evaluations).",
+      "Compare the observed evaluation sequence of candidate contents against the recorded LIVE-002 baseline sequence to compute content-order concordance."
+    ],
+    "success_metric": "Binary discrimination between E1 and E2 via content-order concordance rate across 4 tasks (16 receiver evaluations), plus receiver confirmation of candidate evaluation ordering behavior."
+  },
+  "research_basis": {
+    "competing_explanations": [
+      {
+        "explanation": "Lexical/Identifier Sorting Artifact (Syntactic Canonicalization): Prince parses candidate options and sorts them by their explicit structural identifiers (e.g., label 'Candidate A', 'Candidate B' or alphanumeric ID) prior to scheduling search evaluations. Presentation order within the prompt context is discarded during syntactic parsing, forcing an identical alphabetical evaluation sequence across all tasks regardless of prompt ordering.",
+        "id": "E1"
+      },
+      {
+        "explanation": "Deterministic Content Relevance Prioritization (Semantic Salience): Prince evaluates candidates based on a zero-shot semantic affinity score computed from candidate content against the task specification. Because candidate contents were unperturbed across arms and possessed distinct semantic alignments, Prince deterministically derived the same greedy preference ranking on every task, completely overriding presentation order.",
+        "id": "E2"
+      }
+    ],
+    "discriminating_observation": "When candidate structural identifiers (labels) are permuted while holding candidate contents fixed on a diagnostic subset of tasks: If E1 is correct, Prince's receiver-visible candidate evaluation order will follow the permuted identifier labels (evaluating whichever candidate content now holds label 'A' first). If E2 is correct, Prince's receiver-visible evaluation order will follow candidate content semantics (evaluating the exact same candidate contents in the original order, regardless of their reassigned identifier labels).",
+    "observations": [
+      "In RIL-RANK-LIVE-002, candidate presentation order in the prompt was varied between baseline and evidence arms across 16 tasks.",
+      "Prince reconstructed the exact same 4-candidate evaluation order on all 16 tasks (16/16), yielding zero order divergence despite prompt permutation.",
+      "Both arms exhausted 63 receiver evaluations (~4 evaluations per task) and achieved only 1 receiver-confirmed improvement each (1/16), resulting in zero transfer advantage (success_count_advantage: 0).",
+      "The working assumption that prompt presentation order controls or biases Prince's candidate evaluation priority completely broke down."
+    ]
+  },
+  "resources_requested": {
+    "external_compute_usd": "0.50",
+    "receiver_evaluations": 16,
+    "wall_seconds": 900
+  },
+  "round": 1,
+  "session_id": "session-1",
+  "source_accepted_head": "73099ab2b1b14de10d2927474d4786442f8afc72a659d21910ff249d0f68174d",
+  "tools_used": [
+    "Gemini conversational reasoning"
+  ]
+}
