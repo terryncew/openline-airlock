@@ -1,0 +1,210 @@
+name: RIL-001R observed live advantage
+
+on:
+  push:
+    branches: [experiment/ril-001r-repaired-primary]
+    paths:
+      - ".github/workflows/ril-001r-live.yml"
+      - "experiments/ril-001r/**"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ril-001r-live-primary
+  cancel-in-progress: false
+
+jobs:
+  primary:
+    if: ${{ github.run_attempt == 1 }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    env:
+      RIL_AIRLOCK_COMMIT: 3d0a3f55fc00768684a5c68beb006633c0fef465
+      RIL_VERIFIED_MEMORY_COMMIT: 2d92d61c2108f520389b9602382aab9737ff7ff8
+      RIL_HERMES_COMMIT: afe06f21f45f476c25034c4529818d9a2f9fdf1c
+      RIL_MODEL: gpt-5.6-sol
+      RIL_DEPS_ROOT: /tmp/ril-001r-deps
+
+    steps:
+      - name: Checkout committed preregistration
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Require delegated model credential
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${OPENAI_API_KEY:-}" ]; then
+            echo "::error::RIL-001R requires repository secret OPENAI_API_KEY."
+            exit 2
+          fi
+
+      - name: Install exact Airlock, Verified Memory, and Hermes sources
+        shell: bash
+        env:
+          GH_READ_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          rm -rf "$RIL_DEPS_ROOT"
+          mkdir -p "$RIL_DEPS_ROOT"
+
+          fetch_repo() {
+            repo="$1"
+            commit="$2"
+            dest="$3"
+            archive="$RIL_DEPS_ROOT/${repo//\//-}-${commit}.tar.gz"
+            mkdir -p "$dest"
+            curl --fail --location --silent --show-error \
+              --retry 5 --retry-delay 2 --retry-all-errors \
+              -H "Accept: application/vnd.github+json" \
+              -H "Authorization: Bearer ${GH_READ_TOKEN}" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "https://api.github.com/repos/${repo}/tarball/${commit}" \
+              -o "$archive"
+            test -s "$archive"
+            tar -xzf "$archive" --strip-components=1 -C "$dest"
+            sha256sum "$archive" >> "$RIL_DEPS_ROOT/source-archives.sha256"
+          }
+
+          fetch_repo "terryncew/openline-airlock" "$RIL_AIRLOCK_COMMIT" "$RIL_DEPS_ROOT/airlock"
+          fetch_repo "terryncew/openline-verified-memory" "$RIL_VERIFIED_MEMORY_COMMIT" "$RIL_DEPS_ROOT/verified-memory"
+          fetch_repo "NousResearch/hermes-agent" "$RIL_HERMES_COMMIT" "$RIL_DEPS_ROOT/hermes"
+
+          python -m pip install --disable-pip-version-check "$RIL_DEPS_ROOT/airlock" "$RIL_DEPS_ROOT/verified-memory"
+
+          python -m venv "$RIL_DEPS_ROOT/hermes-venv"
+          "$RIL_DEPS_ROOT/hermes-venv/bin/python" -m pip install --disable-pip-version-check --editable "$RIL_DEPS_ROOT/hermes"
+          mkdir -p "$RIL_DEPS_ROOT/bin"
+          ln -sf "$RIL_DEPS_ROOT/hermes-venv/bin/hermes" "$RIL_DEPS_ROOT/bin/hermes"
+          echo "$RIL_DEPS_ROOT/bin" >> "$GITHUB_PATH"
+
+          printf '%s\n' "$RIL_AIRLOCK_COMMIT" > "$RIL_DEPS_ROOT/airlock.commit"
+          printf '%s\n' "$RIL_VERIFIED_MEMORY_COMMIT" > "$RIL_DEPS_ROOT/verified-memory.commit"
+          printf '%s\n' "$RIL_HERMES_COMMIT" > "$RIL_DEPS_ROOT/hermes.commit"
+
+      - name: Verify exact live runtime and direct resource-control surface
+        shell: bash
+        run: |
+          set -euo pipefail
+          command -v hermes
+          test "$(cat "$RIL_DEPS_ROOT/airlock.commit")" = "$RIL_AIRLOCK_COMMIT"
+          test "$(cat "$RIL_DEPS_ROOT/verified-memory.commit")" = "$RIL_VERIFIED_MEMORY_COMMIT"
+          test "$(cat "$RIL_DEPS_ROOT/hermes.commit")" = "$RIL_HERMES_COMMIT"
+          python - <<'PY'
+          import airlock, openline_verified_memory
+          print("airlock", getattr(airlock, "__version__", "unknown"))
+          print("verified-memory imported", bool(openline_verified_memory))
+          PY
+          "$RIL_DEPS_ROOT/hermes-venv/bin/python" - <<'PY'
+          import inspect
+          from run_agent import AIAgent
+          params = inspect.signature(AIAgent.__init__).parameters
+          assert "max_iterations" in params
+          assert "max_tokens" in params
+          print("pinned Hermes exposes receiver-set max_iterations and max_tokens")
+          PY
+
+      - name: Verify frozen experiment before model contact
+        run: python experiments/ril-001r/run_ril_001r.py --self-check
+
+      - name: Run RIL-001R live matched primary
+        id: primary
+        shell: bash
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          set -o pipefail
+          python experiments/ril-001r/run_ril_001r.py \
+            --output "$RUNNER_TEMP/RIL_001R_RESULT.json" \
+            --evidence-dir "$RUNNER_TEMP/RIL_001R_EVIDENCE" \
+            2>&1 | tee "$RUNNER_TEMP/RIL_001R_CONSOLE.log"
+
+      - name: Classify terminal result without pseudoreplication
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f "$RUNNER_TEMP/RIL_001R_RESULT.json"
+          python - <<'PY'
+          import json, os
+          from pathlib import Path
+          p = Path(os.environ["RUNNER_TEMP"]) / "RIL_001R_RESULT.json"
+          r = json.loads(p.read_text())
+          assert r["schema"] == "openline.ril-001r.result.v1"
+          assert r["scientific_standing"] == "LIVE_AGENT_MATCHED_PRIMARY_SINGLE_RUN"
+          assert r["repeatability_standing"] == "NOT_TESTED_SINGLE_MATCHED_RUN"
+          assert r["terminal_holdout"]["recipe_was_frozen_before_generation"] is True
+          assert r["terminal_holdout"]["receiver_nonce_created_after_both_seals"] is True
+          assert r["terminal_holdout"]["feedback_returned_to_either_arm"] is False
+          assert r["terminal_holdout"]["live_terminal_search_calls"] == 2
+          assert r["terminal_holdout"]["same_visible_tasks_both_arms"] is True
+          assert r["terminal_holdout"]["cases_are_descriptive_not_independent_replications"] is True
+          assert r["terminal_holdout"]["tasks_total"] == 24
+          assert r["observed_live_advantage"]["inferential_case_level_p_value"] is None
+          assert r.get("terminal_checkpoint", {}).get("sha256")
+          completed = {
+              "PASS_RIL_001R_OBSERVED_LIVE_ADVANTAGE",
+              "GOVERNED_LIVE_LOOP_NO_OBSERVED_ADVANTAGE",
+              "GOVERNED_LIVE_LOOP_OBSERVED_DISADVANTAGE",
+              "INCONCLUSIVE_RIL_001R_ECONOMICS",
+              "INCONCLUSIVE_RIL_001R_LIVE_EXECUTION",
+              "INCONCLUSIVE_RIL_001R_POST_TERMINAL_HARNESS",
+          }
+          if r["verdict"] not in completed:
+              raise SystemExit(f"hard-failure terminal result: {r['verdict']}")
+          if not r["attacks"]["all_pass"] and r["verdict"] != "INCONCLUSIVE_RIL_001R_POST_TERMINAL_HARNESS":
+              raise SystemExit("governance attack failed")
+          print(json.dumps({
+              "verdict": r["verdict"],
+              "repeatability_standing": r["repeatability_standing"],
+              "control": r["scores"]["control"],
+              "recursive": r["scores"]["recursive"],
+              "observed_live_advantage": r["observed_live_advantage"],
+              "pairwise_descriptive": r["pairwise_descriptive"],
+              "terminal_checkpoint": r["terminal_checkpoint"],
+              "attacks": r["attacks"],
+              "economic_integrity": r["integrity"]["economics"],
+          }, indent=2, sort_keys=True))
+          PY
+
+      - name: Stage complete receipt
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          OUT="$RUNNER_TEMP/RIL_001R_ARTIFACT"
+          mkdir -p "$OUT"
+          cp "$RIL_DEPS_ROOT/source-archives.sha256" "$OUT/" || true
+          cp "$RIL_DEPS_ROOT"/*.commit "$OUT/" || true
+          cp "$RUNNER_TEMP/RIL_001R_RESULT.json" "$OUT/" || true
+          cp "$RUNNER_TEMP/RIL_001R_CONSOLE.log" "$OUT/" || true
+          cp "experiments/ril-001r/RIL_001R_PREREGISTRATION.json" "$OUT/" || true
+          cp "experiments/ril-001/RIL_001_PRIMARY_FAILURE.md" "$OUT/" || true
+          if [ -d "$RUNNER_TEMP/RIL_001R_EVIDENCE" ]; then
+            cp -a "$RUNNER_TEMP/RIL_001R_EVIDENCE" "$OUT/evidence"
+          fi
+          {
+            echo "run_id=${GITHUB_RUN_ID}"
+            echo "run_attempt=${GITHUB_RUN_ATTEMPT}"
+            echo "head_sha=${GITHUB_SHA}"
+          } > "$OUT/run.txt"
+          find "$OUT" -type f -print0 | sort -z | xargs -0 sha256sum > "$OUT/MANIFEST.sha256" || true
+
+      - name: Upload RIL-001R primary receipt
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: RIL-001R-primary-${{ github.run_id }}-${{ github.run_attempt }}
+          path: ${{ runner.temp }}/RIL_001R_ARTIFACT/
+          if-no-files-found: error
+          retention-days: 90
