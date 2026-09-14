@@ -1,0 +1,21 @@
+**Terminal verdict: RIL-RELAY-001 qualify FAILED at first contact — no result file produced, no retry performed.**
+
+What passed:
+- Repo pulled to `c8546f4f4845bd6a1fd57fd79cedf78e081af29b`, clean tree — matches expected main.
+- `verify_repo.py` passed: both freeze hashes match preregistration (anomaly-002 `3e19d031…`, isolation-002 `ce98f840…`).
+- `relay_driver.py self-check` passed.
+- Playwright 1.62.0 installed; Chrome 152 launched with CDP live on port 9222.
+
+**Exact failure:** `qualify` exited 1 on the first trial's first navigation:
+`playwright._impl._errors.Error: Page.goto: net::ERR_EMPTY_RESPONSE at https://gemini.google.com/app`
+
+This is not a login problem — I never reached any page, so there was no login screen to stop at and no credentials were touched. It's a network block: from this VM, TLS to gemini.google.com completes through the egress proxy and then the server closes the connection with an empty reply. Other Google properties work fine from here (google.com → 200, mail.google.com → 301), and no authenticated Chrome profile exists anywhere on the VM. Diagnostics saved to `/tmp/ril-relay-001/NETWORK_DIAGNOSTICS.txt`.
+
+**RIL_RELAY_001_RESULT.json:** not created (qualification never reached a trial).
+
+**/tmp/ril-relay-001 contents:**
+- `qualify.stdout.log` (empty — no trials completed)
+- `qualify.stderr.log` (full traceback of the ERR_EMPTY_RESPONSE failure)
+- `NETWORK_DIAGNOSTICS.txt` (connectivity findings)
+
+Bottom line: the frozen relay contract requires driving the Gemini consumer app from this VM's Chrome, and this VM's egress cannot load gemini.google.com at all. The experiment can't proceed here without a network path change — that's outside what I'm allowed to redesign.
