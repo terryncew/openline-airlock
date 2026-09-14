@@ -1,0 +1,103 @@
+{
+  "schema": "openline.experiment.preregistration.v1",
+  "experiment_id": "AUTORESEARCH-LIVE-003",
+  "title": "Confirmed Live Improvement Search Under Receiver-Owned Advancement",
+  "lineage": {
+    "airlock_base_main": "e8a5f64bb993ad09726c1a4db8f4c5030f26b675",
+    "predecessor_experiment": "AUTORESEARCH-LIVE-002",
+    "predecessor_verdict": "GOVERNANCE_PASS_NO_PROMOTION",
+    "predecessor_evidence_archive_sha256": "2cb0ca28f39ef65c43d41ffa1d39f622ef6d9483962b9c9a1e784e2c92b03dc8",
+    "predecessor_baseline_reused": false
+  },
+  "upstream": {
+    "repository": "karpathy/autoresearch",
+    "commit": "228791fb499afffb54b46200aca536f79142f117",
+    "default_branch": "master"
+  },
+  "worker": {
+    "provider": "Meta",
+    "product": "Muse personal AI agent",
+    "model": "Muse Spark 1.3",
+    "worker_name": "Prince",
+    "role": "research generator only",
+    "identity_attestation": "self-declared; not independently verified by runtime",
+    "same_generator_as_predecessor": true,
+    "reason_for_holding_generator_fixed": "LIVE-002 used only two proposal attempts. LIVE-003 changes search depth and confirmation, not generator identity, so a positive or negative result is interpretable without also changing the researcher.",
+    "delegation_rule": "mechanical browser transport is permitted; research reasoning, candidate selection, hyperparameter choice, train.py authorship, and scientific judgment may not be delegated to another model or subagent",
+    "external_patch_rule": "no external leaderboard, known-winning autoresearch patch, operator-supplied candidate idea, or post-outcome tuning may be introduced after preregistration"
+  },
+  "question": "Can the same preregistered external researcher produce a train.py candidate that clears the frozen receiver objective twice, in separate receiver-owned measurements, before any promotion, when given a bounded search budget of at most 12 proposal calls?",
+  "invariant": "researcher proposal authority != receiver measurement authority != promotion authority",
+  "measurement": {
+    "primary_metric": "val_bpb",
+    "direction": "minimize",
+    "training_time_budget_seconds_per_measurement": 300,
+    "upstream_seed_policy": "unchanged upstream fixed seeds: torch.manual_seed(42) and torch.cuda.manual_seed(42)",
+    "baseline_runs": 1,
+    "discovery_runs_per_candidate": 1,
+    "confirmation_runs_for_first_apparent_win": 1,
+    "minimum_gain": "0.000001",
+    "score_source": "receiver-intercepted protected prepare.evaluate_bpb result",
+    "confirmation_semantics": "fresh receiver invocation and fresh candidate training measurement from the same still-unpromoted accepted base, using the identical candidate commit and the same fixed-seed protocol",
+    "independent_seed_claim": false,
+    "statistical_superiority_claim": false
+  },
+  "search_budget": {
+    "maximum_researcher_calls": 12,
+    "maximum_discovery_evaluations": 12,
+    "maximum_confirmation_evaluations": 1,
+    "maximum_receiver_measurements_including_baseline": 14,
+    "maximum_training_seconds": 4200,
+    "first_apparent_win_ends_discovery": true,
+    "confirmation_failure_is_terminal": true,
+    "no_second_apparent_win_search_after_failed_confirmation": true,
+    "reason": "Stopping on the first apparent win prevents repeated post-selection chances from turning noise into an eventual promoted result."
+  },
+  "total_budget": {
+    "setup_counted": true,
+    "researcher_calls_counted": true,
+    "baseline_counted": true,
+    "discovery_measurements_counted": true,
+    "confirmation_counted": true,
+    "maximum_pod_wall_seconds": 9000,
+    "maximum_paid_gpu_spend_usd": "5.00",
+    "hourly_gpu_rate_must_be_recorded_before_bootstrap": true,
+    "note": "The 70-minute training ceiling is not the total experiment cost. Wall clock starts before setup and includes environment preparation, baseline, researcher handoffs, discovery, confirmation, and receiver bookkeeping."
+  },
+  "promotion_rule": {
+    "discovery_accept_is_not_promotion_authority": true,
+    "first_apparent_win_requires_confirmation": true,
+    "confirmation_must_bind_same_base_and_same_candidate": true,
+    "confirmation_accept_receipt_is_the_only_receipt_authorized_for_promotion": true,
+    "no_code_or_threshold_change_between_discovery_and_confirmation": true,
+    "promotion_occurs_once_after_confirmation_accept": true
+  },
+  "integrity": {
+    "mutable_research_path": "train.py",
+    "all_other_tracked_files_are_snapshotted_before_worker_contact": true,
+    "clean_worktree_required_before_receiver_evaluation": true,
+    "protected_snapshot_verified_before_and_after_each_receiver_decision": true,
+    "new_untracked_files_abort_the_protocol": true,
+    "receiver_receipts_bind_exact_base_and_candidate": true,
+    "push_from_experiment_clone_disabled": true
+  },
+  "terminal_outcomes": [
+    "CONFIRMED_LIVE_IMPROVEMENT_PROMOTED",
+    "APPARENT_WIN_NOT_CONFIRMED",
+    "GOVERNANCE_PASS_NO_CONFIRMED_IMPROVEMENT",
+    "WORKER_BUDGET_EXHAUSTED_NO_CONFIRMED_IMPROVEMENT",
+    "ABORT_INTEGRITY_FAILURE",
+    "ABORT_EXECUTION_FAILURE",
+    "ABORT_BUDGET_EXCEEDED"
+  ],
+  "claim_boundary": [
+    "A positive result earns one confirmed live improvement A under the frozen receiver boundary.",
+    "A positive result does not by itself establish cumulative optimization, recursive improvement, repeatability, or statistical ML superiority.",
+    "A failed confirmation is preserved as APPARENT_WIN_NOT_CONFIRMED and search stops; thresholds are not loosened and another apparent winner is not sought in this experiment.",
+    "The worker identity and no-subagent rule are procedural, not cryptographically attested.",
+    "The experiment does not claim hostile-process or OS-level isolation.",
+    "Because upstream seed 42 remains fixed, confirmation is an operational repeat under the same fixed-seed protocol, not an independent-seed statistical replication.",
+    "Only after a confirmed promotion A may a successor experiment test exact inheritance and a second confirmed improvement B.",
+    "Two better training-code versions would establish cumulative governed optimization. The stronger recursive-improvement claim additionally requires an inherited accepted change to improve the process that generates subsequent improvements."
+  ]
+}

@@ -1,0 +1,55 @@
+name: AUTORESEARCH-LIVE-003 control checks
+
+on:
+  push:
+    branches:
+      - experiment/autoresearch-live-003
+    paths:
+      - 'experiments/autoresearch-live-003/**'
+      - 'experiments/autoresearch_live_003_import_shim.py'
+      - '.github/workflows/autoresearch-live-003.yml'
+  pull_request:
+    paths:
+      - 'experiments/autoresearch-live-003/**'
+      - 'experiments/autoresearch_live_003_import_shim.py'
+      - '.github/workflows/autoresearch-live-003.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  control-checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Compile LIVE-003 code
+        run: |
+          python -m py_compile experiments/autoresearch-live-003/protocol.py
+          python -m py_compile experiments/autoresearch-live-003/live_driver.py
+      - name: Protocol state-machine tests
+        run: python -m unittest discover -s experiments/autoresearch-live-003/tests -p 'test_*.py' -v
+      - name: Validate preregistration JSON
+        run: python -m json.tool experiments/autoresearch-live-003/AUTORESEARCH_LIVE_003_PREREGISTRATION.json >/dev/null
+      - name: Cross-check frozen constants and budgets
+        run: python experiments/autoresearch-live-003/live_driver.py self-test
+      - name: Assert confirmation-before-promotion wording
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          p = Path('experiments/autoresearch-live-003/AUTORESEARCH_LIVE_003_PREREGISTRATION.json')
+          x = json.loads(p.read_text())
+          assert x['promotion_rule']['discovery_accept_is_not_promotion_authority'] is True
+          assert x['promotion_rule']['confirmation_accept_receipt_is_the_only_receipt_authorized_for_promotion'] is True
+          assert x['search_budget']['confirmation_failure_is_terminal'] is True
+          assert x['search_budget']['maximum_researcher_calls'] == 12
+          assert x['search_budget']['maximum_confirmation_evaluations'] == 1
+          assert x['total_budget']['setup_counted'] is True
+          assert x['total_budget']['researcher_calls_counted'] is True
+          assert x['total_budget']['confirmation_counted'] is True
+          PY
+      - name: Shell syntax
+        run: bash -n experiments/autoresearch-live-003/bootstrap_runpod.sh
