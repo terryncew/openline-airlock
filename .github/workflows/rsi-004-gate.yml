@@ -1,0 +1,89 @@
+name: RSI-004 lineage-aware inheritance gate
+
+# Non-executing gate. This workflow installs the exact pinned dependencies,
+# runs the RSI-004 self-check and contract tests, and asserts zero primary
+# contact. It contains NO primary execution command: the primary sequence
+# encoded in run_rsi_004.py is never invoked here.
+
+on:
+  push:
+    paths:
+      - "experiments/rsi-004-lineage-aware-inheritance/**"
+      - ".github/workflows/rsi-004-gate.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-004-lineage-aware-inheritance/**"
+      - ".github/workflows/rsi-004-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-004-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Airlock and exact pinned Verified Memory
+        run: |
+          python -m pip install .
+          python -m pip install "git+https://github.com/terryncew/openline-verified-memory.git@36e3d0e0dab6a121abc1c14accbaa7310b5c2186"
+          python -m pip install pytest
+
+      - name: Verify dependency bytes
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from importlib.metadata import distribution
+          from pathlib import Path
+          import openline_verified_memory as ovm
+
+          evidence = Path(ovm.__file__).with_name("evidence.py")
+          digest = hashlib.sha256(evidence.read_bytes()).hexdigest()
+          assert digest == "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9", digest
+          direct_url = json.loads(distribution("openline-verified-memory").read_text("direct_url.json"))
+          commit_id = direct_url["vcs_info"]["commit_id"]
+          assert commit_id == "36e3d0e0dab6a121abc1c14accbaa7310b5c2186", commit_id
+          print("dependency bytes verified:", commit_id, digest[:16])
+          PY
+
+      - name: RSI-004 self-check (default invocation, non-executing)
+        run: |
+          python experiments/rsi-004-lineage-aware-inheritance/run_rsi_004.py
+
+      - name: RSI-004 contract tests
+        run: |
+          python -m pytest experiments/rsi-004-lineage-aware-inheritance/tests/ -q
+
+      - name: Assert zero primary contact
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          exp = Path("experiments/rsi-004-lineage-aware-inheritance")
+          forbidden = [
+              exp / ".rsi-004-primary-contact",
+              exp / "result.json",
+              exp / "receipt.json",
+              Path("proofs/rsi-004"),
+          ]
+          for p in forbidden:
+              assert not p.exists(), f"primary artifact exists: {p}"
+          print("zero primary contact confirmed: no marker, no result, no receipt")
+          PY
+
+      - name: Assert this workflow cannot execute the primary
+        run: |
+          flag="--execute"
+          flag="${flag}-primary"
+          if grep -q -- "$flag" .github/workflows/rsi-004-gate.yml; then
+            echo "rsi-004-gate.yml must never pass the execution gate to the runner" >&2
+            exit 1
+          fi
+          echo "no primary execution command in this workflow"
