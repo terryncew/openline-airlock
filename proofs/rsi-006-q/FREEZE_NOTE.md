@@ -14,6 +14,8 @@ The single full `--qualify` run completed all five causal-order steps
 seeds, archive seal, fresh-nonce confirmation, determinism rerun) and the
 substrate failed qualification on the frozen thresholds. 600 observations
 in 2416 s (14.9 obs/min), zero API spend, no researcher arms involved.
+(Capture limits — uncaptured stdout/stderr/exit status — are stated in
+`CAPTURE_LIMITS.md`.)
 
 ## Failed criteria (exact, from the report)
 
@@ -40,7 +42,7 @@ under this ID; the run completed untouched and the failure is frozen
 exactly as observed. This bug is a property of the qualification design,
 not of the substrate: it says nothing about more-itertools' behavior.
 
-## What the run additionally revealed (frozen as observed, not diagnosed)
+## What the run additionally revealed (observations, not diagnoses)
 
 - The near-zero kill rates on more-itertools (0/40) and boltons (1/120)
   were verified not to be a shadowing failure: overlay imports resolve
@@ -49,11 +51,17 @@ not of the substrate: it says nothing about more-itertools' behavior.
   Mutants land; the two suites genuinely do not change behavior under
   the sampled generic mutations. Why is a question for the substrate,
   not for this freeze.
-- cachetools showed one determinism-rerun disagreement in 20 (0.95):
-  a genuine nondeterminism signal under the qualification's operating
-  conditions, frozen as observed without further probing under this ID.
-- pluggy's 0.30 collection-error rate is import-time fragility under
-  mutation, frozen as observed.
+- cachetools: one of 20 determinism-rerun pairs disagreed (agreement
+  0.95 < 1.0 exact). The runner did not persist per-mutant observation
+  records, so the specific mutant and the nature of the disagreement
+  cannot be identified from the receipt. The cause is unobserved; this
+  is recorded as a measured criterion failure, not as a finding of
+  nondeterminism in the repository.
+- pluggy: collection-error rate 0.30 >= 0.10. The harness suppresses
+  test stdout/stderr and marks a collection error from missing or
+  unparseable JUnit output, so the underlying cause is unobserved; this
+  is recorded as a measured sanity-bound failure, not as a finding
+  about import-time behavior.
 
 No diagnosis, tuning, or re-observation was performed under this ID
 after the report was produced.

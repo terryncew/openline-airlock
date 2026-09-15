@@ -7,5 +7,8 @@
   sha256: c6e61e364e5b5585dbab998967daced0eb7667f2a33bfdb7c094f58815e15659
   bytes: 1260
 - proofs/rsi-006-q/FREEZE_NOTE.md
-  sha256: e497361a12c763620a25b9acf6a965d7fa9b6438ca41c5f35d871be6d994d293
-  bytes: 3830
+  sha256: 16b5dc6e73af4c60aa2d930ec7cfcf1866790decd1ddcc5ea5a870ad0d53a9b6
+  bytes: 4296
+- proofs/rsi-006-q/CAPTURE_LIMITS.md
+  sha256: f21f81648aa6518c316e7c2e9a7d754066fb559d343de3c8fd3478d81ea9b730
+  bytes: 1067
