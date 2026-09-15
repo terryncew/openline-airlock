@@ -547,76 +547,91 @@ def test_hook_failure_reaps_child(tmp_path):
 
 
 def test_contact_gate_exactly_once_under_concurrency(tmp_path):
-    """Eight racing starters: one atomic transition, one immutable marker.
+    """Eight racing starters, independent gates: one atomic transition.
 
-    Establishes, without touching the atomic-file guarantee in contact.py:
+    Each racer holds its own ContactGate instance over the same marker
+    file, so their in-process locks are independent and only the atomic
+    O_CREAT|O_EXCL create arbitrates. Establishes, without touching the
+    atomic-file guarantee in contact.py:
     - exactly one O_CREAT|O_EXCL transition succeeds (one created=True);
     - exactly one marker file exists, and it parses as JSON (no
       truncation or partial write);
-    - the marker names a real started child PID;
-    - every competing starter sees the same immutable receipt binding;
-    - no racer overwrites the marker;
+    - the marker names the PID of a started child process;
+    - every competing starter reads back the identical receipt binding;
+    - no racer overwrites the marker (bytes unchanged afterward);
     - a later mutant start is a no-op, not an error, so duplicate starts
       can never perturb observation collection.
     """
     import contact as contact_mod
     import threading
     marker_path = tmp_path / "contact.json"
-    gate = contact_mod.ContactGate(marker_path)
     receipt_sha = "ab" * 32  # fixed immutable binding for this run
 
-    # A real started child process: the marker must name a genuine pid.
-    proc = subprocess.Popen([sys.executable, "-c", "pass"])
-    assert proc.wait(timeout=60) == 0
-    real_pid = proc.pid
+    # One live child process per racer, kept alive for the whole race:
+    # the winning marker's PID must belong to a started child.
+    children = [subprocess.Popen(
+        [sys.executable, "-c", "import time; time.sleep(60)"])
+        for _ in range(8)]
+    try:
+        child_pids = [c.pid for c in children]
+        assert all(isinstance(p, int) and p > 0 for p in child_pids)
 
-    # A barrier forces all eight starters onto the gate at once, so the
-    # O_EXCL contention is genuine rather than incidental.
-    barrier = threading.Barrier(8)
-    results: list[dict] = []
+        # A barrier forces all eight starters onto the gate at once, so
+        # the O_EXCL contention is genuine rather than incidental.
+        barrier = threading.Barrier(8)
+        results: list[dict] = []
 
-    def worker(i: int) -> None:
-        barrier.wait(timeout=60)
-        results.append(
-            gate.note_process_started(f"m{i}", receipt_sha, real_pid))
+        def worker(i: int) -> None:
+            gate = contact_mod.ContactGate(marker_path)
+            barrier.wait(timeout=60)
+            results.append(
+                gate.note_process_started(f"m{i}", receipt_sha,
+                                          child_pids[i]))
 
-    threads = [threading.Thread(target=worker, args=(i,)) for i in range(8)]
-    for t in threads:
-        t.start()
-    for t in threads:
-        t.join()
+        threads = [threading.Thread(target=worker, args=(i,))
+                   for i in range(8)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
 
-    # Exactly one successful atomic transition.
-    assert len(results) == 8
-    winners = [r for r in results if r["created"]]
-    assert len(winners) == 1
-    winner_marker = winners[0]["marker"]
+        # Exactly one successful atomic transition.
+        assert len(results) == 8
+        winners = [r for r in results if r["created"]]
+        assert len(winners) == 1
+        winner_marker = winners[0]["marker"]
 
-    # Every competitor -- winner and losers -- leaves the same immutable
-    # receipt binding; losers read back the winner's marker.
-    assert all(r["marker"] == winner_marker for r in results)
-    assert all(r["marker"]["receipt_sha256"] == receipt_sha
-               for r in results)
-    assert winner_marker["child_pid"] == real_pid
-    assert winner_marker["schema"] == \
-        "airlock.rsi-006-q3.scientific-contact.v1"
-    assert winner_marker["event"] == "scientific_contact"
+        # Every competitor -- winner and losers -- reads back the
+        # identical marker with the same immutable receipt binding.
+        assert all(r["marker"] == winner_marker for r in results)
+        assert all(r["marker"]["receipt_sha256"] == receipt_sha
+                   for r in results)
+        assert winner_marker["child_pid"] in child_pids
+        assert winner_marker["schema"] == \
+            "airlock.rsi-006-q3.scientific-contact.v1"
+        assert winner_marker["event"] == "scientific_contact"
 
-    # Exactly one marker on disk; it parses (no truncation/partial write)
-    # and no racer overwrote it.
-    assert [p.name for p in tmp_path.glob("*.json")] == ["contact.json"]
-    on_disk = json.loads(marker_path.read_bytes())
-    assert on_disk == winner_marker
-    assert gate.consumed
+        # Exactly one marker on disk; it parses (no truncation/partial
+        # write) and no racer overwrote it.
+        assert [p.name for p in tmp_path.glob("*.json")] == ["contact.json"]
+        on_disk = json.loads(marker_path.read_bytes())
+        assert on_disk == winner_marker
+        assert contact_mod.ContactGate(marker_path).consumed
 
-    # A later mutant start is a no-op, never an error: duplicate starts
-    # must not perturb observation collection.
-    before = marker_path.read_bytes()
-    later = gate.note_process_started("some-later-mutant",
-                                      receipt_sha, real_pid)
-    assert later["created"] is False
-    assert later["marker"] == winner_marker
-    assert marker_path.read_bytes() == before
+        # A later mutant start is a no-op, never an error: duplicate
+        # starts must not perturb observation collection.
+        before = marker_path.read_bytes()
+        later_gate = contact_mod.ContactGate(marker_path)
+        later = later_gate.note_process_started("some-later-mutant",
+                                                receipt_sha, child_pids[0])
+        assert later["created"] is False
+        assert later["marker"] == winner_marker
+        assert marker_path.read_bytes() == before
+    finally:
+        for c in children:
+            c.terminate()
+        for c in children:
+            c.wait(timeout=60)
 
 
 def test_failed_submission_consumes_nothing(tmp_path):
