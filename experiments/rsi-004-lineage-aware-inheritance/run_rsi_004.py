@@ -27,6 +27,7 @@ from __future__ import annotations
 import argparse
 import ast
 import hashlib
+import inspect
 import json
 import os
 from pathlib import Path
@@ -63,7 +64,7 @@ except ImportError as exc:  # fail closed: the repaired projector is part of the
 
 
 PREREG_PATH = Path(__file__).with_name("RSI_004_PREREGISTRATION.json")
-PREREG_SHA256 = "5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c"
+PREREG_SHA256 = "20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055"
 AIRLOCK_BASE_MAIN = "db9fb27aa154a240eed16c1ac7bf99401011f198"
 VERIFIED_MEMORY_COMMIT = "36e3d0e0dab6a121abc1c14accbaa7310b5c2186"
 EVIDENCE_PY_SHA256 = "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9"
@@ -157,7 +158,7 @@ POLICY_V2 = POLICY_V1.replace("STEP = 1", "STEP = 2")
 POLICY_VU = (
     '"""Generator policy: unrelated root improvement (bonus axis)."""\n'
     "STEP = 1\n"
-    "BONUS = 10\n"
+    "BONUS = 1\n"
     "\n"
     "\n"
     "def propose(value: int) -> int:\n"
@@ -173,8 +174,9 @@ if os.environ.get("AIRLOCK_RELEASE_AUTHORITY") != "ABSENT":
 if os.environ.get("OPENROUTER_API_KEY") != "rsi-fixture-secret":
     raise SystemExit(21)
 # rootU's improvement: unrelated bonus-axis policy AND apply it once.
+# VALUE 0 -> 2 via STEP + BONUS, matching the preregistered expected gain.
 Path("src/policy.py").write_text(__POLICY_VU__)
-Path("src/value.py").write_text("VALUE = 11\\n")
+Path("src/value.py").write_text("VALUE = 2\\n")
 Path(os.environ["AIRLOCK_AGENT_REPORT"]).write_text(json.dumps({
     "reported_cost_usd": "0.01",
     "provider": "fixture",
@@ -352,6 +354,18 @@ def mint_lineage_record(
     return record
 
 
+def lineage_record_set_sha256(records: list[dict[str, Any]]) -> str:
+    """Deterministic hash of the complete lineage record set: canonical JSON
+    per record (sorted keys), ordered by subject_lesson_id, newline-joined.
+    The same record bytes always produce the same digest regardless of load
+    order; any byte change anywhere in the set changes the digest."""
+    canonical = sorted(
+        json.dumps(r, sort_keys=True, separators=(",", ":"))
+        for r in records
+    )
+    return hashlib.sha256("\n".join(canonical).encode("utf-8")).hexdigest()
+
+
 def load_bundle(state_dir: Path, prefix: str) -> dict[str, Any]:
     """Reload one generation's signed records from disk (fresh-process safe)."""
     sel = read_json(state_dir / f"{prefix}_selection.json")
@@ -405,14 +419,30 @@ def projector_inputs(bundles: dict[str, dict[str, Any]], repo: Path) -> tuple[li
     return generations, lineage_records, installed_policies
 
 
-def project(bundles: dict[str, dict[str, Any]], repo: Path, key: bytes):
-    generations, lineage_records, installed_policies = projector_inputs(bundles, repo)
+def project_lineage_memories(
+    generations: list[dict],
+    lineage_records: list[dict],
+    installed_policies: dict[str, bytes],
+    key: bytes,
+):
+    """The single choke point for lineage-aware projection in this runner.
+    Every standing projection goes through this function; it is the ONLY
+    caller of derive_airlock_memory_with_lineage in run_rsi_004.py (enforced
+    by the self-check's AST boundary check). Exactly one projector call per
+    projection."""
     return derive_airlock_memory_with_lineage(
         generations=generations,
         lineage_records=lineage_records,
         installed_policies=installed_policies,
         key=key,
     )
+
+
+def project_bundles(bundles: dict[str, dict[str, Any]], repo: Path, key: bytes):
+    """Projector inputs from disk-loaded bundles, through the single choke
+    point. Used by the checkpoint and REOPEN phases."""
+    generations, lineage_records, installed_policies = projector_inputs(bundles, repo)
+    return project_lineage_memories(generations, lineage_records, installed_policies, key)
 
 
 def witness_paths(projection) -> dict[str, list[str]]:
@@ -498,11 +528,11 @@ def probe_gen4_admission(
             "standing_record": None,
         }
     ]
-    out = derive_airlock_memory_with_lineage(
-        generations=probe_generations,
-        lineage_records=list(lineage_records) + [lineage],
-        installed_policies=installed_policies,
-        key=key,
+    out = project_lineage_memories(
+        probe_generations,
+        list(lineage_records) + [lineage],
+        installed_policies,
+        key,
     )
     mem = out[GEN4_LESSON_ID]
     disposition = "DENIED" if mem.status == "questioned" else "ADMITTED"
@@ -586,6 +616,8 @@ RECEIPT_REQUIRED_TOP_KEYS = (
     "installed_policy_hashes",
     "installed_refs_unchanged",
     "reprojection_deterministic",
+    "lineage_record_set_sha256_checkpoint",
+    "lineage_record_set_sha256_reprojection",
     "phase_process_pids",
     "claim_boundary",
 )
@@ -752,6 +784,40 @@ def _accept_one(report: dict[str, Any], prefix: str) -> dict[str, Any]:
     return report
 
 
+def candidate_paths(repo: Path, base: str, selected: str) -> list[str]:
+    """Files changed between a generation's ACTUAL base and its selected
+    commit. The base must be the commit the generation was produced on, not
+    the fixture base: for child generations the inherited parent changes
+    must not be counted as the child's candidate changes."""
+    return sorted(
+        row.strip()
+        for row in sh("git", "diff", "--name-only", f"{base}..{selected}", cwd=repo).splitlines()
+        if row.strip()
+    )
+
+
+def actual_generation_base(
+    *, prefix: str, state: dict[str, str], generation: dict[str, Any],
+    parent_commit: str | None,
+) -> str:
+    """The ACTUAL base commit a generation was produced on, cross-checked
+    against its signed generation record. rootU/gen1 are produced on the
+    fixture base; gen2/gen3 are produced on the parent's exact installed
+    (selected) commit."""
+    if prefix in ("rootU", "gen1"):
+        expected = state["base_commit"]
+    else:
+        if parent_commit is None:
+            raise PreconditionFailure(f"{prefix}: no parent commit to bind the generation base")
+        expected = parent_commit
+    observed = generation.get("payload", {}).get("base_commit") or generation.get("base_commit")
+    if observed != expected:
+        raise PreconditionFailure(
+            f"{prefix}: signed generation base {observed!r} != expected base {expected!r}"
+        )
+    return expected
+
+
 def _verify_selection_common(
     *,
     prefix: str,
@@ -763,6 +829,7 @@ def _verify_selection_common(
     hermes: Path,
     shim_before: str,
     expected_paths: list[str],
+    parent_commit: str | None = None,
 ) -> dict[str, Any]:
     _accept_one(report, prefix)
     receipt_path = resolve_receipt(repo, report["generations"][0]["receipt"])
@@ -782,17 +849,20 @@ def _verify_selection_common(
         raise PreconditionFailure(f"{prefix} selection alone incorrectly earned inheritance")
 
     selected = candidate.selected_commit
-    candidate_paths = sorted(
-        row.strip()
-        for row in sh("git", "diff", "--name-only", f"{state['base_commit']}..{selected}", cwd=repo).splitlines()
-        if row.strip()
+    # The diff base is the generation's ACTUAL base from its signed record:
+    # the fixture base for rootU/gen1, the parent's exact installed commit
+    # for gen2/gen3. Diffing a child from the fixture base would count the
+    # inherited parent policy change as the child's candidate change.
+    gen_base = actual_generation_base(
+        prefix=prefix, state=state, generation=generation, parent_commit=parent_commit
     )
+    candidate_paths_list = candidate_paths(repo, gen_base, selected)
     # NOTE: per-generation path expectations are asserted by the caller, which
     # knows whether this generation rewrites the policy (roots) or runs under
     # an installed one (children). The common check below only guards the
     # evaluator boundary.
-    if any(p.startswith("tests/") or p.startswith(".airlock/") for p in candidate_paths):
-        raise PreconditionFailure(f"{prefix} candidate escaped ordinary code: {candidate_paths}")
+    if any(p.startswith("tests/") or p.startswith(".airlock/") for p in candidate_paths_list):
+        raise PreconditionFailure(f"{prefix} candidate escaped ordinary code: {candidate_paths_list}")
 
     if sha256_file(hermes) != shim_before:
         raise PreconditionFailure(f"Hermes shim changed during {prefix} candidate generation")
@@ -808,8 +878,8 @@ def _verify_selection_common(
         "generation_record": str(receipt_path),
         "generation_record_sha256": signed_record_sha256(generation),
         "selected_commit": selected,
-        "base_commit": state["base_commit"],
-        "candidate_paths": candidate_paths,
+        "base_commit": gen_base,
+        "candidate_paths": candidate_paths_list,
         "expected_paths": expected_paths,
         "shim_sha256": shim_before,
         "harness_frozen": True,
@@ -962,6 +1032,7 @@ def phase_select_gen2(state_path: Path) -> None:
         prefix="gen2", lesson=GEN2_LESSON, state=state, repo=repo,
         state_dir=state_dir, report=report, hermes=hermes,
         shim_before=shim_before, expected_paths=["src/value.py"],
+        parent_commit=binding["parent_commit"],
     )
     if result["candidate_paths"] != ["src/value.py"]:
         raise PreconditionFailure(
@@ -996,6 +1067,7 @@ def phase_select_gen3(state_path: Path) -> None:
         prefix="gen3", lesson=GEN3_LESSON, state=state, repo=repo,
         state_dir=state_dir, report=report, hermes=hermes,
         shim_before=shim_before, expected_paths=["src/value.py"],
+        parent_commit=binding["parent_commit"],
     )
     if result["candidate_paths"] != ["src/value.py"]:
         raise PreconditionFailure(
@@ -1210,6 +1282,7 @@ def phase_mint_lineage(state_path: Path) -> None:
         if not verify_hmac_record(record, key):
             raise PreconditionFailure(f"{prefix} lineage record failed to verify after minting")
 
+    minted_records = [read_json(state_dir / f"{p}_lineage.json") for p in ("rootU", "gen1", "gen2", "gen3")]
     write_json(
         state_dir / "lineage.json",
         {
@@ -1217,6 +1290,7 @@ def phase_mint_lineage(state_path: Path) -> None:
             "process_pid": os.getpid(),
             "required_edges": edges,
             "roots": ["rootU", "gen1"],
+            "lineage_record_set_sha256": lineage_record_set_sha256(minted_records),
         },
     )
 
@@ -1260,7 +1334,7 @@ def phase_checkpoint(state_path: Path) -> None:
     bundles = {p: load_bundle(state_dir, p) for p in ("rootU", "gen1", "gen2", "gen3")}
 
     try:
-        projection = project(bundles, repo, key)
+        projection = project_bundles(bundles, repo, key)
     except EvidenceError as exc:
         raise PreconditionFailure(f"pre-REOPEN lineage projection failed: {exc}") from exc
 
@@ -1273,6 +1347,16 @@ def phase_checkpoint(state_path: Path) -> None:
         raise PreconditionFailure(f"pre-REOPEN established set wrong: {sorted(established_ids)}")
 
     ref_hashes, policy_hashes = _installed_hashes(repo, bundles)
+    # The lineage record set is frozen here: recompute its digest from the
+    # records on disk and require it to equal the mint-time digest. The
+    # harness never re-mints, reorders, or edits lineage records between
+    # projections.
+    lineage_summary = read_json(state_dir / "lineage.json")
+    checkpoint_lineage_hash = lineage_record_set_sha256(
+        [read_json(state_dir / f"{p}_lineage.json") for p in ("rootU", "gen1", "gen2", "gen3")]
+    )
+    if checkpoint_lineage_hash != lineage_summary["lineage_record_set_sha256"]:
+        raise PreconditionFailure("lineage record set changed between minting and checkpoint")
     checkpoint = {
         "phase": "checkpoint",
         "process_pid": os.getpid(),
@@ -1281,6 +1365,7 @@ def phase_checkpoint(state_path: Path) -> None:
         "historical_receipt_hashes": _receipt_hashes(state_dir, bundles),
         "installed_ref_hashes": ref_hashes,
         "installed_policy_hashes": policy_hashes,
+        "lineage_record_set_sha256": checkpoint_lineage_hash,
     }
     write_json(state_dir / "checkpoint.json", checkpoint)
 
@@ -1300,7 +1385,7 @@ def phase_reopen(state_path: Path) -> None:
 
     # Re-verify every precondition from disk in this fresh process.
     try:
-        projection = project(bundles, repo, key)
+        projection = project_bundles(bundles, repo, key)
     except EvidenceError as exc:
         raise PreconditionFailure(f"lineage binding failure before REOPEN: {exc}") from exc
     standings = {b["lesson"]["lesson_id"]: projection[b["lesson"]["lesson_id"]].status for b in bundles.values()}
@@ -1404,18 +1489,19 @@ def phase_reproject(state_path: Path) -> None:
 
     generations, lineage_records, installed_policies = projector_inputs(bundles, repo)
 
+    # Restart-boundary lineage check: the record set reloaded from disk must
+    # hash exactly to the checkpoint digest. The harness never re-mints,
+    # reorders, or edits lineage records between projections.
+    reproject_lineage_hash = lineage_record_set_sha256(lineage_records)
+    if reproject_lineage_hash != checkpoint["lineage_record_set_sha256"]:
+        raise PreconditionFailure("lineage record set changed between checkpoint and reprojection")
+
     try:
-        run_a = derive_airlock_memory_with_lineage(
-            generations=generations,
-            lineage_records=lineage_records,
-            installed_policies=installed_policies,
-            key=key,
+        run_a = project_lineage_memories(
+            generations, lineage_records, installed_policies, key
         )
-        run_b = derive_airlock_memory_with_lineage(
-            generations=generations,
-            lineage_records=lineage_records,
-            installed_policies=installed_policies,
-            key=key,
+        run_b = project_lineage_memories(
+            generations, lineage_records, installed_policies, key
         )
     except EvidenceError as exc:
         raise PreconditionFailure(f"lineage binding failure at reprojection: {exc}") from exc
@@ -1509,6 +1595,11 @@ def phase_reproject(state_path: Path) -> None:
         },
         "post_reopen_standings": standings,
         "lineage_witness_paths": paths,
+        "lineage_record_set_sha256_checkpoint": checkpoint["lineage_record_set_sha256"],
+        "lineage_record_set_sha256_reprojection": reproject_lineage_hash,
+        "lineage_record_set_unchanged": (
+            reproject_lineage_hash == checkpoint["lineage_record_set_sha256"]
+        ),
         "gen4_probe": probe_info,
         "historical_receipt_hashes": {
             "checkpoint": checkpoint["historical_receipt_hashes"],
@@ -1633,8 +1724,8 @@ def self_check() -> list[str]:
     if prereg.get("schema") != "airlock.rsi-004.preregistration.v1":
         problems.append("preregistration schema mismatch")
     bindings = prereg.get("bindings", [])
-    if len(bindings) != 15:
-        problems.append(f"preregistration has {len(bindings)} bindings, expected 15")
+    if len(bindings) != 16:
+        problems.append(f"preregistration has {len(bindings)} bindings, expected 16")
     for b in bindings:
         bid = b.get("id", "?")
         if b.get("kind") == "pinned" and not b.get("value"):
@@ -1816,7 +1907,10 @@ def self_check() -> list[str]:
     except Exception as exc:
         problems.append(f"verdict-literal check failed: {exc}")
 
-    # 10. The lineage-aware projector is exercised exactly where preregistered.
+    # 10. The lineage-aware projector is exercised exactly where preregistered:
+    #     derive_airlock_memory_with_lineage is called ONLY from the single
+    #     choke point project_lineage_memories(); every standing projection
+    #     goes through it.
     try:
         tree = ast.parse(source)
 
@@ -1843,10 +1937,10 @@ def self_check() -> list[str]:
 
         ct = CallTracker()
         ct.visit(tree)
-        if ct.lineage_calls != {"project", "phase_reproject", "probe_gen4_admission"}:
+        if ct.lineage_calls != {"project_lineage_memories"}:
             problems.append(
-                "lineage-aware projector exercised from unexpected sites: "
-                f"{sorted(ct.lineage_calls)}"
+                "derive_airlock_memory_with_lineage called outside the "
+                f"project_lineage_memories choke point: {sorted(ct.lineage_calls)}"
             )
     except Exception as exc:
         problems.append(f"projector-use check failed: {exc}")
@@ -1893,8 +1987,8 @@ def self_check() -> list[str]:
             work = dry_run(ROOTU_SHIM, POLICY_V1, "VALUE = 0\n", "rootU")
             if (work / "src" / "policy.py").read_text() != POLICY_VU:
                 problems.append("rootU shim did not install the unrelated bonus policy")
-            if (work / "src" / "value.py").read_text() != "VALUE = 11\n":
-                problems.append("rootU shim did not apply its policy (VALUE=11)")
+            if (work / "src" / "value.py").read_text() != "VALUE = 2\n":
+                problems.append("rootU shim did not apply its policy (VALUE=2)")
 
             work = dry_run(GEN1_SHIM, POLICY_V1, "VALUE = 0\n", "gen1")
             if (work / "src" / "policy.py").read_text() != POLICY_V2:
@@ -1927,6 +2021,45 @@ def self_check() -> list[str]:
             shutil.rmtree(tmp, ignore_errors=True)
     except Exception as exc:
         problems.append(f"fixture/shim self-check failed: {exc}")
+
+    # 12. The preregistration is frozen before primary contact: it is no
+    #     longer PROPOSED, it records the superseded pre-run draft hash, and
+    #     its SHA-256 binding matches the file bytes.
+    try:
+        prereg = json.loads(PREREG_PATH.read_text(encoding="utf-8"))
+        decided = prereg.get("decided", "")
+        if decided.startswith("PROPOSED"):
+            problems.append("preregistration still PROPOSED; it must be frozen before primary contact")
+        if "5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c" not in decided:
+            problems.append("preregistration does not record the superseded pre-run draft hash")
+        if sha256_file(PREREG_PATH) != PREREG_SHA256:
+            problems.append("preregistration SHA-256 binding does not match the file bytes")
+    except Exception as exc:
+        problems.append(f"preregistration frozen-state check failed: {exc}")
+
+    # 13. Selection verification uses the generation's ACTUAL base commit from
+    #     its signed generation record, never the fixture base: the stale
+    #     pattern diffing every generation from state["base_commit"] counted
+    #     inherited parent changes as child candidate changes.
+    try:
+        verify_source = inspect.getsource(_verify_selection_common)
+        if 'state["base_commit"]}..{selected}' in verify_source or \
+           "state['base_commit']}..{selected}" in verify_source or \
+           'f"{state["base_commit"]}..{selected}"' in verify_source:
+            problems.append(
+                "_verify_selection_common still diffs from state[\"base_commit\"] "
+                "(the gen2/gen3 inherited-change bug)"
+            )
+        if "actual_generation_base(" not in verify_source:
+            problems.append(
+                "_verify_selection_common does not derive the diff base via actual_generation_base"
+            )
+        if '"base_commit":gen_base' not in verify_source.replace(" ", ""):
+            problems.append(
+                "the recorded selection base_commit is not the generation's actual base"
+            )
+    except Exception as exc:
+        problems.append(f"generation-base check failed: {exc}")
 
     return problems
 
@@ -2030,7 +2163,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"  - {p}")
             return 1
         print(
-            "RSI-004 self-check clean: 15 prereg bindings unambiguous, pins verified, "
+            "RSI-004 self-check clean: 16 prereg bindings unambiguous, pins verified, "
             "gates closed. Primary NOT executed (pass --execute-primary only when authorized)."
         )
         return 0

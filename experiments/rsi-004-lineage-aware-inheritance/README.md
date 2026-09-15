@@ -26,7 +26,7 @@ dollar.
 | Airlock base (main) | `db9fb27aa154a240eed16c1ac7bf99401011f198` |
 | Verified Memory (pinned) | `36e3d0e0dab6a121abc1c14accbaa7310b5c2186` |
 | Verified Memory `evidence.py` SHA-256 | `ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9` |
-| Preregistration SHA-256 | `5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c` |
+| Preregistration SHA-256 | `20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055` |
 
 The preregistration (`RSI_004_PREREGISTRATION.json`) is copied byte-for-byte
 from the frozen design file and must not be regenerated or rewritten.
