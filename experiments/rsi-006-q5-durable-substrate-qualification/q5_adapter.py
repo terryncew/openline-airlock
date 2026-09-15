@@ -35,8 +35,15 @@ Execution order for one observation (worker thread):
    retry_allowed -> continue;
 2. ``ledger.record_prepared`` (atomic), BEFORE the spawn is attempted;
 3. ``spawn(exec_nonce)``; on ``OSError`` (no child created):
-   ``ledger.record_spawn_failed`` (atomic) and return -- zero contact,
-   zero execution, a genuine first attempt remains allowed;
+   ``ledger.record_spawn_failed`` (atomic) -- zero contact, zero
+   execution. Without a scientific ``spawn_failure_builder`` the worker
+   returns ``spawn_failed`` and a genuine first attempt remains allowed
+   (the pre-repair generic behavior, unchanged). With a
+   ``spawn_failure_builder`` the OSError becomes a completed scientific
+   observation (the caller's Q3-equivalent ``launch_spawn_failed``
+   record): the canonical outcome bytes and completion are persisted
+   durably -- no ``started`` record, no contact-gate call -- and the
+   evidence is committed normally;
 4. on success, immediately -- from Q3's post-``Popen`` position, after
    the child provably exists: ``ledger.record_started`` (atomic), then
    the contact boundary ``gate.note_process_started`` arbitrates the
@@ -73,6 +80,14 @@ Crash windows and their resume semantics:
 - die after completion evidence but before the coordinator journals ->
   started + verified completion -> ``adopt_orphan_observation``: the
   exact first result, zero second execution;
+- die inside the scientific spawn-failure path (``spawn_failed``
+  persisted but completion evidence not yet durable) -> scientific
+  classification fails closed with ``UncertainExecution``: the spawn
+  failure is already Q3's scored observation, so it is never retried;
+- die after the scientific spawn-failure completion is durable but
+  before the coordinator journals -> ``spawn_failed`` + verified
+  completion -> ``adopt_orphan_observation``: the exact first result,
+  zero second ``Popen``;
 - die after the gate win but before the journal contact entry ->
   ``reconcile_contact`` re-journals the winner's marker on next start,
   on the successor's single opened instance: exactly one contact event,
@@ -224,17 +239,28 @@ class Coordinator:
     # worker side: runs in a worker thread, never touches the journal
     # ------------------------------------------------------------------
 
-    def _classify(self, observation_id: str, phase: str):
+    def _classify(self, observation_id: str, phase: str,
+                  scientific: bool = False):
+        """Classify one observation for resume.
+
+        ``scientific`` is True when the runner's scientific builders are
+        active (a spawn failure is Q3's scored observation, not a
+        retryable generic failure); the ledger then adopts a
+        spawn_failed + verified completion and fails closed on a
+        spawn_failed without one.
+        """
         with self._read_lock:
             return ledger.classify(
                 work_dir=self._work_dir, tx=self._tx,
                 observation_id=observation_id, phase=phase,
                 receipt_sha256=self._receipt_sha256,
-                code_hashes=self._code_hashes)
+                code_hashes=self._code_hashes,
+                scientific=scientific)
 
     def _worker_run(self, *, observation_id: str, phase: str, spawn,
                     argv: list, barrier=None, _crash_hook=None,
-                    completion_builder=None) -> dict:
+                    completion_builder=None,
+                    spawn_failure_builder=None) -> dict:
         """Execute one observation; return evidence to the coordinator.
 
         ``completion_builder``, when given, is
@@ -242,10 +268,22 @@ class Coordinator:
         (or ``None`` to fall back to the generic envelope). It is
         invoked for every completed process -- including a timed-out
         child, which is then a completed scientific observation.
+
+        ``spawn_failure_builder``, when given, is
+        ``builder(observation_id, spawn_evidence) -> (outcome_bytes,
+        launch)`` invoked when ``spawn`` raises ``OSError``. It turns
+        the spawn failure into the caller's completed scientific
+        observation (Q3's ``launch_spawn_failed`` record): no
+        ``started`` record, no contact-gate call, the canonical outcome
+        bytes and completion persisted durably and committed normally.
+        Without it the OSError path keeps the pre-repair generic
+        behavior: ``spawn_failed`` is recorded and returned, retryable.
         """
         bindings = dict(receipt_sha256=self._receipt_sha256,
                         code_hashes=self._code_hashes)
-        status, payload = self._classify(observation_id, phase)
+        status, payload = self._classify(
+            observation_id, phase,
+            scientific=spawn_failure_builder is not None)
         base = {"observation_id": observation_id, "phase": phase}
         if status == "committed":
             return {**base, "result": "skipped_committed",
@@ -279,16 +317,50 @@ class Coordinator:
         try:
             proc = spawn(exec_nonce)
         except OSError as exc:
-            # Q3 treats a Popen failure as zero scientific contact; the
-            # ledger records the proof so a genuine first attempt remains
-            # allowed. Nothing was executed, nothing was authorized.
+            if spawn_failure_builder is None:
+                # Generic path, unchanged: a Popen failure is zero
+                # scientific contact; the ledger records the proof so a
+                # genuine first attempt remains allowed. Nothing was
+                # executed, nothing was authorized.
+                ledger.record_spawn_failed(
+                    work_dir=self._work_dir, txid=self._tx.txid,
+                    observation_id=observation_id, phase=phase,
+                    attempt=attempt,
+                    error=f"{type(exc).__name__}: {exc}", **bindings)
+                return {**base, "result": "spawn_failed",
+                        "attempt": attempt,
+                        "error": f"{type(exc).__name__}: {exc}"}
+            # Scientific path: frozen Q3 treats a Popen OSError as a
+            # completed canonical observation (disposition
+            # "launch_spawn_failed"). No child exists, so there is no
+            # started record and no ContactGate call -- nothing crossed
+            # the contact boundary. The spawn_failed proof, the
+            # canonical outcome bytes, and the completion are persisted
+            # durably; the coordinator commits them normally. The
+            # observation names no physical execution, so its
+            # exec_nonce is null.
+            end_ts = time.time()
+            outcome_bytes, launch = spawn_failure_builder(
+                observation_id, {"start_ts": start_ts, "end_ts": end_ts,
+                                 "error": exc, "attempt": attempt})
             ledger.record_spawn_failed(
                 work_dir=self._work_dir, txid=self._tx.txid,
                 observation_id=observation_id, phase=phase,
                 attempt=attempt,
                 error=f"{type(exc).__name__}: {exc}", **bindings)
-            return {**base, "result": "spawn_failed", "attempt": attempt,
-                    "error": f"{type(exc).__name__}: {exc}"}
+            digest = ledger.write_outcome(
+                work_dir=self._work_dir, observation_id=observation_id,
+                outcome_bytes=outcome_bytes)
+            ledger.record_completion(
+                work_dir=self._work_dir, txid=self._tx.txid,
+                observation_id=observation_id, phase=phase,
+                outcome_digest=digest, **bindings)
+            if _crash_hook is not None:
+                _crash_hook("after_spawn_failure_completion")
+            return {**base, "result": "completed",
+                    "outcome_bytes": outcome_bytes, "launch": launch,
+                    "gate_created": False, "child_pid": None,
+                    "exec_nonce": None}
         if _crash_hook is not None:
             _crash_hook("after_spawn")
         # Post-Popen position (Q3's on_process_start): the child
@@ -463,7 +535,8 @@ class Coordinator:
                 spawn_for=None, crash_points: dict | None = None,
                 sync_spawn: bool = False,
                 max_workers: int = 1,
-                completion_builder=None) -> list:
+                completion_builder=None,
+                spawn_failure_builder=None) -> list:
         """Run observations through worker threads; journal serially.
 
         ``observations``: list of ``(observation_id, phase)``. Workers
@@ -482,6 +555,13 @@ class Coordinator:
         builder, a timed-out child is a completed scientific
         observation; without one, a timeout fails closed with
         ``UncertainExecution``.
+
+        ``spawn_failure_builder``, when given, is invoked per
+        observation as ``builder(observation_id, spawn_evidence) ->
+        (outcome_bytes, launch)`` when ``spawn`` raises ``OSError``,
+        turning the spawn failure into a completed scientific
+        observation (Q3 ``launch_spawn_failed`` semantics) instead of
+        the retryable generic ``spawn_failed`` return.
         """
         crash_points = crash_points or {}
         if sync_spawn and max_workers < len(observations):
@@ -512,7 +592,8 @@ class Coordinator:
                     observation_id=obs_id, phase=phase, spawn=obs_spawn,
                     argv=argv_for(obs_id), barrier=barrier,
                     _crash_hook=hook if want else None,
-                    completion_builder=completion_builder)
+                    completion_builder=completion_builder,
+                    spawn_failure_builder=spawn_failure_builder)
             except UncertainExecution as exc:
                 failures[obs_id] = ("uncertain", exc)
             except Exception as exc:  # noqa: BLE001 -- reported, not hidden

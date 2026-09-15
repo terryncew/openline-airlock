@@ -60,6 +60,31 @@ def main() -> None:
     runner = make_runner(stage2, receipt_path, {REPO_NAME: cfg},
                          workers=1,
                          confirmation_nonce_source=_fixture_nonce_source())
+    # Test-only forced spawn failure: Q5_FIXTURE_SPAWN_FAIL_OBS names one
+    # observation whose spawn must raise OSError, exercising the
+    # scientific launch_spawn_failed path under crash injection.
+    # Q5_FIXTURE_SPAWN_COUNT_PATH (optional) receives one line per spawn
+    # attempt, so the test can prove the resumed run never re-attempted
+    # the failed spawn. Production never sets these.
+    fail_obs = os.environ.get("Q5_FIXTURE_SPAWN_FAIL_OBS")
+    count_path = os.environ.get("Q5_FIXTURE_SPAWN_COUNT_PATH")
+    if fail_obs:
+        _orig_spawn_for = runner._spawn_for
+
+        def _spawn_for(obs_id):
+            inner = _orig_spawn_for(obs_id)
+
+            def _spawn(exec_nonce: str):
+                if count_path:
+                    with open(count_path, "a") as fh:
+                        fh.write(obs_id + "\n")
+                if obs_id == fail_obs:
+                    raise OSError("fixture forced spawn failure")
+                return inner(exec_nonce)
+
+            return _spawn
+
+        runner._spawn_for = _spawn_for
     result = runner.run(crash_points=crash_points)
     sys.stdout.write(json.dumps({
         "status": result["status"],

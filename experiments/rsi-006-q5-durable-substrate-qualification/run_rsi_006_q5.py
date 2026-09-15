@@ -178,6 +178,43 @@ def build_q3_completion(*, repo_name: str, mutant: dict, baseline: dict,
     return outcome_bytes, launch
 
 
+def build_q3_spawn_failure(*, repo_name: str, mutant: dict,
+                           argv: list, python: str, run_dir: Path,
+                           env: dict, env_overrides: dict,
+                           start_ts: float, end_ts: float,
+                           error: OSError) -> tuple[bytes, dict]:
+    """Build the exact Q3 launch_spawn_failed canonical record.
+
+    Frozen Q3's ``run_suite_once``, when ``Popen`` raises ``OSError``:
+    no child is created and the contact hook never fires, but the
+    failure is still a completed scientific observation --
+    ``outcomes={}``, ``collection_error=True``, ``timeout=False``,
+    therefore a kill -- with launch disposition ``"launch_spawn_failed"``
+    and ``child_pid`` None. ``observe_mutant`` wraps that in the
+    canonical observation record, reproduced here field-for-field; the
+    canonical bytes carry no timestamps, so they are byte-identical to
+    Q3's for the same forced error.
+    """
+    err_b = f"suite launch failed to spawn: {error}".encode("utf-8")
+    record = {
+        "repo": repo_name,
+        "mutant_id": mutant["mutant_id"],
+        "operator": mutant["operator"],
+        "site_key": mutant["site_key"],
+        "seed": mutant["seed"],
+        "outcomes": {},
+        "kill": True,
+        "collection_error": True,
+        "timeout": False,
+    }
+    outcome_bytes = q3_run.canonical_bytes(record)
+    launch = q3_observe._launch_record(
+        list(argv), python, Path(run_dir), dict(env), dict(env_overrides),
+        start_ts, end_ts, None, b"", err_b, None, "launch_spawn_failed",
+        child_pid=None)
+    return outcome_bytes, launch
+
+
 class _PreconditionFailure(Exception):
     """The static feasibility guard failed: pre-contact, no verdict.
 
@@ -445,6 +482,24 @@ class Stage2Runner:
             env_overrides=prep["env_overrides"],
             junit_path=prep["junit_path"], evidence=evidence)
 
+    def _spawn_failure_builder(self, observation_id: str,
+                               evidence: dict) -> tuple[bytes, dict]:
+        """Build the Q3 launch_spawn_failed record for a Popen OSError.
+
+        The adapter invokes this (instead of the plain spawn_failed
+        ledger return) only when the runner's scientific builders are
+        active. Evidence carries the Q3-faithful ``start_ts``/``end_ts``
+        and the ``OSError`` itself.
+        """
+        prep = self._prep[observation_id]
+        return build_q3_spawn_failure(
+            repo_name=prep["repo_name"], mutant=prep["mutant"],
+            argv=prep["argv"], python=prep["python"],
+            run_dir=prep["run_dir"], env=prep["env"],
+            env_overrides=prep["env_overrides"],
+            start_ts=evidence["start_ts"], end_ts=evidence["end_ts"],
+            error=evidence["error"])
+
     def _run_phase(self, coord: qa.Coordinator,
                    items: list[tuple[str, dict]], phase: str,
                    crash_points: dict | None = None) -> list:
@@ -467,6 +522,7 @@ class Stage2Runner:
             spawn_for=self._spawn_for,
             argv_for=lambda obs_id: self._prep[obs_id]["argv"],
             completion_builder=self._builder,
+            spawn_failure_builder=self._spawn_failure_builder,
             crash_points=crash_points or {},
             max_workers=self._workers)
         for row in applied:
@@ -793,11 +849,18 @@ class Stage2Runner:
         return {"status": "complete", "terminal": verdict["verdict"],
                 "report_path": str(path), "evaluation": evaluation}
 
-    def _exec_nonce_of(self, observation_id: str) -> str:
-        """The exec_nonce naming the physical execution, from the ledger."""
+    def _exec_nonce_of(self, observation_id: str) -> str | None:
+        """The exec_nonce naming the physical execution, from the ledger.
+
+        A spawn-failure observation never created a child, so there is
+        no started record: it reports null rather than assuming one
+        exists.
+        """
         from execution_ledger import ledger_dir
         path = (ledger_dir(self._stage2_dir)
                 / f"{observation_id}.started.json")
+        if not path.exists():
+            return None
         return json.loads(path.read_bytes())["exec_nonce"]
 
     # ------------------------------------------------------------------

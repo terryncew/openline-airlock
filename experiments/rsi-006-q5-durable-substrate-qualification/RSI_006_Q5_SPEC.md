@@ -419,6 +419,24 @@ the receipt, exactly one transaction `begin()`/`open()`, immediate
 execution. The runner is present, manifest-bound, fixture-tested --
 and unexecuted against anything real.
 
+Spawn failure is a Q3 parity case, not a generic retry. Frozen Q3
+treats a `Popen` `OSError` as a completed canonical observation --
+`outcomes={}`, `collection_error=True`, `timeout=False` (therefore a
+kill), launch disposition `launch_spawn_failed`, no child, no contact
+hook -- so the runner's scientific path does the same: when the
+runner's `spawn_failure_builder` is active, a `Popen` `OSError`
+becomes the exact Q3 `launch_spawn_failed` canonical record, with no
+`started` record and no ContactGate call. The `spawn_failed` proof,
+the canonical outcome bytes, and the completion are persisted
+durably and the observation is committed through Q4 normally; the
+observation names no physical execution, so its report `exec_nonce`
+is null. On resume, `spawn_failed` + verified completion is
+recoverable/adoptable (zero second `Popen`); `spawn_failed` without
+verified completion fails closed (`UncertainExecution`) -- the spawn
+failure is already Q3's scored observation and is never retried. The
+generic adapter path (no scientific builders) is unchanged:
+`spawn_failed` stays recorded and retryable.
+
 Q5 may additionally claim only:
 
 11. in tested cases, the runner's Q3 completion path produces
@@ -447,7 +465,15 @@ Q5 may additionally claim only:
     completion is durable fails closed on resume
     (`UncertainExecution`): no rerun, no verdict;
 16. in tested cases, a static-guard failure writes only a pre-contact
-    report: no transaction, no execution nonce, no contact.
+    report: no transaction, no execution nonce, no contact;
+17. in tested cases, a forced `Popen` `OSError` through the runner's
+    scientific path produces the exact Q3 `launch_spawn_failed`
+    canonical record (byte-identical canonical bytes, zero contact,
+    zero child execution), commits normally, reports a null
+    `exec_nonce`, and -- after a crash between its durable completion
+    and the Q4 commit -- is adopted on resume with zero second
+    `Popen`; a `spawn_failed` without verified completion fails
+    closed instead of retrying.
 
 Q5 does **not** claim: a production Stage 1 run, substrate
 qualification, scientific success, validation against real

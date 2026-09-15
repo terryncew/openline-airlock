@@ -31,7 +31,8 @@ import run_rsi_006_q3 as q3_run  # noqa: E402
 import q5_adapter as qa  # noqa: E402
 import stransaction as st  # noqa: E402
 from contact import ContactGate  # noqa: E402
-from run_rsi_006_q5 import build_q3_completion, _code_hashes  # noqa: E402
+from run_rsi_006_q5 import (  # noqa: E402
+    build_q3_completion, build_q3_spawn_failure, _code_hashes)
 from q5_fixture_support import build_parity_package, repo_cfg  # noqa: E402
 
 REPO_NAME = "fx-repo"
@@ -437,3 +438,136 @@ def test_generic_completion_unchanged(work_dir, buckets, parity_baseline,
         "stdout_b64", "txid"}
     assert outcome["schema"] == qa.OUTCOME_SCHEMA
     assert outcome["exit_status"] == 0
+
+
+def test_parity_spawn_failure(work_dir, parity_cfg, parity_baseline,
+                              parity_mutants, parity_root, monkeypatch):
+    """A forced Popen OSError is Q3's launch_spawn_failed record.
+
+    The same OSError is forced through frozen Q3 (observe_mutant) and
+    through the Q5 scientific path (the adapter plus the runner's real
+    build_q3_spawn_failure). The canonical observation bytes must be
+    byte-identical; there must be zero contact (Q3's hook never fires,
+    Q5's gate marker never created) and zero child execution; Q5
+    commits the observation normally with a null exec_nonce and no
+    started record.
+    """
+    mutant = parity_mutants[0]
+    forced = OSError("fixture forced spawn failure")
+    hook_calls: list = []
+
+    def _raising_popen(*args, **kwargs):
+        raise forced
+
+    # Frozen Q3 reference: observe_mutant with Popen forced to raise.
+    # observe.py calls subprocess.Popen as a module attribute, so this
+    # covers the frozen path without touching anything else.
+    monkeypatch.setattr(subprocess, "Popen", _raising_popen)
+    q3ref_dir = work_dir / "q3ref"
+    q3ref_dir.mkdir(parents=True, exist_ok=True)
+    ref = q3_observe.observe_mutant(
+        parity_cfg, mutant, parity_baseline, q3ref_dir,
+        sys.executable, on_process_start=hook_calls.append)
+    record = ref["record"]
+    assert record["outcomes"] == {}
+    assert record["collection_error"] is True
+    assert record["timeout"] is False
+    assert record["kill"] is True
+    assert ref["launch"]["disposition"] == "launch_spawn_failed"
+    assert ref["launch"]["child_pid"] is None
+    assert hook_calls == []
+    assert set(record.keys()) == Q3_CANONICAL_KEYS
+    want_bytes = q3_run.canonical_bytes(record)
+
+    # Q5 scientific path: the adapter with the runner's real builders,
+    # the same forced OSError raised by the spawn callable itself.
+    tx = st.ScientificTransaction.begin(
+        work_dir, receipt_sha256="f" * 64,
+        code_hashes=_code_hashes(), tx_nonce=os.urandom(32).hex())
+    gate = ContactGate(work_dir / "contact_marker.json")
+    coord = qa.Coordinator(
+        work_dir=work_dir, tx=tx, gate=gate,
+        receipt_sha256="f" * 64, code_hashes=_code_hashes(),
+        wait_timeout_s=60.0)
+    prep_root = work_dir / "prep"
+    overlay_root = prep_root / "overlay"
+    overlay_pkg = overlay_root / "pkg"
+    pkg_dir = parity_root / "pkg"
+    if overlay_root.exists():
+        shutil.rmtree(overlay_root)
+    shutil.copytree(pkg_dir, overlay_pkg)
+    q3_perturb.apply_mutant(pkg_dir, mutant, overlay_pkg)
+    run_dir = work_dir / "rundir"
+    run_dir.mkdir(parents=True, exist_ok=True)
+    cmd = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider",
+           "--tb=no", f"--junitxml={run_dir / 'results.xml'}",
+           "--rootdir", str(parity_root), str(parity_root / "tests")]
+    env = dict(os.environ)
+    env_overrides = {"PYTHONDONTWRITEBYTECODE": "1",
+                     "PYTHONPATH": str(overlay_root)}
+    env.update(env_overrides)
+
+    obs_id = mutant["mutant_id"]
+    spawn_calls: list = []
+
+    def spawn(exec_nonce: str):
+        spawn_calls.append(exec_nonce)
+        raise forced
+
+    built_box: dict = {}
+
+    def failure_builder(observation_id: str, evidence: dict):
+        built = build_q3_spawn_failure(
+            repo_name=REPO_NAME, mutant=mutant, argv=cmd,
+            python=sys.executable, run_dir=run_dir, env=env,
+            env_overrides=env_overrides,
+            start_ts=evidence["start_ts"], end_ts=evidence["end_ts"],
+            error=evidence["error"])
+        built_box["built"] = built
+        built_box["evidence"] = evidence
+        return built
+
+    def _unreachable_builder(observation_id: str, evidence: dict):
+        raise AssertionError(
+            "no child completed; the completion builder must never run "
+            "on the spawn-failure path")
+
+    applied = coord.run_all(
+        observations=[(obs_id, "discovery")], spawn=spawn,
+        argv_for=lambda o: cmd,
+        completion_builder=_unreachable_builder,
+        spawn_failure_builder=failure_builder)
+    assert applied[0]["status"] == "committed"
+    row = applied[0]
+    # A no-child observation names no physical execution.
+    assert row["exec_nonce"] is None
+    outcome_bytes, launch = built_box["built"]
+    assert outcome_bytes == want_bytes
+    outcome_path = (work_dir / "artifacts" / "execution_ledger"
+                    / f"{obs_id}.outcome.json")
+    assert outcome_path.read_bytes() == want_bytes
+    # The launch sidecar is Q3-shaped: rebuild the expected record from
+    # Q3's own _launch_record with the Q5 evidence timestamps.
+    evidence = built_box["evidence"]
+    expected_launch = q3_observe._launch_record(
+        list(cmd), sys.executable, Path(run_dir), dict(env),
+        dict(env_overrides), evidence["start_ts"], evidence["end_ts"],
+        None, b"",
+        f"suite launch failed to spawn: {forced}".encode("utf-8"),
+        None, "launch_spawn_failed", child_pid=None)
+    assert launch == expected_launch
+    # Zero contact, zero child execution.
+    assert not (work_dir / "contact_marker.json").exists()
+    assert len(spawn_calls) == 1
+    # The spawn_failed proof is persisted, but no started record: no
+    # child ever existed. The completion is durable and committed.
+    from execution_ledger import ledger_dir
+    ldir = ledger_dir(work_dir)
+    assert (ldir / f"{obs_id}.spawn_failed.json").exists()
+    assert not (ldir / f"{obs_id}.started.json").exists()
+    assert (ldir / f"{obs_id}.complete.json").exists()
+    committed = json.loads(outcome_bytes)
+    assert committed["kill"] is True
+    assert committed["collection_error"] is True
+    assert committed["timeout"] is False
+    assert committed["outcomes"] == {}

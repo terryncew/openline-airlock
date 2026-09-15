@@ -104,6 +104,7 @@ SCIENTIFIC_IMPORT_ALLOWLIST = {
     "test_q5_runner_parity.py": ("observe", "perturb", "run_rsi_006_q3"),
     "test_q5_runner_fullrun.py": ("observe", "perturb", "run_rsi_006_q3"),
     "test_q5_runner_crash.py": ("observe", "perturb", "run_rsi_006_q3"),
+    "test_q5_runner_spawn_failure.py": ("perturb", "run_rsi_006_q3"),
 }
 
 

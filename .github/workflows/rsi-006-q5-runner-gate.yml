@@ -3,17 +3,19 @@ name: RSI-006-Q5 runner gate
 # Fixture-only gate for the RSI-006-Q5 Stage 2 scientific runner
 # mechanism (pre-contact change only). Runs the Q5 self-check and the
 # runner's fixture tests: scientific parity (Q3-canonical bytes,
-# timeout/collection-error/kill semantics), an uninterrupted fixture
-# full run, and crash/resume convergence. Everything executes against
-# tiny local fixture packages under the repository -- never the real
-# pool, never production.
+# timeout/collection-error/kill semantics, spawn-failure parity),
+# confirmation-nonce semantics, an uninterrupted fixture full run, and
+# crash/resume convergence. Everything executes against tiny local
+# fixture packages under the repository -- never the real pool, never
+# production.
 #
 # Triggers ONLY on the runner mechanism files -- the runner itself,
-# the adapter completion-builder seam it uses, the Q5 self-check's
-# scientific-import allowlist, the runner fixture tests, the runner
-# spec section, and this workflow itself. Changes to the Stage 1
-# qualifier keep running under rsi-006-q5-stage1-gate.yml; Q3/Q4
-# changes run under their own gates.
+# the adapter completion-builder seam it uses, the execution ledger's
+# scientific spawn-failure classification the adapter relies on, the
+# Q5 self-check's scientific-import allowlist, the runner fixture
+# tests, the runner spec section, and this workflow itself. Changes
+# to the Stage 1 qualifier keep running under
+# rsi-006-q5-stage1-gate.yml; Q3/Q4 changes run under their own gates.
 #
 # No production Stage 1 run happens here: no arming, no
 # qualification, no environment receipt, no real repositories, no
@@ -27,6 +29,7 @@ on:
     paths:
       - "experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/execution_ledger.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/self_check.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_*.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
@@ -35,6 +38,7 @@ on:
     paths:
       - "experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/execution_ledger.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/self_check.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_*.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
@@ -65,7 +69,7 @@ jobs:
 
       - name: Runner fixture tests (parity, full run, crash/resume)
         run: |
-          python -m pytest experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_falsifiers.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_parity.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_fullrun.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_crash.py -q -p no:cacheprovider
+          python -m pytest experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_falsifiers.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_parity.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_nonce_semantics.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_fullrun.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_crash.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_spawn_failure.py -q -p no:cacheprovider
 
       - name: Assert gate stays fixture-only and non-scientific
         run: |
