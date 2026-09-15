@@ -1,0 +1,23 @@
+Exact stdout of the single authorized same-transaction resume invocation
+(session proc_86406390abdc, 2026-09-15 ~14:52 PDT, EXIT_CODE=1):
+
+Traceback (most recent call last):
+  File "/home/hatch/workspace/openline-airlock/experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py", line 1015, in <module>
+    main()
+  File "/home/hatch/workspace/openline-airlock/experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py", line 1005, in main
+    result = runner.run()
+             ^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py", line 943, in run
+    self._discovery(coord, crash)
+  File "/home/hatch/workspace/openline-airlock/experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py", line 559, in _discovery
+    self._run_phase(coord, items, "discovery", adapter_crash)
+  File "/home/hatch/workspace/openline-airlock/experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py", line 520, in _run_phase
+    applied = coord.run_all(
+              ^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py", line 639, in run_all
+    raise UncertainExecution(str(exc))
+execution_ledger.UncertainExecution: observation cachetools-A-0049: started record present (child pid 34170) without verified completion; refusing to rerun
+EXIT_CODE=1
+
+No stderr was produced. The process exited 13 seconds after launch,
+during discovery, before any seal, confirmation, or verdict phase.
