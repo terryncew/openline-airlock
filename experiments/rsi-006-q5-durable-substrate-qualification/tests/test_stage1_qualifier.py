@@ -532,6 +532,89 @@ def test_verify_rejects_qualifier_drift(work_dir, fx_layout, fx_pool):
 
 
 # ---------------------------------------------------------------------------
+# Freeze boundary: the source/environment binding must survive the whole
+# qualification interval. The initial preflight binds the source state;
+# immediately before freeze_receipt() the same pure preflight runs again
+# and must reproduce the binding exactly, and the Airlock HEAD must be
+# unchanged. A qualification must never span two source states.
+# ---------------------------------------------------------------------------
+
+def _drifting_preflight(monkeypatch, mutate):
+    """Wrap stage1.preflight so the SECOND call (the pre-freeze
+    revalidation) observes source state mutated after the initial
+    preflight but before freeze."""
+    real_preflight = stage1.preflight
+    calls = []
+
+    def wrapper(*a, **k):
+        calls.append(1)
+        if len(calls) == 2:
+            mutate()
+        return real_preflight(*a, **k)
+
+    monkeypatch.setattr(stage1, "preflight", wrapper)
+    return calls
+
+
+def test_mid_qualification_source_drift_rejects_freeze(work_dir, fx_layout,
+                                                       fx_pool, monkeypatch):
+    """Falsifier: a manifest-governed source file mutated after the
+    initial preflight but before freeze must fail closed at the final
+    preflight. No receipt is frozen, the completed attempt evidence is
+    preserved exactly as produced, and a new attempt after the source
+    state is stable succeeds."""
+    root = work_dir / "droot"
+    root.mkdir()
+    arm(root, fx_layout, boot="boot-A")
+    target = fx_layout["root"] / "fxcode" / "a.py"
+    original = target.read_bytes()
+    _drifting_preflight(
+        monkeypatch,
+        lambda: target.write_text("# drifted mid-qualification\n"))
+    with pytest.raises(stage1.SourceDriftError, match="drifted"):
+        qualify(root, fx_layout, fx_pool, boot="boot-B")
+    # No receipt frozen; the completed attempt's evidence is preserved
+    # exactly as produced (append-only, never rewritten).
+    assert not (root / stage1.RECEIPT_NAME).exists()
+    attempts = sorted((root / stage1.ATTEMPTS_DIR).iterdir())
+    assert [p.name for p in attempts] == ["000001"]
+    assert (attempts[0] / "attempt-manifest.json").is_file()
+    assert (attempts[0] / "evidence").is_dir()
+    # A new Stage 1 attempt is required after the source state is
+    # stable -- and it succeeds.
+    target.write_bytes(original)
+    result = qualify(root, fx_layout, fx_pool, boot="boot-B")
+    assert result["status"] == "frozen"
+    assert result["attempt"] == "000002"
+
+
+def test_head_movement_with_unchanged_bytes_rejects_freeze(
+        work_dir, fx_layout, fx_pool, monkeypatch):
+    """Falsifier: the Airlock HEAD moving mid-qualification -- with every
+    governed byte unchanged (empty commit) -- must fail closed at the
+    final preflight. The source commit identity used for one
+    qualification must remain stable across the qualification interval."""
+    root = work_dir / "droot"
+    root.mkdir()
+    arm(root, fx_layout, boot="boot-A")
+    head_before = _git(fx_layout["root"], "rev-parse", "HEAD")
+
+    def move_head():
+        _git(fx_layout["root"], "-c", "user.email=fx@example.com",
+             "-c", "user.name=fx", "commit", "-q", "--allow-empty",
+             "-m", "mid-qualification HEAD move")
+
+    _drifting_preflight(monkeypatch, move_head)
+    with pytest.raises(stage1.SourceDriftError,
+                       match="moved mid-qualification"):
+        qualify(root, fx_layout, fx_pool, boot="boot-B")
+    assert _git(fx_layout["root"], "rev-parse", "HEAD") != head_before
+    assert not (root / stage1.RECEIPT_NAME).exists()
+    attempts = sorted((root / stage1.ATTEMPTS_DIR).iterdir())
+    assert [p.name for p in attempts] == ["000001"]
+
+
+# ---------------------------------------------------------------------------
 # Binding: drift anywhere is rejected by the verifier
 # ---------------------------------------------------------------------------
 
@@ -1053,6 +1136,30 @@ def test_witness_schema_rejected(work_dir, fx_layout, fx_pool):
     wpath.write_bytes(json.dumps(witness, sort_keys=True).encode())
     with pytest.raises(stage1.WitnessError, match="schema"):
         qualify(root, fx_layout, fx_pool, boot="boot-B")
+
+
+def test_verifier_rejects_changed_live_filesystem_identity(
+        work_dir, fx_layout, fx_pool, monkeypatch):
+    """Falsifier: same durable-root pathname, same receipt bytes, same
+    witness bytes, but a different CURRENT live filesystem identity --
+    as if the qualified root were copied or remounted onto different
+    storage at the same path after Stage 1. Verification must fail
+    closed before any scientific contact. st_dev is not claimed to be
+    cryptographic or globally stable storage identity; it is only the
+    tested signal for a change of underlying storage between arming,
+    qualification, and verification."""
+    root, _ = green_run(work_dir, fx_layout, fx_pool)
+    verify_fixture(root, fx_layout)  # green first
+    real_fs_identity = qr.fs_identity
+
+    def moved_storage(path):
+        ident = real_fs_identity(path)
+        return {"st_dev": ident["st_dev"] + 1}
+
+    monkeypatch.setattr(qr, "fs_identity", moved_storage)
+    with pytest.raises(qr.ReceiptError,
+                       match="filesystem identity changed"):
+        verify_fixture(root, fx_layout)
 
 
 def test_boot_transition_accepts_and_binds_witness(work_dir, fx_layout,

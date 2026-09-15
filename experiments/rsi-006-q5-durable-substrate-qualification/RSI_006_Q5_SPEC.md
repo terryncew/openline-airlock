@@ -182,6 +182,20 @@ qualifier-critical file to be byte-identical to its `HEAD` bytes
 untracked qualifier file before dependency install, repository
 mutation, baseline execution, witness mutation, or receipt creation.
 
+The initial preflight binds the source state once, but qualification
+then performs dependency, repository, and baseline work before the
+receipt is frozen. Immediately before `freeze_receipt()` -- after
+baselines and after all attempt evidence is durable -- the qualifier
+re-runs the exact same pure preflight and requires the result to
+equal the initial binding exactly, and requires the Airlock git HEAD
+at freeze to equal the HEAD captured at the initial preflight. Any
+mid-qualification drift fails closed: no receipt is frozen, the
+completed attempt evidence is preserved exactly as produced, and a
+new Stage 1 attempt is required once the source state is stable. The
+receipt's `airlock_commit` comes from the stable binding that
+survived both checks, never from an unpaired final `git rev-parse
+HEAD`. A qualification never spans two source states.
+
 Q5 reuses Q3's frozen Stage 1 helpers read-only (interpreter probing,
 dependency lock, repository verification, baseline launches). Q5 does
 **not** call Q3's schema-freezing `qualify_environment()`. Q3's
@@ -193,17 +207,29 @@ separately hashed and receipt-bound. Q3 itself is untouched (frozen).
 
 ### Storage witness (two-boot protocol)
 
-`--arm-storage` writes a create-once witness
+`--arm-storage` writes the storage witness
 (`airlock.rsi-006-q5.storage-witness.v1`) recording the arming boot ID,
 a nonce, the arming time, the durable-root path, and the filesystem
-identity (`st_dev`). `--qualify-env` refuses unless: the witness
-exists, parses, and matches the schema; the current boot ID differs
-from the arming boot ID (the root has proven it survives a boot
-transition); the witness's durable root equals the selected root; and
-the live filesystem identity equals the armed one (the root was not
-moved or copied to new storage). Volatile roots (`/tmp`, `/var/tmp`,
-`/dev/shm`) are rejected at arming time. The receipt binds the witness
-digest, so post-freeze witness changes are detected on re-verification.
+identity (`st_dev`). Witness writes are atomic, and the operator may
+re-arm before qualification/freeze when a new storage witness is
+required; the witness is not create-once. `--qualify-env` refuses
+unless: the witness exists, parses, and matches the schema; the
+current boot ID differs from the arming boot ID (the root has proven
+it survives a boot transition); the witness's durable root equals the
+selected root; and the live filesystem identity equals the armed one
+(the root was not moved or copied to new storage). Volatile roots
+(`/tmp`, `/var/tmp`, `/dev/shm`) are rejected at arming time. The
+create-once environment receipt permanently binds the final
+successful witness bytes (digest plus armed boot ID, arming time,
+durable root, and filesystem identity): after receipt freeze,
+changing or re-arming the witness makes verification fail, and
+re-verification additionally requires the CURRENT live filesystem
+identity of the durable root to equal the bound identity, so copying
+or remounting the qualified root onto different storage at the same
+pathname fails closed before scientific contact. `st_dev` is not
+claimed to be cryptographic or globally stable storage identity; the
+claim is only that Q5 detects the tested change in filesystem
+identity between arming, qualification, and verification.
 
 Exact threat boundary: the storage witness demonstrates that bytes
 written beneath the selected durable root were later observed intact
@@ -287,8 +313,8 @@ Q5 may additionally claim only:
     production qualification locked, and Stage 1 code importing no
     scientific substrate;
 17. the dedicated `rsi-006-q5-stage1-gate` CI workflow runs the
-    self-check and the 48 fixture contract tests on Stage 1
-    mechanism changes only;
+    self-check and the 51 fixture contract tests on Stage 1
+    mechanism changes only, and spec changes trigger that gate;
 18. in tested cases, a modified qualification-critical file with
     unchanged declared source identity is refused before any
     environment mutation (both the fixture byte-comparison path and
@@ -299,7 +325,18 @@ Q5 may additionally claim only:
     is absent, through the common preflight;
 20. in tested cases, a genuinely isolated venv (no `.pth`, installs
     disabled) fails at dependency admission with no baseline executed
-    and no receipt frozen.
+    and no receipt frozen;
+21. in tested cases, source drift after the initial preflight (a
+    manifest-governed file mutated mid-qualification, or the Airlock
+    HEAD moving with governed bytes unchanged) fails closed at the
+    final pre-freeze preflight: no receipt is frozen, the completed
+    attempt evidence is preserved exactly as produced, and a new
+    attempt is required once the source state is stable;
+22. in tested cases, receipt re-verification parses and cross-checks
+    the bound storage witness and rejects a changed CURRENT live
+    filesystem identity for the durable root, so a copy or remount of
+    the qualified root onto different storage at the same pathname
+    fails closed before scientific contact.
 
 Q5 does **not** claim: a production Stage 1 run, substrate
 qualification, scientific success, validation against real

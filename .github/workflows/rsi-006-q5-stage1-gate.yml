@@ -7,9 +7,10 @@ name: RSI-006-Q5 Stage 1 qualifier gate
 # because run_rsi_006_q5.py is absent from the execution manifest.
 #
 # Triggers ONLY on the Stage 1 mechanism files -- the qualifier, the
-# receipt module, the execution manifest, the Stage 1 tests, and this
-# workflow itself. Changes to the Q5 durability-ledger files keep
-# running under rsi-006-q5-gate.yml; this gate does not replace it.
+# receipt module, the execution manifest, the Stage 1 spec, the Stage 1
+# tests, and this workflow itself. Changes to the Q5 durability-ledger
+# files keep running under rsi-006-q5-gate.yml; this gate does not
+# replace it.
 #
 # No Stage 1 run happens here: the contract tests qualify tiny local
 # fixture Git repositories only. No real repositories are cloned, no
@@ -25,6 +26,7 @@ on:
       - "experiments/rsi-006-q5-durable-substrate-qualification/environment_receipt.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/execution_manifest.json"
       - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_stage1_qualifier.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
       - ".github/workflows/rsi-006-q5-stage1-gate.yml"
   pull_request:
     paths:
@@ -32,6 +34,7 @@ on:
       - "experiments/rsi-006-q5-durable-substrate-qualification/environment_receipt.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/execution_manifest.json"
       - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_stage1_qualifier.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
       - ".github/workflows/rsi-006-q5-stage1-gate.yml"
 
 permissions:

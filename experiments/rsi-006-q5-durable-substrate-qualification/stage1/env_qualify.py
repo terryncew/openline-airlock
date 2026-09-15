@@ -56,6 +56,7 @@ from __future__ import annotations
 
 import argparse
 import contextlib
+import copy
 import fcntl
 import json
 import os
@@ -112,6 +113,12 @@ class QualifierBindingError(Stage1Error):
 
 class WitnessError(Stage1Error):
     """The durable-storage witness is missing, corrupt, or unproven."""
+
+
+class SourceDriftError(Stage1Error):
+    """Source or environment binding drifted mid-qualification: the
+    pre-freeze preflight did not reproduce the initial binding, or the
+    Airlock HEAD moved during qualification."""
 
 
 class Stage1Locked(Stage1Error):
@@ -247,6 +254,35 @@ def preflight(repo_root: Path, q3_dir: Path, q3_receipt_path: Path,
     }
 
 
+def _require_stable_binding(initial_binding: dict, initial_head: str,
+                            final_binding: dict, final_head: str) -> None:
+    """Fail closed unless the pre-freeze preflight exactly reproduces the
+    initial source/environment binding and the Airlock HEAD is unchanged.
+
+    Pure comparison. A qualification must never span two source states:
+    on any drift no receipt may be frozen, the completed attempt
+    evidence is preserved exactly as produced, and a new Stage 1
+    attempt is required once the source state is stable. The receipt's
+    ``airlock_commit`` must come from the binding that survived both
+    checks, never from an unpaired final ``git rev-parse HEAD``.
+    """
+    problems = []
+    if final_head != initial_head:
+        problems.append(
+            "airlock source commit moved mid-qualification: "
+            f"initial={initial_head} at-freeze={final_head}")
+    if final_binding != initial_binding:
+        problems.append(
+            "source/environment binding drifted mid-qualification: "
+            "the final preflight does not reproduce the initial binding")
+    if problems:
+        raise SourceDriftError(
+            "; ".join(problems) + " -- refusing to freeze a receipt "
+            "spanning two source states; no receipt frozen, attempt "
+            "evidence preserved; repeat Stage 1 after the source state "
+            "is stable")
+
+
 def production_preflight() -> dict:
     """Preflight against the production layout (no overrides exist)."""
     p = _production_paths()
@@ -356,8 +392,9 @@ def read_boot_id() -> str:
 
 
 def _fs_identity(root: Path) -> dict:
-    st = os.stat(root)
-    return {"st_dev": st.st_dev}
+    # Single implementation lives in the receipt module (the verifier
+    # needs it too); this stays as the Stage 1-local name.
+    return q5_receipt.fs_identity(root)
 
 
 def _atomic_write_json(path: Path, obj: dict) -> None:
@@ -599,6 +636,14 @@ def qualify_env(
                    q4_sha256=layout["q4_sha256"],
                    manifest_required=manifest_required,
                    qualifier_provenance=qualifier_provenance)
+    # Snapshot the initial source/environment binding: the Airlock HEAD,
+    # the execution-manifest binding, the qualifier-code binding, the
+    # frozen Q3 receipt/code binding, and the frozen Q4 binding. The
+    # receipt may only freeze a binding that survives BOTH this
+    # preflight and the final pre-freeze revalidation -- a qualification
+    # must never span two source states.
+    initial_binding = copy.deepcopy(pf)
+    initial_head = q5_receipt.git_head(repo_root)
     manifest_binding = pf["manifest_binding"]
     qualifier_binding = pf["qualifier_binding"]
     preflight_note = {"manifest_sha256":
@@ -738,6 +783,24 @@ def qualify_env(
             }
 
         q3_code_hashes = dict(pf["q3_receipt"]["code_hashes"])
+
+        # Final preflight: re-run the exact same pure checks immediately
+        # before freezing, after baselines and after all attempt evidence
+        # is durable. Any mid-qualification source drift fails closed
+        # here: no receipt is frozen, the completed attempt evidence is
+        # preserved exactly as produced, and a new Stage 1 attempt is
+        # required once the source state is stable. The receipt's
+        # airlock_commit comes from the stable binding below, never
+        # from an unpaired final `git rev-parse HEAD`.
+        final_pf = preflight(
+            repo_root, q3_dir, q3_receipt_path, q4_path, manifest_path,
+            q3_receipt_sha256=layout["q3_receipt_sha256"],
+            q4_sha256=layout["q4_sha256"],
+            manifest_required=manifest_required,
+            qualifier_provenance=qualifier_provenance)
+        _require_stable_binding(initial_binding, initial_head,
+                                final_pf, q5_receipt.git_head(repo_root))
+
         receipt = q5_receipt.build_receipt(
             frozen_at=time.time(),
             python=python,
@@ -750,7 +813,7 @@ def qualify_env(
             baseline_evidence=frozen_baseline_evidence,
             attempt_id=attempt_id,
             attempt_evidence_files=evidence_files,
-            airlock_commit=q5_receipt.git_head(repo_root),
+            airlock_commit=initial_head,
             manifest_binding=manifest_binding,
             qualifier_binding=qualifier_binding,
             q3_code_hashes=q3_code_hashes,

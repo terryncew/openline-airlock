@@ -99,6 +99,17 @@ tree_hash = _q3_receipt.tree_hash
 repo_checkout_sha = _q3_receipt.repo_checkout_sha
 
 
+def fs_identity(path: Path) -> dict:
+    """Filesystem identity of ``path`` (pure read).
+
+    ``st_dev`` is not claimed to be cryptographic or globally stable
+    storage identity; it is only the tested signal Q5 uses to detect a
+    change of underlying storage between witness arming, qualification,
+    and receipt verification.
+    """
+    return {"st_dev": os.stat(path).st_dev}
+
+
 def interpreter_path_under_root(python: str, root: Path) -> bool:
     """True iff the selected interpreter *invocation path* lives beneath ``root``.
 
@@ -548,7 +559,15 @@ def verify_receipt(
         if sha256_file(p) != frozen_hash:
             raise ReceiptError(f"attempt evidence file drifted: {rel}")
 
-    # 11. Durable-storage witness bytes and root binding.
+    # 11. Durable-storage witness: the bound witness bytes are parsed
+    #     and every field is checked against the receipt, and the
+    #     CURRENT live filesystem identity of the durable root must
+    #     equal the bound identity. Copying or remounting the qualified
+    #     root onto different storage at the same pathname fails closed
+    #     here, before any scientific contact. st_dev is not claimed to
+    #     be cryptographic or globally stable storage identity; the
+    #     claim is only that Q5 detects the tested change in filesystem
+    #     identity between arming, qualification, and verification.
     wit = receipt["storage_witness"]
     if durable_root != Path(wit["durable_root"]):
         raise ReceiptError(
@@ -557,8 +576,32 @@ def verify_receipt(
     witness_path = durable_root / wit["witness_path"]
     if not witness_path.is_file():
         raise ReceiptError("storage witness missing from durable root")
-    if sha256_file(witness_path) != wit["witness_digest"]:
+    witness_bytes = witness_path.read_bytes()
+    if sha256_bytes(witness_bytes) != wit["witness_digest"]:
         raise ReceiptError("storage witness bytes drifted since freeze")
+    try:
+        witness = json.loads(witness_bytes)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise ReceiptError(f"storage witness corrupted: {e}") from None
+    if witness.get("schema") != WITNESS_SCHEMA:
+        raise ReceiptError(
+            f"storage witness schema mismatch: {witness.get('schema')!r}")
+    for field in ("durable_root", "armed_boot_id", "armed_at"):
+        if witness.get(field) != wit[field]:
+            raise ReceiptError(
+                f"storage witness field {field!r} differs from the "
+                f"frozen receipt: witness={witness.get(field)!r} "
+                f"receipt={wit[field]!r}")
+    if witness.get("fs") != wit["fs"]:
+        raise ReceiptError(
+            "storage witness filesystem identity differs from the "
+            "frozen receipt")
+    live_fs = fs_identity(durable_root)
+    if live_fs != wit["fs"]:
+        raise ReceiptError(
+            f"durable root filesystem identity changed since freeze: "
+            f"receipt={wit['fs']} live={live_fs}; the qualified root was "
+            f"moved or remounted onto different storage")
 
     # 12. The Stage 2 work directory must resolve beneath the
     #     receipt-bound durable root.
