@@ -725,10 +725,21 @@ produce **zero scientific child spawn**: the recorder exits before
 `Popen`. (The ledger's existing binding checks plus the Q6
 launch-sidecar/seal digest binding and the §7 config-digest check do
 this work; F3 proves it.) A small unit case is frozen alongside: the
-canonicalization must distinguish an environment value containing a
-newline (e.g. `{"A": "x\ny"}`) from the multi-key mapping the old
-`key=value` newline encoding could conflate (e.g. `{"A": "x", "y":
-""}`) — distinct canonical bytes, distinct digests.
+canonicalization must distinguish two mappings the old rejected
+encoding genuinely conflates:
+
+- Mapping A: `{"A": "x\nB=y"}`
+- Mapping B: `{"A": "x", "B": "y"}`
+
+Under the rejected old encoding
+(`"\n".join(f"{k}={v}" for k, v in sorted(env.items()))`) both
+produce exactly `A=x\nB=y`. The canonical JSON representation
+produces different bytes and therefore different SHA-256 digests.
+
+The frozen unit requirement: construct those two mappings; assert
+the old rejected newline serializer produces equal bytes; assert the
+canonical JSON serializer produces unequal bytes; assert their
+canonical SHA-256 digests differ.
 
 ### F4 — DUPLICATE / LATE SEAL
 
