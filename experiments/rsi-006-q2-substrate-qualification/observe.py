@@ -93,30 +93,6 @@ def run_suite_once(
     }
 
 
-def compute_kill(result: dict, baseline: dict[str, str]) -> bool:
-    """Scoring contract (RSI_006_Q2_SPEC.md): kill is behavioral only.
-
-    kill=True iff the mutant's observed behavior differs from the green
-    baseline:
-      - the suite run timed out (the baseline completes within the limit;
-        the timeout flag is preserved in the record), or
-      - at least one test outcome differs, counting tests missing from or
-        extra to the baseline set as differences.
-    A collection error is NEVER a kill: the suite could not be measured,
-    so there is no behavioral observation. Collection errors count only
-    against the collection-error sanity bound.
-    """
-    if result["collection_error"]:
-        return False
-    if result["timeout"]:
-        return True
-    outcomes = result["outcomes"]
-    for test_id, base_outcome in baseline.items():
-        if outcomes.get(test_id, "<missing>") != base_outcome:
-            return True
-    return bool(set(outcomes) - set(baseline))
-
-
 def observe_mutant(
     repo_cfg: dict,
     mutant: dict,
@@ -144,7 +120,16 @@ def observe_mutant(
         shutil.rmtree(run_dir, ignore_errors=True)
 
     outcomes = result["outcomes"]
-    kill = compute_kill(result, baseline)
+    kill = bool(result["collection_error"] or result["timeout"])
+    if not kill:
+        for test_id, base_outcome in baseline.items():
+            if outcomes.get(test_id, "<missing>") != base_outcome:
+                kill = True
+                break
+        else:
+            # Any test not in the baseline also counts as a behavior change.
+            if set(outcomes) - set(baseline):
+                kill = True
 
     return {
         "repo": repo_cfg["name"],

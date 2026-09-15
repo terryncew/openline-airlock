@@ -64,10 +64,10 @@ SEED_B = "RSI-006-Q-discovery-B"
 # only; no outcome data used). Verified by the feasibility guard before any
 # test execution.
 BUDGETS = {
-    "more-itertools": (72, 72, 10, 72),
-    "cachetools": (102, 102, 10, 102),
-    "boltons": (70, 70, 10, 70),
-    "pluggy": (51, 51, 10, 51),
+    "more-itertools": (72, 72, 10, 20),
+    "cachetools": (102, 102, 20, 60),
+    "boltons": (70, 70, 20, 60),
+    "pluggy": (51, 51, 20, 60),
 }
 
 POOL = [
@@ -143,6 +143,16 @@ def tree_hash(root: Path) -> str:
 
 def canonical_bytes(obs: dict) -> bytes:
     return json.dumps(obs, sort_keys=True, separators=(",", ":")).encode("utf-8")
+
+
+def discovery_seal_input(rows: list[dict]) -> bytes:
+    """Bytes the discovery seal covers.
+
+    The \\n-joined canonical observation bytes with no trailing newline.
+    The persisted {repo}-discovery.jsonl file is exactly these bytes plus
+    one trailing \\n (see persist_records).
+    """
+    return b"\n".join(canonical_bytes(o) for o in rows)
 
 
 def spearman(xs: list[float], ys: list[float]) -> float:
@@ -243,10 +253,10 @@ def self_check() -> None:
                    "NOT_QUALIFIED_RSI_006_SUBSTRATE",
                    "feasibility guard"):
         assert needle in text, f"spec missing frozen marker: {needle}"
-    for repo, budgets in (("more-itertools", "(72, 72, 10, 72)"),
-                          ("cachetools", "(102, 102, 10, 102)"),
-                          ("boltons", "(70, 70, 10, 70)"),
-                          ("pluggy", "(51, 51, 10, 51)")):
+    for repo, budgets in (("more-itertools", "(72, 72, 10, 20)"),
+                          ("cachetools", "(102, 102, 20, 60)"),
+                          ("boltons", "(70, 70, 20, 60)"),
+                          ("pluggy", "(51, 51, 20, 60)")):
         assert budgets in text, f"spec missing frozen budget for {repo}"
         assert BUDGETS[repo] == tuple(int(x) for x in
                                       budgets.strip("()").split(", ")), repo
@@ -484,7 +494,7 @@ def qualify(work_dir: Path, pool_dir: Path, workers: int, python: str) -> dict:
                     discoveries[name][half].sort(key=lambda o: o["mutant_id"])
         for name in discoveries:
             both = discoveries[name]["A"] + discoveries[name]["B"]
-            blob = b"\n".join(canonical_bytes(o) for o in both)
+            blob = discovery_seal_input(both)
             seal = hashlib.sha256(blob).hexdigest()
             (obs_dir / f"{name}-discovery.seal").write_text(seal + "\n")
             discoveries[name]["seal"] = seal

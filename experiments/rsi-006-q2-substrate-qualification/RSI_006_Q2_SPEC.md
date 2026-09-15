@@ -32,14 +32,16 @@ zero API spend — asserted by contract test, as in Q1.
 
 1. **Budgets.** Per-half discovery budgets raised to the exact minima at
    which the frozen "3 operators × 10 observations" requirement is
-   deterministically reachable under the frozen generator + frozen seeds:
+   deterministically reachable under the frozen generator + frozen seeds.
+   Determinism and confirmation budgets are unchanged from Q1 — only the
+   discovery halves needed enlargement for Q-STAB reachability:
 
    | repo | discovery A | discovery B | determinism | confirmation |
    |---|---|---|---|---|
-   | more-itertools | 72 | 72 | 10 | 72 |
-   | cachetools | 102 | 102 | 10 | 102 |
-   | boltons | 70 | 70 | 10 | 70 |
-   | pluggy | 51 | 51 | 10 | 51 |
+   | more-itertools | 72 | 72 | 10 | 20 |
+   | cachetools | 102 | 102 | 20 | 60 |
+   | boltons | 70 | 70 | 20 | 60 |
+   | pluggy | 51 | 51 | 20 | 60 |
 
    These minima were found by static site enumeration only (frozen
    generator, frozen seeds, candidate budgets) — no kill outcomes, no
@@ -47,8 +49,8 @@ zero API spend — asserted by contract test, as in Q1.
    halves of each repo share one budget.
 
    Frozen budget tuples (discovery_A, discovery_B, determinism,
-   confirmation): more-itertools (72, 72, 10, 72), cachetools
-   (102, 102, 10, 102), boltons (70, 70, 10, 70), pluggy (51, 51, 10, 51).
+   confirmation): more-itertools (72, 72, 10, 20), cachetools
+   (102, 102, 20, 60), boltons (70, 70, 20, 60), pluggy (51, 51, 20, 60).
 
 2. **Feasibility guard.** After SHA verification and before any test
    execution, for each repo and each discovery half, the runner enumerates
@@ -64,14 +66,19 @@ zero API spend — asserted by contract test, as in Q1.
 3. **Record persistence.** The runner persists canonical per-mutant
    records as JSONL (one canonical-JSON object per line, sorted by
    mutant_id; canonical form is `json.dumps(sort_keys=True,
-   separators=(",", ":"))`, the same bytes the discovery seal covers):
+   separators=(",", ":"))`). Canonical observation identity is behavioral
+   only: no durations, timings, or wall-clock values appear in any record.
    - `{repo}-discovery.jsonl` — every discovery observation
-     (mutant_id, operator, site_key, outcome signature, kill flag,
-     collection_error flag, duration)
+     (repo, mutant_id, operator, site_key, seed, outcome signature,
+     kill flag, collection_error flag, timeout flag)
    - `{repo}-confirmation.jsonl` — every confirmation observation
    - `{repo}-det-reruns.jsonl` — determinism rerun pairs
      (mutant_id, original record, rerun record, agree flag)
-   
+
+   Exact seal/file relationship: the discovery seal is SHA-256 over the
+   `\n`-joined canonical observation bytes with no trailing newline; the
+   persisted `{repo}-discovery.jsonl` file is exactly those bytes plus one
+   trailing `\n` (i.e. `sha256(file_bytes[:-1]) == discovery_seal`).
    The report binds each record file by SHA-256 (`record_digests`).
    Acceptance logic is unchanged: records are observability, not a new
    criterion.
@@ -157,21 +164,22 @@ fixed and defined without reference to any repository's semantics:
 
 Each mutant is applied to a pristine overlay copy of the package; the repo
 checkout is never modified. The suite runs against the overlay via
-`PYTHONPATH`. Outcomes are compared per-test to the green baseline. The
-scoring contract is exact: a mutant is *killed* iff its observed behavior
-differs from baseline — at least one test outcome differs (a test missing
-from, or extra to, the baseline set counts as a difference), or the suite
-run timed out (120 s limit; green baselines complete in ≤ ~25 s, so a
-timeout is a behavioral signal, and the timeout flag is preserved in the
-record).
+`PYTHONPATH`. Outcomes are compared per-test to the green baseline. Q2
+keeps Q1 scoring exactly: a mutant is *killed* when any of the following
+holds —
+- the suite run hit a collection error (missing or unparseable JUnit XML),
+- the suite run timed out (120 s limit; green baselines complete in
+  ≤ ~25 s),
+- any observed test outcome differs from baseline,
+- a baseline test disappears from the observed set,
+- a test extra to the baseline set appears.
 
 - Outcome signature: the sorted list of `(test_id, outcome)` pairs.
-- Collection error: missing or unparseable JUnit XML marks the observation
-  as a collection error. A collection error is NOT a kill: the suite could
-  not be measured, so there is no behavioral observation; it counts only
-  against the collection-error sanity bound (< 0.10). Test stdout/stderr
-  are suppressed by the harness; the cause of a collection error is
-  therefore unobserved and must be reported as such, never diagnosed.
+- Collection error: a collection error marks the observation as killed AND
+  counts independently against the collection-error sanity bound (< 0.10).
+  Test stdout/stderr are suppressed by the harness; the cause of a
+  collection error is therefore unobserved and must be reported as such,
+  never diagnosed.
 - Determinism rerun: the first `det_n` discovery-half-A mutants are
   re-observed; Q-DET requires byte-identical canonical observation
   records (agreement exactly 1.0).

@@ -137,11 +137,13 @@ def test_no_scientific_primary_surface():
 
 
 def test_budgets_match_frozen_spec():
+    # Q2 enlarges ONLY the discovery halves; determinism and confirmation
+    # keep their Q1 budgets.
     assert q.BUDGETS == {
-        "more-itertools": (72, 72, 10, 72),
-        "cachetools": (102, 102, 10, 102),
-        "boltons": (70, 70, 10, 70),
-        "pluggy": (51, 51, 10, 51),
+        "more-itertools": (72, 72, 10, 20),
+        "cachetools": (102, 102, 20, 60),
+        "boltons": (70, 70, 20, 60),
+        "pluggy": (51, 51, 20, 60),
     }
     # Q2 keeps the Q1 discovery seeds exactly.
     assert q.SEED_A == "RSI-006-Q-discovery-A"
@@ -289,40 +291,63 @@ def test_self_check_passes(capsys):
     assert "self-check clean" in out
 
 
-def test_compute_kill_scoring_contract():
-    # The spec's scoring contract, machine-checked: kill is behavioral only.
-    base = {"t::a": "passed", "t::b": "passed"}
-    # Collection error is never a kill, even with empty outcomes.
-    assert observe.compute_kill(
-        {"outcomes": {}, "collection_error": True, "timeout": False}, base
-    ) is False
-    # Timeout is a kill (baseline completed within the limit; flag preserved).
-    assert observe.compute_kill(
-        {"outcomes": {}, "collection_error": False, "timeout": True}, base
-    ) is True
-    # Identical outcomes: not killed.
-    assert observe.compute_kill(
-        {"outcomes": dict(base), "collection_error": False, "timeout": False},
-        base,
-    ) is False
-    # A changed outcome kills.
-    assert observe.compute_kill(
-        {"outcomes": {"t::a": "failed", "t::b": "passed"},
-         "collection_error": False, "timeout": False},
-        base,
-    ) is True
-    # A test missing from the observed set kills.
-    assert observe.compute_kill(
-        {"outcomes": {"t::a": "passed"},
-         "collection_error": False, "timeout": False},
-        base,
-    ) is True
-    # A test extra to the baseline set kills.
-    assert observe.compute_kill(
-        {"outcomes": {"t::a": "passed", "t::b": "passed", "t::c": "passed"},
-         "collection_error": False, "timeout": False},
-        base,
-    ) is True
+def test_observe_py_byte_identical_to_frozen_q1():
+    # Q2 keeps Q1 scoring exactly: the observation harness must be
+    # byte-identical to the frozen RSI-006-Q harness. 9f8dcfe broke this
+    # identity and is superseded; this test pins the restoration.
+    data = (EXP_DIR / "observe.py").read_bytes()
+    assert hashlib.sha256(data).hexdigest() == (
+        "b4556add9a67876a5c0040aeb3576de845934a74329c297cfe191afef7a7182c"
+    )
+
+
+def test_q1_scoring_contract_in_code_and_spec():
+    # Q1 scoring: a collection error marks the observation as killed
+    # (observe.py, byte-identical to frozen Q1) AND counts independently
+    # against the <0.10 sanity bound (runner). The spec must say both.
+    src = (EXP_DIR / "observe.py").read_text()
+    assert 'kill = bool(result["collection_error"] or result["timeout"])' in src
+    runner = (EXP_DIR / "run_rsi_006_q2.py").read_text()
+    assert 'o["collection_error"]' in runner
+    assert 'THRESH["collection_error_max"]' in runner
+    spec = (EXP_DIR / "RSI_006_Q2_SPEC.md").read_text()
+    assert "keeps Q1 scoring exactly" in spec
+    assert "marks the observation as killed AND" in spec
+    assert "counts independently against the collection-error sanity bound" in spec
+    assert "is NOT a kill" not in spec
+
+
+def test_discovery_seal_reconstructs_from_persisted_records(tmp_path):
+    # The actual defined transformation: the discovery seal covers the
+    # \n-joined canonical observation bytes with no trailing newline; the
+    # persisted JSONL file is exactly those bytes plus one trailing \n.
+    rows = [
+        {"repo": "tinypkg", "mutant_id": f"t-{i:04d}", "operator": "CMP_SWAP",
+         "site_key": f"m.py:{i}:0:CMP_SWAP", "seed": "s",
+         "outcomes": {"t::a": "passed"}, "kill": bool(i % 2),
+         "collection_error": False, "timeout": False}
+        for i in range(5)
+    ]
+    digests = {}
+    q.persist_records(tmp_path, digests, "tinypkg-discovery.jsonl", rows)
+    file_bytes = (tmp_path / "tinypkg-discovery.jsonl").read_bytes()
+    seal_input = q.discovery_seal_input(rows)
+    assert file_bytes == seal_input + b"\n"
+    assert (hashlib.sha256(file_bytes[:-1]).hexdigest()
+            == hashlib.sha256(seal_input).hexdigest())
+    assert digests["tinypkg-discovery.jsonl"] == hashlib.sha256(file_bytes).hexdigest()
+
+
+def test_canonical_records_carry_no_timing():
+    # Canonical observation identity is behavioral only: the old promise of
+    # a duration field must be gone, replaced by an explicit behavioral-only
+    # statement. (The word "durations" survives only inside that negative
+    # statement.)
+    spec = (EXP_DIR / "RSI_006_Q2_SPEC.md").read_text()
+    assert "collection_error flag, duration" not in spec
+    assert "behavioral\n   only" in spec or "behavioral only" in spec
+    runner = (EXP_DIR / "run_rsi_006_q2.py").read_text()
+    assert "duration" not in runner.lower()
 
 
 def test_bool_flip_quirk_matches_spec_description(tmp_path):
