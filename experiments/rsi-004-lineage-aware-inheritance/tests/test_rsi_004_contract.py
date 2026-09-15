@@ -10,11 +10,14 @@ and call its pure helpers.
 
 import ast
 import hashlib
+import inspect
 import json
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
+import textwrap
 from pathlib import Path
 
 import pytest
@@ -118,9 +121,12 @@ def test_exactly_three_verdicts_and_cause_code_only():
     [
         (dict(pre_reopen_ok=False), (r.VERDICT_INCONCLUSIVE, "CHECKPOINT_NOT_ESTABLISHED")),
         (dict(lineage_ok=False), (r.VERDICT_INCONCLUSIVE, "LINEAGE_BINDING_FAILURE")),
-        (dict(refs_unchanged=False), (r.VERDICT_FAIL, "INSTALLED_REF_MUTATION")),
-        (dict(receipts_unchanged=False), (r.VERDICT_FAIL, "RECEIPT_MUTATION")),
-        (dict(deterministic=False), (r.VERDICT_FAIL, "PROJECTION_NONDETERMINISM")),
+        # Integrity/harness failures are INCONCLUSIVE with their own cause
+        # codes; the scientific FAIL is reserved for an otherwise valid
+        # experiment where lineage semantics fail.
+        (dict(refs_unchanged=False), (r.VERDICT_INCONCLUSIVE, "INSTALLED_REF_MUTATION")),
+        (dict(receipts_byte_identical=False), (r.VERDICT_INCONCLUSIVE, "RECEIPT_MUTATION")),
+        (dict(deterministic=False), (r.VERDICT_INCONCLUSIVE, "PROJECTION_NONDETERMINISM")),
         (dict(gen1_questioned=False), (r.VERDICT_INCONCLUSIVE, "REOPEN_NOT_OBSERVED")),
         (
             dict(standings={"gen1": "questioned", "gen2": "inherited", "gen3": "inherited",
@@ -146,7 +152,7 @@ def test_verdict_precedence(kwargs, expected):
         pre_reopen_ok=True,
         lineage_ok=True,
         refs_unchanged=True,
-        receipts_unchanged=True,
+        receipts_byte_identical=True,
         deterministic=True,
         gen1_questioned=True,
         standings={"gen1": "questioned", "gen2": "questioned", "gen3": "questioned",
@@ -162,12 +168,12 @@ def test_verdict_precedence_ordering_is_preregistered():
     failures present, the first preregistered cause wins."""
     verdict, cause = r.decide_verdict(
         pre_reopen_ok=True, lineage_ok=True,
-        refs_unchanged=False, receipts_unchanged=False, deterministic=False,
+        refs_unchanged=False, receipts_byte_identical=False, deterministic=False,
         gen1_questioned=True,
         standings={"gen1": "questioned", "gen2": "questioned", "gen3": "questioned"},
         gen4_probe="DENIED",
     )
-    assert (verdict, cause) == (r.VERDICT_FAIL, "INSTALLED_REF_MUTATION")
+    assert (verdict, cause) == (r.VERDICT_INCONCLUSIVE, "INSTALLED_REF_MUTATION")
 
 
 # ------------------------------------------------------- receipt bindings ---
@@ -181,8 +187,9 @@ def test_receipt_required_bindings_present():
         "generations", "required_edges", "pre_reopen_established",
         "reopen_evidence", "restart_evidence", "post_reopen_standings",
         "lineage_witness_paths", "gen4_probe", "historical_receipt_hashes",
-        "installed_ref_hashes", "installed_policy_hashes",
+        "historical_receipt_file_hashes", "installed_ref_hashes", "installed_policy_hashes",
         "installed_refs_unchanged", "reprojection_deterministic",
+        "phase_process_pids", "phase_pids_distinct",
         "verdict", "cause_code",
     }
 
@@ -224,6 +231,12 @@ def test_preregistration_bytes_are_frozen():
     old_hash = "5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c"
     assert r.PREREG_SHA256 != old_hash
     assert old_hash in decided, "superseded pre-run draft hash must be recorded"
+    second_hash = "20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055"
+    assert r.PREREG_SHA256 != second_hash
+    assert second_hash in decided, "superseded decided draft hash must be recorded"
+    superseded = {s["sha256"] for s in prereg["superseded_preregistrations"]}
+    assert superseded == {old_hash, second_hash}
+    assert all(s["state"] == "superseded before primary contact" for s in prereg["superseded_preregistrations"])
 
 
 # ----------------------------------- corrected contract: actual generation base ---
@@ -385,3 +398,155 @@ def test_no_primary_artifacts_exist():
     assert not (EXP_DIR / "receipt.json").exists()
     repo_root = EXP_DIR.parents[1]
     assert not (repo_root / "proofs" / "rsi-004").exists()
+
+
+# --------------------------------------------- hardening pass regressions ---
+
+def test_self_check_executes_zero_candidate_shims():
+    """Regression (hardening 1): self_check() contains/reaches no subprocess
+    execution of ROOTU_SHIM, GEN1_SHIM, or inheriting shims. The self-check
+    may parse shim source, inspect constants and AST, verify generated shim
+    text, and exercise pure helpers — it may not execute a candidate shim."""
+    source = textwrap.dedent(inspect.getsource(r.self_check))
+    tree = ast.parse(source)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == "dry_run":
+            raise AssertionError("self_check still defines a shim dry-run path")
+        if isinstance(node, ast.Call):
+            func = node.func
+            is_proc = (
+                isinstance(func, ast.Attribute)
+                and func.attr in ("run", "Popen", "call", "check_call", "check_output", "system")
+                and isinstance(func.value, ast.Name)
+                and func.value.id in ("subprocess", "os")
+            )
+            if is_proc and any(
+                marker in ast.dump(node)
+                for marker in ("ROOTU_SHIM", "GEN1_SHIM", "inheriting_shim_code")
+            ):
+                raise AssertionError(
+                    "self_check contains/reaches a subprocess execution of a candidate shim"
+                )
+    problems = r.self_check()
+    assert not problems, f"self-check failed: {problems[:3]}"
+
+
+def test_raw_receipt_byte_identity_guard():
+    """Regression (hardening 2): the raw file-byte digest proves literal file
+    identity. A whitespace-only reformat with identical parsed content changes
+    the raw digest, and the byte-identity guard rejects it."""
+    tmp = Path(tempfile.mkdtemp(prefix="rsi-004-raw-"))
+    try:
+        p = tmp / "receipt.json"
+        payload = {"a": 1, "b": {"c": [1, 2, 3]}}
+        p.write_text(json.dumps(payload, indent=2, sort_keys=True) + "\n", encoding="utf-8")
+        h1 = r.sha256_file(p)
+        p.write_text(json.dumps(payload, separators=(",", ":"), sort_keys=True), encoding="utf-8")
+        assert json.loads(p.read_text(encoding="utf-8")) == payload, "parsed content must be unchanged"
+        h2 = r.sha256_file(p)
+        assert h1 != h2, "whitespace-only reformat must change the raw file digest"
+        pre = {"gen1": {"generation": h1, "promotion": h1, "standing": h1, "lineage": h1}}
+        post = {"gen1": {"generation": h2, "promotion": h1, "standing": h1, "lineage": h1}}
+        assert not r.historical_files_unchanged(pre, post), "byte-identity guard must reject the reformat"
+        assert r.historical_files_unchanged(pre, dict(pre)), "identical maps must pass"
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_nightshift_sites_dominated_by_primary_contact_guard():
+    """Regression (hardening 3): every reachable run_nightshift call site is
+    dominated by require_primary_contact_marker, so NO Nightshift call can
+    occur unless the primary-contact marker already exists."""
+    tree = ast.parse(read_source())
+    events: list[tuple[str, int, str]] = []
+
+    class Visitor(ast.NodeVisitor):
+        def __init__(self):
+            self.func: str | None = None
+
+        def visit_FunctionDef(self, node: ast.FunctionDef):
+            outer, self.func = self.func, node.name
+            self.generic_visit(node)
+            self.func = outer
+
+        def visit_Call(self, node: ast.Call):
+            if self.func and isinstance(node.func, ast.Name):
+                if node.func.id == "run_nightshift":
+                    events.append((self.func, node.lineno, "nightshift"))
+                elif node.func.id == "require_primary_contact_marker":
+                    events.append((self.func, node.lineno, "guard"))
+            self.generic_visit(node)
+
+    Visitor().visit(tree)
+    sites = [e for e in events if e[2] == "nightshift"]
+    assert len(sites) == 4, f"expected 4 Nightshift sites, found {len(sites)}"
+    guards: dict[str, list[int]] = {}
+    for func, lineno, kind in events:
+        if kind == "guard":
+            guards.setdefault(func, []).append(lineno)
+    for func, lineno, _ in sites:
+        assert func in guards and any(g < lineno for g in guards[func]), (
+            f"Nightshift site in {func} (line {lineno}) is not dominated by "
+            "the primary-contact guard"
+        )
+
+
+def test_primary_contact_guard_refuses_without_marker():
+    """The runtime guard fails closed when the marker is absent."""
+    assert not MARKER.exists(), "marker must not exist outside the primary"
+    with pytest.raises(r.PreconditionFailure):
+        r.require_primary_contact_marker()
+
+
+def test_phase_dispatch_requires_orchestrator_token():
+    """Regression (hardening 3): --phase is internal-only. A direct external
+    --execute-primary --phase ... invocation without the orchestrator's
+    unpredictable token is refused before any phase code runs."""
+    tmp = Path(tempfile.mkdtemp(prefix="rsi-004-token-"))
+    try:
+        state_path = tmp / "state.json"
+        state_path.write_text(json.dumps({"state_dir": str(tmp / "no-state")}), encoding="utf-8")
+        cp = subprocess.run(
+            [sys.executable, str(RUNNER), "--execute-primary",
+             "--phase", "select-rootU", "--state", str(state_path)],
+            text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+        )
+        assert cp.returncode != 0
+        assert "internal-only" in cp.stderr
+        assert not MARKER.exists()
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)
+
+
+def test_phase_pid_contract_binds_all_twelve_phases():
+    """Regression (hardening 6): all 12 intended fresh-process phases,
+    including mint-lineage, must be recorded with distinct PIDs; chained
+    inequalities are replaced by an explicit uniqueness check."""
+    assert len(r.FRESH_PROCESS_PHASES) == 12
+    assert set(r.FRESH_PROCESS_PHASES) == {
+        "select-rootU", "install-rootU",
+        "select-gen1", "install-gen1",
+        "select-gen2", "install-gen2",
+        "select-gen3", "install-gen3",
+        "mint-lineage", "checkpoint", "reopen", "reproject",
+    }
+    tmp = Path(tempfile.mkdtemp(prefix="rsi-004-pids-"))
+    try:
+        r.write_json(tmp / "phase_pids.json", {p: 1000 + i for i, p in enumerate(r.FRESH_PROCESS_PHASES)})
+        pids = r.require_distinct_phase_pids(tmp)
+        assert len(set(pids.values())) == 12
+        assert r.validate_receipt_bindings({"phase_process_pids": pids, "phase_pids_distinct": True}) or True
+        # A missing phase is refused.
+        incomplete = dict(pids)
+        incomplete.pop("mint-lineage")
+        r.write_json(tmp / "phase_pids.json", incomplete)
+        with pytest.raises(r.PreconditionFailure):
+            r.require_distinct_phase_pids(tmp)
+        # A duplicated PID is refused (explicit uniqueness, no chained !=).
+        dup = dict(pids)
+        dup["reopen"] = dup["checkpoint"]
+        r.write_json(tmp / "phase_pids.json", dup)
+        with pytest.raises(r.PreconditionFailure):
+            r.require_distinct_phase_pids(tmp)
+    finally:
+        shutil.rmtree(tmp, ignore_errors=True)

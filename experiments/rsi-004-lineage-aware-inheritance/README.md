@@ -26,7 +26,7 @@ dollar.
 | Airlock base (main) | `db9fb27aa154a240eed16c1ac7bf99401011f198` |
 | Verified Memory (pinned) | `36e3d0e0dab6a121abc1c14accbaa7310b5c2186` |
 | Verified Memory `evidence.py` SHA-256 | `ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9` |
-| Preregistration SHA-256 | `20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055` |
+| Preregistration SHA-256 | `8e9ceb9bc928c710920893a79fa99661f93d2456bc3acf1586a8175eb51ca8fd` |
 
 The preregistration (`RSI_004_PREREGISTRATION.json`) is copied byte-for-byte
 from the frozen design file and must not be regenerated or rewritten.
@@ -51,7 +51,9 @@ from the frozen design file and must not be regenerated or rewritten.
    questioned through gen2, rootU inherited.
 10. Compute the gen4-through-gen3 admission probe. **gen4 is never executed:
     there is no gen4 selection phase, install ref, or Nightshift path.**
-11. Require all historical receipts and installed refs/policies byte-identical.
+11. Require all historical receipts byte-identical as literal file bytes
+    (raw file sha256 before/after, plus the signed/canonical identities) and
+    all installed refs/policies byte-identical.
 12. Emit exactly one formal verdict and one cause code.
 
 Formal verdicts: `PASS_RSI_004_LINEAGE_AWARE_INHERITANCE`,
@@ -60,11 +62,11 @@ Formal verdicts: `PASS_RSI_004_LINEAGE_AWARE_INHERITANCE`,
 `cause_code` only.
 
 PASS only if the complete contract holds and gen4 is denied. Scientific FAIL
-only if the experiment is otherwise valid but questioned ancestry fails to
-prevent inheritance (gen2/gen3 staying inherited, or gen4 admitted). Harness
-and integrity failures are INCONCLUSIVE with the precise cause code, except
-where the frozen verdict precedence maps immutable-history/determinism
-failures to FAIL.
+only if the experiment is otherwise valid but required ancestry is not
+enforced (gen2/gen3 staying inherited, rootU questioned, or gen4 admitted).
+Harness and integrity failures are always INCONCLUSIVE with the precise cause
+code — they never become the scientific FAIL, because the propagation
+question was not validly put to the mechanism.
 
 ## Gates
 
@@ -74,9 +76,14 @@ failures to FAIL.
 - `--self-check` → same, explicit.
 - `--execute-primary` → the future authorized run. **Do not pass without
   explicit authorization.**
-- Anti-rescue begins at the first actual primary Nightshift contact: the
-  runner writes `.rsi-004-primary-contact` immediately before it, and the
-  self-check refuses to run if that marker exists.
+- `--phase` is internal-only: the orchestrator mints an unpredictable phase
+  token into its temporary state, and phase dispatch refuses to run without
+  the matching token — before any Nightshift contact.
+- Anti-rescue begins at the first ACTUAL primary Nightshift contact,
+  regardless of whether execution is local, CI, or pushed: the runner writes
+  `.rsi-004-primary-contact` immediately before it, every Nightshift site
+  requires the marker at runtime, and the self-check refuses to run if that
+  marker exists.
 
 ## Layout
 

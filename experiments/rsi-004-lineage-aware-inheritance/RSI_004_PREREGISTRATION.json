@@ -1,1 +1,260 @@
-{"anti_rescue":"After the first pushed RSI-004 run, do not change the generation count, the projector binding, the lineage schema, the lineage-aware projector rule, REOPEN semantics, the verdicts, or the falsifiers under the RSI-004 identifier. A failure — including FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED — requires a new experiment ID. RSI-003 remains permanently closed and untouched.","base":{"main_commit":"db9fb27aa154a240eed16c1ac7bf99401011f198","note":"Green main after the RSI-003 freeze. The RSI-004 branch must descend from this commit.","repository":"terryncew/openline-airlock"},"bindings":[{"id":"base_main_commit","kind":"pinned","value":"db9fb27aa154a240eed16c1ac7bf99401011f198","verification":"git merge-base --is-ancestor <value> HEAD on the RSI-004 branch. Self-check enforces; execution is refused otherwise."},{"id":"projector","kind":"pinned","value":{"commit":"36e3d0e0dab6a121abc1c14accbaa7310b5c2186","evidence_py_sha256":"ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9","init_py_sha256":"761654bb0d3ea6a2e8feefa15ada33629b4f9080f8014056808769bc3f0ee149","note":"PR #4 merged to main; merge commit. Repair commit bd12f8d is its second parent.","repo":"terryncew/openline-verified-memory"},"verification":"The repair was pushed to terryncew/openline-verified-memory and merged as 36e3d0e0dab6a121abc1c14accbaa7310b5c2186 (PR #4). The runner imports openline_verified_memory from the pinned commit and asserts sha256(evidence.py) equals the pinned digest; any mismatch fails closed. Self-check enforces; execution is refused otherwise."},{"id":"projector_adversarial_suite","kind":"pinned","value":{"new_lineage_tests":15,"suite":"tests/test_lineage_repair.py at the pinned projector commit","tests":24},"verification":"Bound to the pinned Verified Memory commit 36e3d0e0dab6a121abc1c14accbaa7310b5c2186 (PR #4, merged): the repair's own CI ran the pinned suite 24/24 green on Python 3.11, 3.12, and 3.13. The RSI-004 self-check asserts the pinned commit and the pinned evidence.py digest; it does not re-execute the projector suite and makes no claim to."},{"id":"generation_local_api_unchanged","kind":"pinned_rule","value":"derive_airlock_memory() at the pinned commit is behaviorally identical to the RSI-003-pinned projector (454c5a3b): 12-case differential, 0 mismatches, recorded in the repair review. The lineage repair adds the separate path derive_airlock_memory_with_lineage(); it does not alter the generation-local API.","verification":"Bound to the pinned commit: the 12-case differential was run against the pinned projector during the repair review (0 mismatches across 12 cases) and the evidence is recorded in that review. The RSI-004 self-check asserts the pinned evidence.py digest; it does not re-run the differential and makes no claim to."},{"id":"lineage_schema","kind":"pinned_rule","value":"Receiver-signed records, schema airlock.improvement.lineage.v1, HMAC-SHA256 under the airlock key. ROOT declaration: subject_lesson_id + subject_promotion_receipt_sha256, no parent fields. REQUIRED declaration: subject_lesson_id + subject_promotion_receipt_sha256 + parent_lesson_id + parent_promotion_receipt_sha256 + parent_selected_commit (40-64 hex) + parent_installed_policy_sha256, all signature-covered. Every installed generation carries exactly one lineage record.","verification":"The projector re-verifies every binding at each projection; the runner's self-check asserts the schema constant and required field set."},{"id":"lineage_aware_projector_rule","kind":"pinned_rule","value":"Every standing projection in run_rsi_004.py goes through project_lineage_memories(), the single choke point, which calls derive_airlock_memory_with_lineage exactly once per projection with: all generations' generation/promotion/standing records, the complete receiver-minted lineage record set, installed policy bytes per parent, and the airlock key. The harness mints the lineage set once before REOPEN and reuses the identical bytes after REOPEN; it never edits, reorders, or re-mints lineage records between projections. The lineage record-set sha256 is computed at minting, recomputed at checkpoint and at reprojection; both values are bound in the final receipt and must be equal.","verification":"Self-check parses run_rsi_004.py and asserts the only calls to derive_airlock_memory_with_lineage occur inside project_lineage_memories. The mint-lineage, checkpoint, and reproject phases each refuse on any lineage-set digest mismatch."},{"id":"generation_count","kind":"pinned","value":"Exactly four installed generations: gen1 (lineage ROOT), gen2 (REQUIRED -> gen1), gen3 (REQUIRED -> gen2), rootU (unrelated accepted root, lineage ROOT, standing RETAIN). Plus exactly one admission probe: gen4, which is NEVER executed.","verification":"Self-check asserts four installed refs exist and no gen4 install ref exists at end."},{"derivation":"Branch refs/heads/rsi-004/installed-gen1 is force-updated to gen1's Nightshift-selected commit during install-gen1. Byte hash = sha256 of `git cat-file commit <ref>` bytes.","id":"gen1_installed_ref","kind":"derived","verification":"Ref still at fixture base before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end — all four equal."},{"derivation":"Branch refs/heads/rsi-004/installed-gen2 is created at gen1's installed commit (gen2's base) and force-updated to gen2's Nightshift-selected commit during install-gen2. Byte hash = sha256 of `git cat-file commit <ref>` bytes.","id":"gen2_installed_ref","kind":"derived","verification":"Ref at gen2's base before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end — all four equal."},{"derivation":"Branch refs/heads/rsi-004/installed-gen3 is created at gen2's installed commit (gen3's base) and force-updated to gen3's Nightshift-selected commit during install-gen3. Byte hash = sha256 of `git cat-file commit <ref>` bytes.","id":"gen3_installed_ref","kind":"derived","verification":"Ref at gen3's base before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end — all four equal."},{"derivation":"Branch refs/heads/rsi-004/installed-rootU is created at the frozen fixture base (the same base as gen1, an unrelated sibling branch, not on the gen1 line) and force-updated to rootU's Nightshift-selected commit during install-rootU. Byte hash = sha256 of `git cat-file commit <ref>` bytes.","id":"rootU_installed_ref","kind":"derived","verification":"Fixture base verified before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end — all four equal."},{"derivation":"REOPEN(gen1) is minted by the airlock key and bound to gen1's exact promotion receipt sha256 and selected commit. A forged REOPEN (wrong key) negative control is rejected with EvidenceError and leaves gen1 inherited.","id":"reopen_validity","kind":"derived","verification":"Standing receipt for gen1 shows decision REOPEN with matching promotion binding before the restart boundary."},{"id":"restart_boundary","kind":"pinned_rule","value":"REOPEN is minted in one fresh process; the post-REOPEN lineage-aware reprojection runs in a new fresh process that reloads all receipts, lineage records, and installed policy bytes from disk. No in-memory standing state crosses the restart boundary.","verification":"The receipt records process IDs and the sha256 of every input file loaded by the reprojection process."},{"id":"historical_receipts_immutable","kind":"pinned_rule","value":"The byte hashes of all generation, promotion, standing, and lineage receipts are recorded before REOPEN and re-verified after reprojection. REOPEN changes standing judgment, not history: any receipt byte change is an invariant failure, not a standing outcome.","verification":"Receipt carries pre/post sha256 lists; any difference yields FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED with cause_code RECEIPT_MUTATION."},{"id":"gen4_admission_probe","kind":"pinned_rule","value":"After reprojection, the harness evaluates what derive_airlock_memory_with_lineage returns for a hypothetical gen4 with a REQUIRED lineage record bound to gen3. gen4's Nightshift and install are NEVER executed. Expected: gen4 questioned (witness airlock-lineage-questioned), i.e. admission DENIED. Building on the questioned line is not required to prove the gate holds.","verification":"The probe result is recorded in the receipt; ADMIT yields FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED."},{"id":"generation_base_rule","kind":"pinned_rule","value":"Selection verification diffs each generation's selected commit from its ACTUAL generation base: the frozen fixture base for rootU and gen1; the parent's exact installed (selected) commit for gen2 and gen3. The recorded selection base_commit is that actual base, cross-checked against the signed generation record's base_commit. A child diffed from the fixture base would count inherited parent changes (e.g. the gen1 policy change) as the child's candidate changes.","verification":"Self-check asserts _verify_selection_common derives the diff base via actual_generation_base and never diffs from the fixture base; the recorded selection base_commit equals the actual base. The regression test builds a synthetic three-commit chain and proves inherited parent changes are excluded from the child diff."}],"cause_codes":{"CHECKPOINT_NOT_ESTABLISHED":"A generation failed to establish at the pre-REOPEN checkpoint.","INSTALLED_REF_MUTATION":"Any installed-ref byte mutation at any point. REOPEN changes standing, not history.","LINEAGE_BINDING_FAILURE":"A lineage binding failed to verify at projection time (missing, forged, conflicting, dangling, incomplete, or cyclic lineage). Fail-closed is the correct projector behavior; the experiment cannot test propagation without valid lineage.","NONE":"No diagnostic; used with PASS.","PROJECTION_NONDETERMINISM":"Two independent reprojections from disk produced different projection outputs.","RECEIPT_MUTATION":"Any generation, promotion, standing, or lineage receipt byte change between checkpoint and reprojection. REOPEN changes standing judgment, not history.","REOPEN_NOT_OBSERVED":"gen1 was not questioned after the valid REOPEN was issued.","REQUIRED_ANCESTRY_NOT_ENFORCED":"A descendant of questioned gen1 kept inherited standing, or the unrelated accepted root was incorrectly questioned, or the gen4 admission probe was admitted through questioned gen3."},"claim_boundary":["Four installed generations plus one unexecuted admission probe. Not a claim about open-ended recursion.","Does not earn the final RSI claim: a later test still needs an inherited method mutation to beat its unchanged parent on fresh verified results per dollar.","Deterministic fake Hermes through the real Nightshift path; no paid live-Hermes claim.","Does not claim hostile-process isolation; the Hermes profile is not a sandbox.","Installation is isolated synthetic Git refs, not deployment authority.","The lineage records are minted by the experiment's receiver key; the experiment tests propagation under valid lineage, not lineage minting authority.","PASS under this ID validates the repaired projector's lineage semantics; it does not re-litigate RSI-003, which stays frozen."],"decided":"DECIDED — frozen before primary contact. This preregistration supersedes the earlier PROPOSED draft (sha256 5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c), which was set aside before any primary contact: no Nightshift generation, no REOPEN, no primary marker, and no result were ever produced under it. The sequence, pins, and verification texts below match run_rsi_004.py as committed. Primary execution remains gated behind --execute-primary and has not been authorized.","dependency":{"commit":"36e3d0e0dab6a121abc1c14accbaa7310b5c2186","evidence_py_sha256":"ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9","push_status":"Merged to main as 36e3d0e (PR #4). evidence.py at main == ba02bc78 (verified).","repository":"terryncew/openline-verified-memory","rule":"Exercised exactly as pinned. derive_airlock_memory() is unchanged (differential-proven). All standing projections go through the separate derive_airlock_memory_with_lineage() path with receiver-signed lineage records. The projector source is not modified during the experiment."},"experiment":"RSI-004","fixture":{"evaluator":"Frozen: .airlock/objective.json measure and tests/check.py are protected paths; no candidate may touch them.","hermes_shim":"Fixture executables as in RSI-003, extended: gen1 shim writes the STEP=2 policy (VALUE 0 -> 2); gen2 shim loads propose() only from the pristine gen1 installed archive, hash-asserts the gen1 policy binding, applies once (VALUE 2 -> 4); gen3 shim likewise binds gen2's installed policy (VALUE 4 -> 6); rootU shim runs from the same frozen fixture base on its own line (VALUE 0 -> 2 via the unrelated bonus axis). All enforce AIRLOCK_RELEASE_AUTHORITY=ABSENT and the fixture secret.","repo_files":["src/value.py (VALUE = 0)","src/policy.py (STEP = 1; propose(v) = v + STEP)","tests/check.py",".airlock/objective.json (maximize VALUE, minimum_gain 1)",".airlock/config.json (hermes provider -> fixture shim)"]},"generations":{"gen1":{"candidate_must_change":["src/policy.py","src/value.py"],"candidate_must_not_change":["tests/**",".airlock/**",".github/**"],"expected_gain":"VALUE 0 -> 2","generator":"Base policy STEP=1 from the fixture base.","lineage":"ROOT"},"gen2":{"candidate_must_change":["src/value.py"],"candidate_must_not_change":["src/policy.py"],"expected_gain":"VALUE 2 -> 4","generator":"Installed gen1 policy: src/policy.py bytes at R1-gen1, verified before Nightshift.","lineage":"REQUIRED -> gen1, binding gen2 promotion receipt, gen1 promotion receipt, gen1 selected commit, sha256(gen1 installed policy bytes)"},"gen3":{"candidate_must_change":["src/value.py"],"candidate_must_not_change":["src/policy.py"],"expected_gain":"VALUE 4 -> 6","generator":"Installed gen2 policy: src/policy.py bytes at R1-gen2, verified before Nightshift.","lineage":"REQUIRED -> gen2, binding gen3 promotion receipt, gen2 promotion receipt, gen2 selected commit, sha256(gen2 installed policy bytes)"},"rootU":{"candidate_must_change":["src/policy.py","src/value.py"],"candidate_must_not_change":["tests/**",".airlock/**",".github/**"],"expected_gain":"VALUE 0 -> 2 on the unrelated sibling branch","generator":"Base policy STEP=1 from the same frozen fixture base (sibling branch); unrelated bonus-axis improvement; standing RETAIN (accepted).","lineage":"ROOT"}},"invariant_under_test":"standing follows required lineage: a generation's standing can be no cleaner than the standing of the generation its REQUIRED lineage binds it to; questioning propagates transitively to a deterministic fixed point; unrelated accepted branches are preserved; installation is history, standing is judgment.","negative_controls":["Forged REOPEN signed with the wrong key is rejected; gen1 standing unchanged.","The repair's adversarial suite (15 new lineage tests; 24/24 green in the pinned repair's own CI on Python 3.11, 3.12, and 3.13) bounds the projector semantics: missing/forged/conflicting/dangling/incomplete/cyclic lineage all fail closed with no clean inheritance.","gen4 admission probe: the probe is computed, never executed; ADMIT is a failure of the gate, not a step toward building gen4."],"projector_finding":"derive_airlock_memory_with_lineage at the pinned repair commit derives local standing first with the exact pre-repair rules, then propagates questioned standing transitively through receiver-signed REQUIRED lineage dependencies to a deterministic fixed point (Claim Graph impact pattern, reimplemented natively). Missing, forged, conflicting, dangling, incomplete, or cyclic lineage fails closed. The generation-local derive_airlock_memory() is unchanged: 12-case differential vs 454c5a3b, 0 mismatches.","question":"With a lineage-aware projector, when gen1's receiver evidence is reopened, does questioned standing propagate transitively through receiver-signed REQUIRED lineage to gen2 and gen3 — while an unrelated accepted root survives, historical receipts stay byte-identical, installed refs stay byte-identical, and a gen4 admission probe through gen3 is denied?","schema":"airlock.rsi-004.preregistration.v1","sequence":["select-rootU (fresh process): Nightshift selects exactly one winner from the frozen fixture base. No lineage is minted here.","install-rootU (fresh process): install exact selected commit at refs/heads/rsi-004/installed-rootU; promotion receipt signed and bound; standing RETAIN recorded (accepted branch); rootU install-ref byte hash recorded.","select-gen1 (fresh process): Nightshift selects exactly one winner from the frozen fixture base. No lineage is minted here.","install-gen1 (fresh process): install exact selected commit at refs/heads/rsi-004/installed-gen1; promotion receipt signed and bound; standing 'inherited'; gen1 install-ref byte hash recorded.","select-gen2 (fresh process): gen2 work branch starts from gen1's installed commit; pristine archive extracted; installed-policy binding verified before Nightshift; Nightshift with gen2 shim; selection verified against gen2's ACTUAL base (gen1's installed commit), so inherited gen1 policy changes are not counted as gen2's candidate changes.","install-gen2 (fresh process): install exact selected commit at refs/heads/rsi-004/installed-gen2; promotion receipt signed and bound; standing 'inherited'; gen2 install-ref byte hash recorded.","select-gen3 + install-gen3 (fresh processes): same pattern on the gen2 line; gen3's actual base is gen2's installed commit.","mint-lineage (fresh process): receiver-signed lineage records minted from the ACTUAL promotion receipts and installed-policy bytes on disk: ROOT for rootU and gen1, REQUIRED for gen2 -> gen1 and gen3 -> gen2. The lineage record-set sha256 is recorded.","checkpoint projection (fresh process): lineage-aware projection over all four generations; expected all 'inherited'; all receipt byte hashes recorded; lineage record-set sha256 recomputed from disk and required equal to the mint value.","valid REOPEN(gen1) (fresh process): minted by the airlock key, bound to gen1's promotion receipt; forged-REOPEN negative control rejected.","RESTART BOUNDARY: reprojection (fresh process) reloads all receipts, lineage records, and installed policy bytes from disk; lineage record-set sha256 recomputed and required equal to the checkpoint value; both values bound in the receipt.","reprojection: expected gen1 questioned (local rule), gen2 and gen3 questioned (witness airlock-lineage-questioned, ancestor paths gen2 -> gen1 and gen3 -> gen2 -> gen1 recorded), rootU inherited.","gen4 admission probe (no execution): evaluate the projection for a hypothetical gen4 with REQUIRED lineage to gen3; expected questioned / DENY.","verdict: apply verdict_precedence; write receipt with all hashes, process IDs, and projection outputs."],"title":"Lineage-aware inheritance: transitive questioned-standing propagation through receiver-signed required lineage","verdict_precedence":["Pre-REOPEN precondition failure (any generation not inherited at checkpoint -> cause_code CHECKPOINT_NOT_ESTABLISHED; any lineage binding unverifiable -> cause_code LINEAGE_BINDING_FAILURE) -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE.","Any installed-ref byte mutation -> FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED with cause_code INSTALLED_REF_MUTATION.","Any historical receipt byte mutation -> FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED with cause_code RECEIPT_MUTATION.","Post-reprojection outputs differ across two independent reprojections -> FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED with cause_code PROJECTION_NONDETERMINISM.","gen1 not questioned after valid REOPEN -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with cause_code REOPEN_NOT_OBSERVED.","gen1 questioned, gen2 questioned, gen3 questioned, rootU inherited, gen4 probe DENIED, all receipts and refs byte-identical, reprojection deterministic -> PASS_RSI_004_LINEAGE_AWARE_INHERITANCE with cause_code NONE.","gen1 questioned but any of gen2/gen3 inherited, or rootU questioned, or gen4 probe ADMITTED -> FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED with cause_code REQUIRED_ANCESTRY_NOT_ENFORCED.","Any other post-projection combination -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with the nearest cause_code."],"verdicts":{"FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED":"The lineage-aware projector ran, but required ancestry was not enforced. The exact diagnostic is carried in cause_code; the formal verdict is always this FAIL.","INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE":"The propagation question could not be put to the mechanism. The exact diagnostic is carried in cause_code; the formal verdict is always this INCONCLUSIVE.","PASS_RSI_004_LINEAGE_AWARE_INHERITANCE":"gen1 questioned after valid REOPEN (local rule); gen2 and gen3 questioned after reprojection with deterministic ancestor/witness paths recorded; unrelated accepted root rootU remains inherited; gen4 admission probe through gen3 denied (computed, not executed); all historical receipts byte-identical; all installed refs byte-identical; reprojection deterministic."}}
+{
+  "anti_rescue": "Anti-rescue begins at the first ACTUAL primary Nightshift contact, regardless of whether execution is local, CI, or pushed. After that contact, do not change the generation count, the projector binding, the lineage schema, the lineage-aware projector rule, REOPEN semantics, the verdicts, or the falsifiers under the RSI-004 identifier. A failure \u2014 including FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED \u2014 requires a new experiment ID. RSI-003 remains permanently closed and untouched. The --phase path is internal-only: the orchestrator mints an unpredictable phase token into its temporary state, and phase dispatch refuses to run without the matching token before any Nightshift contact; every Nightshift site additionally requires the primary-contact marker at runtime.",
+  "base": {
+    "main_commit": "db9fb27aa154a240eed16c1ac7bf99401011f198",
+    "note": "Green main after the RSI-003 freeze. The RSI-004 branch must descend from this commit.",
+    "repository": "terryncew/openline-airlock"
+  },
+  "bindings": [
+    {
+      "id": "base_main_commit",
+      "kind": "pinned",
+      "value": "db9fb27aa154a240eed16c1ac7bf99401011f198",
+      "verification": "git merge-base --is-ancestor <value> HEAD on the RSI-004 branch. Self-check enforces; execution is refused otherwise."
+    },
+    {
+      "id": "projector",
+      "kind": "pinned",
+      "value": {
+        "commit": "36e3d0e0dab6a121abc1c14accbaa7310b5c2186",
+        "evidence_py_sha256": "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9",
+        "init_py_sha256": "761654bb0d3ea6a2e8feefa15ada33629b4f9080f8014056808769bc3f0ee149",
+        "note": "PR #4 merged to main; merge commit. Repair commit bd12f8d is its second parent.",
+        "repo": "terryncew/openline-verified-memory"
+      },
+      "verification": "The repair was pushed to terryncew/openline-verified-memory and merged as 36e3d0e0dab6a121abc1c14accbaa7310b5c2186 (PR #4). The runner imports openline_verified_memory from the pinned commit and asserts sha256(evidence.py) equals the pinned digest; any mismatch fails closed. Self-check enforces; execution is refused otherwise."
+    },
+    {
+      "id": "projector_adversarial_suite",
+      "kind": "pinned",
+      "value": {
+        "new_lineage_tests": 15,
+        "suite": "tests/test_lineage_repair.py at the pinned projector commit",
+        "tests": 24
+      },
+      "verification": "Bound to the pinned Verified Memory commit 36e3d0e0dab6a121abc1c14accbaa7310b5c2186 (PR #4, merged): the repair's own CI ran the pinned suite 24/24 green on Python 3.11, 3.12, and 3.13. The RSI-004 self-check asserts the pinned commit and the pinned evidence.py digest; it does not re-execute the projector suite and makes no claim to."
+    },
+    {
+      "id": "generation_local_api_unchanged",
+      "kind": "pinned_rule",
+      "value": "derive_airlock_memory() at the pinned commit is behaviorally identical to the RSI-003-pinned projector (454c5a3b): 12-case differential, 0 mismatches, recorded in the repair review. The lineage repair adds the separate path derive_airlock_memory_with_lineage(); it does not alter the generation-local API.",
+      "verification": "Bound to the pinned commit: the 12-case differential was run against the pinned projector during the repair review (0 mismatches across 12 cases) and the evidence is recorded in that review. The RSI-004 self-check asserts the pinned evidence.py digest; it does not re-run the differential and makes no claim to."
+    },
+    {
+      "id": "lineage_schema",
+      "kind": "pinned_rule",
+      "value": "Receiver-signed records, schema airlock.improvement.lineage.v1, HMAC-SHA256 under the airlock key. ROOT declaration: subject_lesson_id + subject_promotion_receipt_sha256, no parent fields. REQUIRED declaration: subject_lesson_id + subject_promotion_receipt_sha256 + parent_lesson_id + parent_promotion_receipt_sha256 + parent_selected_commit (40-64 hex) + parent_installed_policy_sha256, all signature-covered. Every installed generation carries exactly one lineage record.",
+      "verification": "The projector re-verifies every binding at each projection; the runner's self-check asserts the schema constant and required field set."
+    },
+    {
+      "id": "lineage_aware_projector_rule",
+      "kind": "pinned_rule",
+      "value": "Every standing projection in run_rsi_004.py goes through project_lineage_memories(), the single choke point, which calls derive_airlock_memory_with_lineage exactly once per projection with: all generations' generation/promotion/standing records, the complete receiver-minted lineage record set, installed policy bytes per parent, and the airlock key. The harness mints the lineage set once before REOPEN and reuses the identical bytes after REOPEN; it never edits, reorders, or re-mints lineage records between projections. The lineage record-set sha256 is computed at minting, recomputed at checkpoint and at reprojection; both values are bound in the final receipt and must be equal.",
+      "verification": "Self-check parses run_rsi_004.py and asserts the only calls to derive_airlock_memory_with_lineage occur inside project_lineage_memories. The mint-lineage, checkpoint, and reproject phases each refuse on any lineage-set digest mismatch. lineage_record_set_sha256 is a canonical-content/set digest over the minted lineage record set, not raw byte identity; historical raw file hashes are the byte-identity proof for the persisted receipt files."
+    },
+    {
+      "id": "generation_count",
+      "kind": "pinned",
+      "value": "Exactly four installed generations: gen1 (lineage ROOT), gen2 (REQUIRED -> gen1), gen3 (REQUIRED -> gen2), rootU (unrelated accepted root, lineage ROOT, standing RETAIN). Plus exactly one admission probe: gen4, which is NEVER executed.",
+      "verification": "The four install phases assert each install ref's byte state at install time and the checkpoint freezes those hashes; the receipt binds exactly four installed generations and the receipt validator rejects any other shape. gen4 has no install ref, no Nightshift, and no installation: its probe records executed=false with a computed disposition only."
+    },
+    {
+      "derivation": "Branch refs/heads/rsi-004/installed-gen1 is force-updated to gen1's Nightshift-selected commit during install-gen1. Byte hash = sha256 of `git cat-file commit <ref>` bytes.",
+      "id": "gen1_installed_ref",
+      "kind": "derived",
+      "verification": "Ref still at fixture base before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end \u2014 all four equal."
+    },
+    {
+      "derivation": "Branch refs/heads/rsi-004/installed-gen2 is created at gen1's installed commit (gen2's base) and force-updated to gen2's Nightshift-selected commit during install-gen2. Byte hash = sha256 of `git cat-file commit <ref>` bytes.",
+      "id": "gen2_installed_ref",
+      "kind": "derived",
+      "verification": "Ref at gen2's base before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end \u2014 all four equal."
+    },
+    {
+      "derivation": "Branch refs/heads/rsi-004/installed-gen3 is created at gen2's installed commit (gen3's base) and force-updated to gen3's Nightshift-selected commit during install-gen3. Byte hash = sha256 of `git cat-file commit <ref>` bytes.",
+      "id": "gen3_installed_ref",
+      "kind": "derived",
+      "verification": "Ref at gen3's base before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end \u2014 all four equal."
+    },
+    {
+      "derivation": "Branch refs/heads/rsi-004/installed-rootU is created at the frozen fixture base (the same base as gen1, an unrelated sibling branch, not on the gen1 line) and force-updated to rootU's Nightshift-selected commit during install-rootU. Byte hash = sha256 of `git cat-file commit <ref>` bytes.",
+      "id": "rootU_installed_ref",
+      "kind": "derived",
+      "verification": "Fixture base verified before install; observed ref equals selected commit after install; byte hash recorded at install and re-verified pre-REOPEN, post-REOPEN, and at end \u2014 all four equal."
+    },
+    {
+      "derivation": "REOPEN(gen1) is minted by the airlock key and bound to gen1's exact promotion receipt sha256 and selected commit. A forged REOPEN (wrong key) negative control is rejected with EvidenceError and leaves gen1 inherited.",
+      "id": "reopen_validity",
+      "kind": "derived",
+      "verification": "Standing receipt for gen1 shows decision REOPEN with matching promotion binding before the restart boundary."
+    },
+    {
+      "id": "restart_boundary",
+      "kind": "pinned_rule",
+      "value": "REOPEN is minted in one fresh process; the post-REOPEN lineage-aware reprojection runs in a new fresh process that reloads all receipts, lineage records, and installed policy bytes from disk. No in-memory standing state crosses the restart boundary.",
+      "verification": "The receipt records the checkpoint, reopen, and reproject process IDs and asserts their distinctness with an explicit uniqueness check (len of the PID set == 3), plus the complete 12-phase process-PID map (all phases distinct, including mint-lineage). Every persisted evidence class is hashed: raw file sha256 of each historical receipt file (generation, promotion, pre-existing standing, lineage) recorded at checkpoint and re-verified at reprojection; installed-ref byte sha256 and installed-policy byte sha256 at install, checkpoint, and reprojection; the lineage record-set sha256 (canonical-content/set digest) at minting, checkpoint, and reprojection."
+    },
+    {
+      "id": "historical_receipts_immutable",
+      "kind": "pinned_rule",
+      "value": "The RAW file-byte sha256 of every historical receipt file (generation, promotion, pre-existing standing, lineage) is recorded before REOPEN and re-verified after reprojection. 'Byte-identical historical receipts' means literal file bytes: a whitespace-only reformat that leaves canonical parsing unchanged still changes the raw digest. The new REOPEN(gen1) standing record is new evidence, bound separately in reopen_evidence, not a mutation of history. REOPEN changes standing judgment, not history: any historical receipt byte change is an invariant failure, not a standing outcome.",
+      "verification": "Receipt carries pre/post raw file sha256 maps plus signed/canonical receipt identities; any raw byte difference yields INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with cause_code RECEIPT_MUTATION."
+    },
+    {
+      "id": "gen4_admission_probe",
+      "kind": "pinned_rule",
+      "value": "After reprojection, the harness evaluates what derive_airlock_memory_with_lineage returns for a hypothetical gen4 with a REQUIRED lineage record bound to gen3. gen4's Nightshift and install are NEVER executed. Expected: gen4 questioned (witness airlock-lineage-questioned), i.e. admission DENIED. Building on the questioned line is not required to prove the gate holds.",
+      "verification": "The probe result is recorded in the receipt; ADMIT yields FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED."
+    },
+    {
+      "id": "generation_base_rule",
+      "kind": "pinned_rule",
+      "value": "Selection verification diffs each generation's selected commit from its ACTUAL generation base: the frozen fixture base for rootU and gen1; the parent's exact installed (selected) commit for gen2 and gen3. The recorded selection base_commit is that actual base, cross-checked against the signed generation record's base_commit. A child diffed from the fixture base would count inherited parent changes (e.g. the gen1 policy change) as the child's candidate changes.",
+      "verification": "Self-check asserts _verify_selection_common derives the diff base via actual_generation_base and never diffs from the fixture base; the recorded selection base_commit equals the actual base. The regression test builds a synthetic three-commit chain and proves inherited parent changes are excluded from the child diff."
+    }
+  ],
+  "cause_codes": {
+    "CHECKPOINT_NOT_ESTABLISHED": "A generation failed to establish at the pre-REOPEN checkpoint.",
+    "INSTALLED_REF_MUTATION": "Any installed-ref byte mutation at any point. REOPEN changes standing, not history.",
+    "LINEAGE_BINDING_FAILURE": "A lineage binding failed to verify at projection time (missing, forged, conflicting, dangling, incomplete, or cyclic lineage). Fail-closed is the correct projector behavior; the experiment cannot test propagation without valid lineage.",
+    "NONE": "No diagnostic; used with PASS.",
+    "PROJECTION_NONDETERMINISM": "Two independent reprojections from disk produced different projection outputs.",
+    "RECEIPT_MUTATION": "Any generation, promotion, standing, or lineage receipt byte change between checkpoint and reprojection. REOPEN changes standing judgment, not history.",
+    "REOPEN_NOT_OBSERVED": "gen1 was not questioned after the valid REOPEN was issued.",
+    "REQUIRED_ANCESTRY_NOT_ENFORCED": "A descendant of questioned gen1 kept inherited standing, or the unrelated accepted root was incorrectly questioned, or the gen4 admission probe was admitted through questioned gen3."
+  },
+  "claim_boundary": [
+    "Four installed generations plus one unexecuted admission probe. Not a claim about open-ended recursion.",
+    "Does not earn the final RSI claim: a later test still needs an inherited method mutation to beat its unchanged parent on fresh verified results per dollar.",
+    "Deterministic fake Hermes through the real Nightshift path; no paid live-Hermes claim.",
+    "Does not claim hostile-process isolation; the Hermes profile is not a sandbox.",
+    "Installation is isolated synthetic Git refs, not deployment authority.",
+    "The lineage records are minted by the experiment's receiver key; the experiment tests propagation under valid lineage, not lineage minting authority.",
+    "PASS under this ID validates the repaired projector's lineage semantics; it does not re-litigate RSI-003, which stays frozen."
+  ],
+  "decided": "DECIDED \u2014 final frozen pre-primary preregistration. This supersedes the two prior drafts (sha256 5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c and sha256 20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055), both set aside before any primary contact: no Nightshift generation, no candidate execution, no REOPEN, no primary marker, and no result were ever produced under either. The sequence, pins, and verification texts below match run_rsi_004.py as committed. Primary execution remains gated behind --execute-primary and has not been authorized.",
+  "dependency": {
+    "commit": "36e3d0e0dab6a121abc1c14accbaa7310b5c2186",
+    "evidence_py_sha256": "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9",
+    "push_status": "Merged to main as 36e3d0e (PR #4). evidence.py at main == ba02bc78 (verified).",
+    "repository": "terryncew/openline-verified-memory",
+    "rule": "Exercised exactly as pinned. derive_airlock_memory() is unchanged (differential-proven). All standing projections go through the separate derive_airlock_memory_with_lineage() path with receiver-signed lineage records. The projector source is not modified during the experiment."
+  },
+  "experiment": "RSI-004",
+  "fixture": {
+    "evaluator": "Frozen: .airlock/objective.json measure and tests/check.py are protected paths; no candidate may touch them.",
+    "hermes_shim": "Fixture executables as in RSI-003, extended: gen1 shim writes the STEP=2 policy (VALUE 0 -> 2); gen2 shim loads propose() only from the pristine gen1 installed archive, hash-asserts the gen1 policy binding, applies once (VALUE 2 -> 4); gen3 shim likewise binds gen2's installed policy (VALUE 4 -> 6); rootU shim runs from the same frozen fixture base on its own line (VALUE 0 -> 2 via the unrelated bonus axis). All enforce AIRLOCK_RELEASE_AUTHORITY=ABSENT and the fixture secret.",
+    "repo_files": [
+      "src/value.py (VALUE = 0)",
+      "src/policy.py (STEP = 1; propose(v) = v + STEP)",
+      "tests/check.py",
+      ".airlock/objective.json (maximize VALUE, minimum_gain 1)",
+      ".airlock/config.json (hermes provider -> fixture shim)"
+    ]
+  },
+  "generations": {
+    "gen1": {
+      "candidate_must_change": [
+        "src/policy.py",
+        "src/value.py"
+      ],
+      "candidate_must_not_change": [
+        "tests/**",
+        ".airlock/**",
+        ".github/**"
+      ],
+      "expected_gain": "VALUE 0 -> 2",
+      "generator": "Base policy STEP=1 from the fixture base.",
+      "lineage": "ROOT"
+    },
+    "gen2": {
+      "candidate_must_change": [
+        "src/value.py"
+      ],
+      "candidate_must_not_change": [
+        "src/policy.py"
+      ],
+      "expected_gain": "VALUE 2 -> 4",
+      "generator": "Installed gen1 policy: src/policy.py bytes at R1-gen1, verified before Nightshift.",
+      "lineage": "REQUIRED -> gen1, binding gen2 promotion receipt, gen1 promotion receipt, gen1 selected commit, sha256(gen1 installed policy bytes)"
+    },
+    "gen3": {
+      "candidate_must_change": [
+        "src/value.py"
+      ],
+      "candidate_must_not_change": [
+        "src/policy.py"
+      ],
+      "expected_gain": "VALUE 4 -> 6",
+      "generator": "Installed gen2 policy: src/policy.py bytes at R1-gen2, verified before Nightshift.",
+      "lineage": "REQUIRED -> gen2, binding gen3 promotion receipt, gen2 promotion receipt, gen2 selected commit, sha256(gen2 installed policy bytes)"
+    },
+    "rootU": {
+      "candidate_must_change": [
+        "src/policy.py",
+        "src/value.py"
+      ],
+      "candidate_must_not_change": [
+        "tests/**",
+        ".airlock/**",
+        ".github/**"
+      ],
+      "expected_gain": "VALUE 0 -> 2 on the unrelated sibling branch",
+      "generator": "Base policy STEP=1 from the same frozen fixture base (sibling branch); unrelated bonus-axis improvement; standing RETAIN (accepted).",
+      "lineage": "ROOT"
+    }
+  },
+  "invariant_under_test": "standing follows required lineage: a generation's standing can be no cleaner than the standing of the generation its REQUIRED lineage binds it to; questioning propagates transitively to a deterministic fixed point; unrelated accepted branches are preserved; installation is history, standing is judgment.",
+  "negative_controls": [
+    "Forged REOPEN signed with the wrong key is rejected; gen1 standing unchanged.",
+    "The repair's adversarial suite (15 new lineage tests; 24/24 green in the pinned repair's own CI on Python 3.11, 3.12, and 3.13) bounds the projector semantics: missing/forged/conflicting/dangling/incomplete/cyclic lineage all fail closed with no clean inheritance.",
+    "gen4 admission probe: the probe is computed, never executed; ADMIT is a failure of the gate, not a step toward building gen4."
+  ],
+  "projector_finding": "derive_airlock_memory_with_lineage at the pinned repair commit derives local standing first with the exact pre-repair rules, then propagates questioned standing transitively through receiver-signed REQUIRED lineage dependencies to a deterministic fixed point (Claim Graph impact pattern, reimplemented natively). Missing, forged, conflicting, dangling, incomplete, or cyclic lineage fails closed. The generation-local derive_airlock_memory() is unchanged: 12-case differential vs 454c5a3b, 0 mismatches.",
+  "question": "With a lineage-aware projector, when gen1's receiver evidence is reopened, does questioned standing propagate transitively through receiver-signed REQUIRED lineage to gen2 and gen3 \u2014 while an unrelated accepted root survives, historical receipts stay byte-identical, installed refs stay byte-identical, and a gen4 admission probe through gen3 is denied?",
+  "schema": "airlock.rsi-004.preregistration.v1",
+  "sequence": [
+    "select-rootU (fresh process): Nightshift selects exactly one winner from the frozen fixture base. No lineage is minted here.",
+    "install-rootU (fresh process): install exact selected commit at refs/heads/rsi-004/installed-rootU; promotion receipt signed and bound; standing RETAIN recorded (accepted branch); rootU install-ref byte hash recorded.",
+    "select-gen1 (fresh process): Nightshift selects exactly one winner from the frozen fixture base. No lineage is minted here.",
+    "install-gen1 (fresh process): install exact selected commit at refs/heads/rsi-004/installed-gen1; promotion receipt signed and bound; standing 'inherited'; gen1 install-ref byte hash recorded.",
+    "select-gen2 (fresh process): gen2 work branch starts from gen1's installed commit; pristine archive extracted; installed-policy binding verified before Nightshift; Nightshift with gen2 shim; selection verified against gen2's ACTUAL base (gen1's installed commit), so inherited gen1 policy changes are not counted as gen2's candidate changes.",
+    "install-gen2 (fresh process): install exact selected commit at refs/heads/rsi-004/installed-gen2; promotion receipt signed and bound; standing 'inherited'; gen2 install-ref byte hash recorded.",
+    "select-gen3 + install-gen3 (fresh processes): same pattern on the gen2 line; gen3's actual base is gen2's installed commit.",
+    "mint-lineage (fresh process): receiver-signed lineage records minted from the ACTUAL promotion receipts and installed-policy bytes on disk: ROOT for rootU and gen1, REQUIRED for gen2 -> gen1 and gen3 -> gen2. The lineage record-set sha256 is recorded.",
+    "checkpoint projection (fresh process): lineage-aware projection over all four generations; expected all 'inherited'; all receipt byte hashes recorded; lineage record-set sha256 recomputed from disk and required equal to the mint value.",
+    "valid REOPEN(gen1) (fresh process): minted by the airlock key, bound to gen1's promotion receipt; forged-REOPEN negative control rejected.",
+    "RESTART BOUNDARY: reprojection (fresh process) reloads all receipts, lineage records, and installed policy bytes from disk; lineage record-set sha256 recomputed and required equal to the checkpoint value; both values bound in the receipt.",
+    "reprojection: expected gen1 questioned (local rule), gen2 and gen3 questioned (witness airlock-lineage-questioned, ancestor paths gen2 -> gen1 and gen3 -> gen2 -> gen1 recorded), rootU inherited.",
+    "gen4 admission probe (no execution): evaluate the projection for a hypothetical gen4 with REQUIRED lineage to gen3; expected questioned / DENY.",
+    "verdict: apply verdict_precedence; write receipt with all hashes, process IDs, and projection outputs."
+  ],
+  "superseded_preregistrations": [
+    {
+      "note": "First PROPOSED draft; set aside with zero Nightshift generations, zero REOPEN, no primary marker, no result.",
+      "sha256": "5750248e5236c506270fd5506bd695f62468dbc3114305cc2284e40d7a544d9c",
+      "state": "superseded before primary contact"
+    },
+    {
+      "note": "First DECIDED draft; superseded by the final pre-primary hardening pass with zero Nightshift generations, zero candidate executions, zero REOPEN mutations, and zero primary contact.",
+      "sha256": "20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055",
+      "state": "superseded before primary contact"
+    }
+  ],
+  "title": "Lineage-aware inheritance: transitive questioned-standing propagation through receiver-signed required lineage",
+  "verdict_precedence": [
+    "Pre-REOPEN precondition failure (any generation not inherited at checkpoint -> cause_code CHECKPOINT_NOT_ESTABLISHED; any lineage binding unverifiable -> cause_code LINEAGE_BINDING_FAILURE) -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE.",
+    "Any installed-ref byte mutation -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with cause_code INSTALLED_REF_MUTATION. Integrity failures are not the scientific FAIL: the propagation question was not validly put to the mechanism.",
+    "Any historical receipt byte mutation (raw file bytes differ between checkpoint and reprojection) -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with cause_code RECEIPT_MUTATION.",
+    "Post-reprojection outputs differ across two independent reprojections -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with cause_code PROJECTION_NONDETERMINISM.",
+    "gen1 not questioned after valid REOPEN -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with cause_code REOPEN_NOT_OBSERVED.",
+    "gen1 questioned, gen2 questioned, gen3 questioned, rootU inherited, gen4 probe DENIED, all receipts and refs byte-identical, reprojection deterministic -> PASS_RSI_004_LINEAGE_AWARE_INHERITANCE with cause_code NONE.",
+    "gen1 questioned but any of gen2/gen3 inherited, or rootU questioned, or gen4 probe ADMITTED -> FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED with cause_code REQUIRED_ANCESTRY_NOT_ENFORCED. The scientific FAIL is ONLY for an otherwise valid experiment where lineage semantics fail.",
+    "Any other post-projection combination -> INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE with the nearest cause_code."
+  ],
+  "verdicts": {
+    "FAIL_RSI_004_REQUIRED_ANCESTRY_NOT_ENFORCED": "The lineage-aware projector ran, but required ancestry was not enforced. The exact diagnostic is carried in cause_code; the formal verdict is always this FAIL.",
+    "INCONCLUSIVE_RSI_004_PRECONDITION_FAILURE": "The propagation question could not be put to the mechanism. The exact diagnostic is carried in cause_code; the formal verdict is always this INCONCLUSIVE.",
+    "PASS_RSI_004_LINEAGE_AWARE_INHERITANCE": "gen1 questioned after valid REOPEN (local rule); gen2 and gen3 questioned after reprojection with deterministic ancestor/witness paths recorded; unrelated accepted root rootU remains inherited; gen4 admission probe through gen3 denied (computed, not executed); all historical receipts byte-identical; all installed refs byte-identical; reprojection deterministic."
+  }
+}

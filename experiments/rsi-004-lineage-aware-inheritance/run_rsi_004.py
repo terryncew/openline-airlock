@@ -30,12 +30,14 @@ import hashlib
 import inspect
 import json
 import os
+import secrets
 from pathlib import Path
 import shutil
 import stat
 import subprocess
 import sys
 import tempfile
+import textwrap
 from typing import Any
 
 from airlock.nightshift import run_nightshift
@@ -64,7 +66,7 @@ except ImportError as exc:  # fail closed: the repaired projector is part of the
 
 
 PREREG_PATH = Path(__file__).with_name("RSI_004_PREREGISTRATION.json")
-PREREG_SHA256 = "20ee57c424b9dd8281ef973b0d3cc250f61b5c908662d9dcc7b45fe8e55f1055"
+PREREG_SHA256 = "8e9ceb9bc928c710920893a79fa99661f93d2456bc3acf1586a8175eb51ca8fd"
 AIRLOCK_BASE_MAIN = "db9fb27aa154a240eed16c1ac7bf99401011f198"
 VERIFIED_MEMORY_COMMIT = "36e3d0e0dab6a121abc1c14accbaa7310b5c2186"
 EVIDENCE_PY_SHA256 = "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9"
@@ -86,6 +88,19 @@ CAUSE_CODES = (
 
 EXECUTE_PRIMARY_FLAG = "--execute-primary"
 PRIMARY_CONTACT_MARKER = Path(__file__).with_name(".rsi-004-primary-contact")
+PHASE_TOKEN_ENV = "AIRLOCK_RSI_004_PHASE_TOKEN"
+
+
+def require_primary_contact_marker() -> None:
+    """Hard anti-rescue invariant: no Nightshift call may occur unless the
+    primary-contact marker already exists. The orchestrator writes the marker
+    before dispatching any phase; a direct --phase invocation that somehow
+    reached a selection phase would fail here before any Nightshift contact."""
+    if not PRIMARY_CONTACT_MARKER.exists():
+        raise PreconditionFailure(
+            "Nightshift is unreachable without the primary-contact marker; "
+            "the anti-rescue boundary is closed"
+        )
 
 RU = "refs/heads/rsi-004/installed-rootU"
 R1 = "refs/heads/rsi-004/installed-gen1"
@@ -553,7 +568,7 @@ def decide_verdict(
     pre_reopen_ok: bool,
     lineage_ok: bool,
     refs_unchanged: bool,
-    receipts_unchanged: bool,
+    receipts_byte_identical: bool,
     deterministic: bool,
     gen1_questioned: bool,
     standings: dict[str, str],
@@ -561,17 +576,23 @@ def decide_verdict(
 ) -> tuple[str, str]:
     """Map the frozen verdict precedence to exactly one formal verdict plus
     one cause code. Only the three formal verdicts are ever emitted;
-    every diagnostic travels through cause_code."""
+    every diagnostic travels through cause_code.
+
+    Decided scientific boundary: the scientific FAIL is reserved for an
+    otherwise valid experiment where lineage semantics fail. Integrity and
+    harness failures do not become the scientific FAIL; they are
+    INCONCLUSIVE with their own cause codes, because the propagation
+    question was not validly put to the mechanism."""
     if not pre_reopen_ok:
         return (VERDICT_INCONCLUSIVE, "CHECKPOINT_NOT_ESTABLISHED")
     if not lineage_ok:
         return (VERDICT_INCONCLUSIVE, "LINEAGE_BINDING_FAILURE")
     if not refs_unchanged:
-        return (VERDICT_FAIL, "INSTALLED_REF_MUTATION")
-    if not receipts_unchanged:
-        return (VERDICT_FAIL, "RECEIPT_MUTATION")
+        return (VERDICT_INCONCLUSIVE, "INSTALLED_REF_MUTATION")
+    if not receipts_byte_identical:
+        return (VERDICT_INCONCLUSIVE, "RECEIPT_MUTATION")
     if not deterministic:
-        return (VERDICT_FAIL, "PROJECTION_NONDETERMINISM")
+        return (VERDICT_INCONCLUSIVE, "PROJECTION_NONDETERMINISM")
     if not gen1_questioned:
         return (VERDICT_INCONCLUSIVE, "REOPEN_NOT_OBSERVED")
     s = standings
@@ -590,6 +611,10 @@ def decide_verdict(
         or gen4_probe == "ADMITTED"
     ):
         return (VERDICT_FAIL, "REQUIRED_ANCESTRY_NOT_ENFORCED")
+    # A post-projection combination matching neither the decided PASS
+    # conditions nor the decided scientific-FAIL conditions: the pattern is
+    # uninterpretable, so no scientific claim is made. REQUIRED_ANCESTRY_NOT_ENFORCED
+    # is the nearest cause code; the verdict stays INCONCLUSIVE.
     return (VERDICT_INCONCLUSIVE, "REQUIRED_ANCESTRY_NOT_ENFORCED")
 
 
@@ -612,6 +637,7 @@ RECEIPT_REQUIRED_TOP_KEYS = (
     "lineage_witness_paths",
     "gen4_probe",
     "historical_receipt_hashes",
+    "historical_receipt_file_hashes",
     "installed_ref_hashes",
     "installed_policy_hashes",
     "installed_refs_unchanged",
@@ -619,6 +645,7 @@ RECEIPT_REQUIRED_TOP_KEYS = (
     "lineage_record_set_sha256_checkpoint",
     "lineage_record_set_sha256_reprojection",
     "phase_process_pids",
+    "phase_pids_distinct",
     "claim_boundary",
 )
 RECEIPT_REQUIRED_GEN_KEYS = (
@@ -906,14 +933,48 @@ def _write_shim(hermes: Path, code: str) -> str:
     return sha256_file(hermes)
 
 
+FRESH_PROCESS_PHASES = (
+    "select-rootU", "install-rootU",
+    "select-gen1", "install-gen1",
+    "select-gen2", "install-gen2",
+    "select-gen3", "install-gen3",
+    "mint-lineage", "checkpoint", "reopen", "reproject",
+)
+
+
+def record_phase_pid(state_dir: Path, phase: str) -> None:
+    """Bind this phase's process PID into the shared phase-PID map."""
+    path = state_dir / "phase_pids.json"
+    pids = read_json(path) if path.exists() else {}
+    pids[phase] = os.getpid()
+    write_json(path, pids)
+
+
+def require_distinct_phase_pids(state_dir: Path) -> dict[str, int]:
+    """Require every intended fresh-process phase to have recorded its own
+    distinct process PID. The map is bound in the final receipt."""
+    path = state_dir / "phase_pids.json"
+    pids = read_json(path) if path.exists() else {}
+    if set(pids) != set(FRESH_PROCESS_PHASES):
+        raise PreconditionFailure(
+            f"phase-PID map incomplete: have {sorted(pids)}, need {sorted(FRESH_PROCESS_PHASES)}"
+        )
+    if len(set(pids.values())) != len(FRESH_PROCESS_PHASES):
+        raise PreconditionFailure("phase processes are not all distinct")
+    return pids
+
+
 def phase_select_rootU(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "select-rootU")
     state_dir.mkdir(parents=True, exist_ok=True)
     hermes = Path(state["hermes_executable"])
     shim_before = sha256_file(hermes)  # ROOTU_SHIM written by build_fixture
     _prepare_work_branch(repo, "rootU", state["base_commit"], RU)
+    # Anti-rescue: Nightshift is unreachable without the marker.
+    require_primary_contact_marker()
     report = run_nightshift(
         repo,
         objective_path=".airlock/objective.json",
@@ -939,9 +1000,12 @@ def phase_select_gen1(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "select-gen1")
     hermes = Path(state["hermes_executable"])
     shim_before = _write_shim(hermes, GEN1_SHIM)
     _prepare_work_branch(repo, "gen1", state["base_commit"], R1)
+    # Anti-rescue: Nightshift is unreachable without the marker.
+    require_primary_contact_marker()
     report = run_nightshift(
         repo,
         objective_path=".airlock/objective.json",
@@ -1015,11 +1079,14 @@ def phase_select_gen2(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "select-gen2")
     hermes = Path(state["hermes_executable"])
     shim_before, binding = _bind_child_generator(
         prefix="gen2", parent_prefix="gen1", state=state, repo=repo,
         state_dir=state_dir, expected_base_value=2, child_gen="gen2",
     )
+    # Anti-rescue: Nightshift is unreachable without the marker.
+    require_primary_contact_marker()
     report = run_nightshift(
         repo,
         objective_path=".airlock/objective.json",
@@ -1050,11 +1117,14 @@ def phase_select_gen3(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "select-gen3")
     hermes = Path(state["hermes_executable"])
     shim_before, binding = _bind_child_generator(
         prefix="gen3", parent_prefix="gen2", state=state, repo=repo,
         state_dir=state_dir, expected_base_value=4, child_gen="gen3",
     )
+    # Anti-rescue: Nightshift is unreachable without the marker.
+    require_primary_contact_marker()
     report = run_nightshift(
         repo,
         objective_path=".airlock/objective.json",
@@ -1085,6 +1155,7 @@ def _install(*, prefix: str, state_path: Path, retain: bool = False) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, f"install-{prefix}")
     sel = read_json(state_dir / f"{prefix}_selection.json")
     generation = read_json(Path(sel["generation_record"]))
     key = (repo / ".airlock" / "verification.key").read_bytes()
@@ -1234,6 +1305,7 @@ def phase_mint_lineage(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "mint-lineage")
     key = (repo / ".airlock" / "verification.key").read_bytes()
     bundles = {p: load_bundle(state_dir, p) for p in ("rootU", "gen1", "gen2", "gen3")}
 
@@ -1310,6 +1382,37 @@ def _receipt_hashes(state_dir: Path, bundles: dict[str, dict[str, Any]]) -> dict
     return out
 
 
+def raw_receipt_file_hashes(state_dir: Path, bundles: dict[str, dict[str, Any]]) -> dict[str, dict[str, str | None]]:
+    """RAW sha256 over the exact receipt files on disk (literal file bytes)
+    for every historical receipt class: generation receipt, promotion
+    receipt, pre-existing standing receipt, lineage receipt. Unlike the
+    canonical signed-record hashes, any whitespace or reformatting change to
+    a file changes these digests. The new REOPEN(gen1) standing record is
+    new evidence and is bound separately in reopen_evidence; it is not part
+    of the historical set."""
+    out: dict[str, dict[str, str | None]] = {}
+    for prefix, b in bundles.items():
+        sel = b["selection"]
+        inst = b["installation"]
+        paths = {
+            "generation": Path(sel["generation_record"]),
+            "promotion": Path(inst["promotion_record"]),
+            "standing": Path(inst["standing_record"]) if inst.get("standing_record") else None,
+            "lineage": state_dir / f"{prefix}_lineage.json",
+        }
+        out[prefix] = {
+            k: (sha256_file(p) if p is not None and p.exists() else None)
+            for k, p in paths.items()
+        }
+    return out
+
+
+def historical_files_unchanged(pre: dict[str, Any], post: dict[str, Any]) -> bool:
+    """Literal byte-identity of every historical receipt file: the full
+    path->raw-sha256 map must be byte-identical."""
+    return pre == post
+
+
 def _installed_hashes(repo: Path, bundles: dict[str, dict[str, Any]]) -> tuple[dict[str, str], dict[str, str]]:
     ref_hashes: dict[str, str] = {}
     policy_hashes: dict[str, str] = {}
@@ -1330,6 +1433,7 @@ def phase_checkpoint(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "checkpoint")
     key = (repo / ".airlock" / "verification.key").read_bytes()
     bundles = {p: load_bundle(state_dir, p) for p in ("rootU", "gen1", "gen2", "gen3")}
 
@@ -1363,6 +1467,7 @@ def phase_checkpoint(state_path: Path) -> None:
         "pre_reopen_standings": standings,
         "pre_reopen_established": sorted(established_ids),
         "historical_receipt_hashes": _receipt_hashes(state_dir, bundles),
+        "historical_receipt_file_hashes": raw_receipt_file_hashes(state_dir, bundles),
         "installed_ref_hashes": ref_hashes,
         "installed_policy_hashes": policy_hashes,
         "lineage_record_set_sha256": checkpoint_lineage_hash,
@@ -1378,6 +1483,7 @@ def phase_reopen(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "reopen")
     key = (repo / ".airlock" / "verification.key").read_bytes()
     bundles = {p: load_bundle(state_dir, p) for p in ("rootU", "gen1", "gen2", "gen3")}
     checkpoint = read_json(state_dir / "checkpoint.json")
@@ -1454,7 +1560,9 @@ def phase_reopen(state_path: Path) -> None:
     )
 
     # Restart boundary: the projection process terminates here. Reprojection
-    # runs in a fresh process from persisted evidence only.
+    # runs in a fresh process from persisted evidence only. The orchestrator's
+    # phase token propagates through os.environ into _phase_env, so the
+    # reproject dispatch passes the internal-only gate.
     script = Path(__file__).resolve()
     cp = subprocess.run(
         [sys.executable, str(script), EXECUTE_PRIMARY_FLAG, "--phase", "reproject",
@@ -1480,6 +1588,10 @@ def phase_reproject(state_path: Path) -> None:
     state = read_json(state_path)
     repo = Path(state["repo"])
     state_dir = Path(state["state_dir"])
+    record_phase_pid(state_dir, "reproject")
+    # The complete 12-phase process map must be present and all distinct
+    # before the receipt binds it.
+    phase_pids = require_distinct_phase_pids(state_dir)
     key = (repo / ".airlock" / "verification.key").read_bytes()
     checkpoint = read_json(state_dir / "checkpoint.json")
     reopen = read_json(state_dir / "reopen.json")
@@ -1532,9 +1644,18 @@ def phase_reproject(state_path: Path) -> None:
         raise PreconditionFailure(f"gen4 probe lineage failure: {exc}") from exc
 
     final_receipts = _receipt_hashes(state_dir, bundles)
-    # gen1's REOPEN standing is new post-checkpoint; it is bound separately in
-    # reopen_evidence, not in the historical-receipt comparison.
+    # gen1's REOPEN standing is new post-checkpoint evidence; it is bound
+    # separately in reopen_evidence, not in the historical-receipt comparison.
     final_receipts["gen1"]["standing"] = checkpoint["historical_receipt_hashes"]["gen1"]["standing"]
+
+    # RAW byte identity: the exact historical receipt files on disk
+    # (generation, promotion, pre-existing standing, lineage) must be
+    # byte-identical to what checkpoint froze. A whitespace-only reformat
+    # changes the raw digest even when canonical parsing is unchanged.
+    raw_final = raw_receipt_file_hashes(state_dir, bundles)
+    raw_pre = checkpoint["historical_receipt_file_hashes"]
+    receipts_byte_identical = historical_files_unchanged(raw_pre, raw_final)
+
     receipts_unchanged = final_receipts == checkpoint["historical_receipt_hashes"]
     ref_hashes, policy_hashes = _installed_hashes(repo, bundles)
     refs_unchanged = (
@@ -1548,7 +1669,7 @@ def phase_reproject(state_path: Path) -> None:
         pre_reopen_ok=pre_reopen_ok,
         lineage_ok=lineage_ok,
         refs_unchanged=refs_unchanged,
-        receipts_unchanged=receipts_unchanged,
+        receipts_byte_identical=receipts_byte_identical,
         deterministic=deterministic,
         gen1_questioned=gen1_questioned,
         standings=standings,
@@ -1589,9 +1710,9 @@ def phase_reproject(state_path: Path) -> None:
             "checkpoint_phase_pid": checkpoint["process_pid"],
             "reopen_phase_pid": reopen["process_pid"],
             "reproject_phase_pid": os.getpid(),
-            "fresh_process": (
-                checkpoint["process_pid"] != reopen["process_pid"] != os.getpid()
-            ),
+            "fresh_process": len(
+                {checkpoint["process_pid"], reopen["process_pid"], os.getpid()}
+            ) == 3,
         },
         "post_reopen_standings": standings,
         "lineage_witness_paths": paths,
@@ -1605,6 +1726,11 @@ def phase_reproject(state_path: Path) -> None:
             "checkpoint": checkpoint["historical_receipt_hashes"],
             "final": final_receipts,
             "unchanged": receipts_unchanged,
+        },
+        "historical_receipt_file_hashes": {
+            "checkpoint": raw_pre,
+            "final": raw_final,
+            "byte_identical": receipts_byte_identical,
         },
         "installed_ref_hashes": {
             prefix: {
@@ -1623,11 +1749,8 @@ def phase_reproject(state_path: Path) -> None:
         },
         "installed_refs_unchanged": refs_unchanged,
         "reprojection_deterministic": deterministic,
-        "phase_process_pids": {
-            "checkpoint": checkpoint["process_pid"],
-            "reopen": reopen["process_pid"],
-            "reproject": os.getpid(),
-        },
+        "phase_process_pids": phase_pids,
+        "phase_pids_distinct": len(set(phase_pids.values())) == len(FRESH_PROCESS_PHASES),
         "claim_boundary": [
             "Four installed generations plus one unexecuted admission probe. Not a claim about open-ended recursion.",
             "Single-required-parent lineage only; arbitrary multi-parent lineage is outside this experiment's claim boundary.",
@@ -1945,8 +2068,12 @@ def self_check() -> list[str]:
     except Exception as exc:
         problems.append(f"projector-use check failed: {exc}")
 
-    # 11. Fixture builds and the shims behave as preregistered (dry runs only:
-    #     shims execute directly, never through Nightshift selection).
+    # 11. Fixture builds and the shims are encoded as preregistered. ZERO
+    #     candidate executions: no candidate-generating shim is ever run here
+    #     (or anywhere outside the primary's Nightshift phases). The
+    #     self-check verifies shim source text, constants, generated shim
+    #     text, and hashes statically; behavioral assumptions live in pure
+    #     deterministic helpers or static assertions only.
     try:
         tmp = Path(tempfile.mkdtemp(prefix="airlock-rsi-004-selfcheck-"))
         try:
@@ -1962,56 +2089,74 @@ def self_check() -> list[str]:
                 if sh("git", "rev-parse", ref, cwd=repo) != state["base_commit"]:
                     problems.append(f"{ref} not at fixture base after build")
 
-            hermes = Path(state["hermes_executable"])
-            agent_report = tmp / "agent-report.json"
-            shim_env = dict(os.environ)
-            shim_env["AIRLOCK_RELEASE_AUTHORITY"] = "ABSENT"
-            shim_env["OPENROUTER_API_KEY"] = "rsi-fixture-secret"
-            shim_env["AIRLOCK_AGENT_REPORT"] = str(agent_report)
+            # Static shim contract: release guards, the installed policy
+            # text, and the preregistered value writes, asserted from shim
+            # source text without executing any shim program.
+            for code, policy_const, label in (
+                (ROOTU_SHIM, POLICY_VU, "rootU"),
+                (GEN1_SHIM, POLICY_V2, "gen1"),
+            ):
+                if 'os.environ.get("AIRLOCK_RELEASE_AUTHORITY") != "ABSENT"' not in code:
+                    problems.append(f"{label} shim missing release-authority guard")
+                if "rsi-fixture-secret" not in code:
+                    problems.append(f"{label} shim missing fixture-secret guard")
+                if repr(policy_const) not in code:
+                    problems.append(f"{label} shim does not install the preregistered policy text")
+            if "VALUE = 2" not in ROOTU_SHIM:
+                problems.append("rootU shim does not encode the preregistered VALUE=2 write")
+            if "VALUE = 11" in ROOTU_SHIM:
+                problems.append("rootU shim still encodes the stale VALUE=11")
+            if "VALUE = 2" not in GEN1_SHIM:
+                problems.append("gen1 shim does not encode the preregistered VALUE=2 write")
 
-            def dry_run(code: str, base_policy: str, base_value: str, label: str) -> Path:
-                work = tmp / f"dry-{label}"
-                shutil.copytree(repo / "src", work / "src")
-                (work / "src" / "policy.py").write_text(base_policy, encoding="utf-8")
-                (work / "src" / "value.py").write_text(base_value, encoding="utf-8")
-                exe = tmp / f"hermes-dry-{label}"
-                exe.write_text(code, encoding="utf-8")
-                exe.chmod(exe.stat().st_mode | stat.S_IXUSR)
-                cp = subprocess.run([str(exe), "-z", "prompt"], cwd=str(work),
-                                    env=shim_env, text=True,
-                                    stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-                if cp.returncode != 0:
-                    problems.append(f"{label} shim dry run failed: {cp.stderr.strip()}")
-                return work
-
-            work = dry_run(ROOTU_SHIM, POLICY_V1, "VALUE = 0\n", "rootU")
-            if (work / "src" / "policy.py").read_text() != POLICY_VU:
-                problems.append("rootU shim did not install the unrelated bonus policy")
-            if (work / "src" / "value.py").read_text() != "VALUE = 2\n":
-                problems.append("rootU shim did not apply its policy (VALUE=2)")
-
-            work = dry_run(GEN1_SHIM, POLICY_V1, "VALUE = 0\n", "gen1")
-            if (work / "src" / "policy.py").read_text() != POLICY_V2:
-                problems.append("gen1 shim did not install the STEP=2 policy")
-            if (work / "src" / "value.py").read_text() != "VALUE = 2\n":
-                problems.append("gen1 shim did not apply the policy (VALUE=2)")
-
+            # Inheriting shims: verify the GENERATED SHIM TEXT (a pure text
+            # function), never run the generator program. The text must bake
+            # the parent's policy digest, hash-assert the pristine parent
+            # archive, apply propose(base) to value.py, and never rewrite
+            # policy.py.
             for label, base_value, expected in (("gen2", 2, 4), ("gen3", 4, 6)):
                 parent_policy = POLICY_V2
-                pristine = tmp / f"pristine-dry-{label}"
-                if pristine.exists():
-                    shutil.rmtree(pristine)
-                (pristine / "src").mkdir(parents=True)
-                (pristine / "src" / "policy.py").write_text(parent_policy, encoding="utf-8")
-                code = inheriting_shim_code(
-                    hashlib.sha256(parent_policy.encode()).hexdigest(), str(pristine),
-                    base_value, label,
-                )
-                work = dry_run(code, parent_policy, f"VALUE = {base_value}\n", label)
-                if (work / "src" / "value.py").read_text() != f"VALUE = {expected}\n":
-                    problems.append(f"{label} shim did not apply the installed policy (VALUE={expected})")
-                if (work / "src" / "policy.py").read_text() != parent_policy:
-                    problems.append(f"{label} shim rewrote the installed policy (forbidden)")
+                policy_sha = hashlib.sha256(parent_policy.encode()).hexdigest()
+                pristine = str(tmp / f"pristine-{label}")
+                code = inheriting_shim_code(policy_sha, pristine, base_value, label)
+                if policy_sha not in code:
+                    problems.append(f"{label} shim text does not bake the parent policy digest")
+                if pristine not in code:
+                    problems.append(f"{label} shim text does not pin the pristine parent archive")
+                if f"BAKED_BASE_VALUE = {base_value}" not in code:
+                    problems.append(f"{label} shim text does not encode base value {base_value}")
+                if "module.propose(BAKED_BASE_VALUE)" not in code:
+                    problems.append(f"{label} shim text does not apply the parent policy")
+                if 'os.environ.get("AIRLOCK_RELEASE_AUTHORITY") != "ABSENT"' not in code:
+                    problems.append(f"{label} shim text missing release-authority guard")
+                tree = ast.parse(code)
+                for node in ast.walk(tree):
+                    if (
+                        isinstance(node, ast.Call)
+                        and isinstance(node.func, ast.Attribute)
+                        and node.func.attr == "write_text"
+                    ):
+                        recv = node.func.value
+                        recv_str = ""
+                        if isinstance(recv, ast.Call) and recv.args:
+                            try:
+                                recv_str = ast.literal_eval(recv.args[0])
+                            except Exception:
+                                recv_str = ""
+                        if "policy.py" in recv_str:
+                            problems.append(f"{label} shim text rewrites policy.py (forbidden)")
+                # Pure helper: the preregistered policy constant is a pure
+                # function; exercising it is not candidate execution.
+                ns: dict[str, Any] = {}
+                exec(parent_policy, ns)
+                if ns["propose"](base_value) != expected:
+                    problems.append(f"parent policy does not map {base_value} -> {expected}")
+
+            # Pure helper: the unrelated rootU bonus axis.
+            ns_u: dict[str, Any] = {}
+            exec(POLICY_VU, ns_u)
+            if ns_u["propose"](0) != 2:
+                problems.append("unrelated rootU bonus policy does not map 0 -> 2")
 
             test_key = b"rsi-004-selfcheck-key"
             rec = sign({"hello": "world"}, test_key)
@@ -2061,6 +2206,33 @@ def self_check() -> list[str]:
     except Exception as exc:
         problems.append(f"generation-base check failed: {exc}")
 
+    # 14. Zero candidate executions: the self-check must never reach a
+    #     candidate-generating shim program. Git plumbing (fixture build,
+    #     merge-base) is not candidate execution; executing a shim is.
+    try:
+        self_source = inspect.getsource(self_check)
+        tree = ast.parse(textwrap.dedent(self_source))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == "dry_run":
+                problems.append("self_check still defines a shim dry-run path")
+            if isinstance(node, ast.Call):
+                func = node.func
+                is_proc = (
+                    isinstance(func, ast.Attribute)
+                    and func.attr in ("run", "Popen", "call", "check_call", "check_output", "system")
+                    and isinstance(func.value, ast.Name)
+                    and func.value.id in ("subprocess", "os")
+                )
+                if is_proc and any(
+                    marker in ast.dump(node)
+                    for marker in ("ROOTU_SHIM", "GEN1_SHIM", "inheriting_shim_code")
+                ):
+                    problems.append(
+                        "self_check reaches a subprocess execution of a candidate shim"
+                    )
+    except Exception as exc:
+        problems.append(f"zero-execution check failed: {exc}")
+
     return problems
 
 
@@ -2090,11 +2262,21 @@ def orchestrate(output: Path | None) -> dict:
         env = _phase_env(state)
 
         # Anti-rescue marker: written immediately before the first Nightshift
-        # contact. From here on, the primary is in motion.
+        # contact. From here on, the primary is in motion. Every Nightshift
+        # site additionally requires this marker at runtime, so no
+        # --execute-primary --phase ... path can reach Nightshift without it.
         PRIMARY_CONTACT_MARKER.write_text(
             "RSI-004 primary Nightshift contact began; anti-rescue in effect\n",
             encoding="utf-8",
         )
+
+        # Unpredictable internal phase token: --phase is internal-only. The
+        # orchestrator mints the token into its temporary state and binds it
+        # into each phase subprocess's environment; phase dispatch refuses to
+        # run without the matching token, before any Nightshift contact.
+        phase_token = secrets.token_hex(32)
+        (state_dir / ".phase_token").write_text(phase_token, encoding="utf-8")
+        env[PHASE_TOKEN_ENV] = phase_token
 
         for phase in (
             "select-rootU", "install-rootU",
@@ -2110,19 +2292,11 @@ def orchestrate(output: Path | None) -> dict:
         run_phase(script, "reopen", state_path, env)
 
         result = read_json(state_dir / "result.json")
-        pids = [
-            read_json(state_dir / f"{p}_selection.json")["process_pid"]
-            for p in ("rootU", "gen1", "gen2", "gen3")
-        ] + [
-            read_json(state_dir / f"{p}_installation.json")["process_pid"]
-            for p in ("rootU", "gen1", "gen2", "gen3")
-        ] + [
-            read_json(state_dir / "checkpoint.json")["process_pid"],
-            read_json(state_dir / "reopen.json")["process_pid"],
-            result["restart_evidence"]["reproject_phase_pid"],
-        ]
-        if len(set(pids)) != len(pids):
-            raise AssertionError("phases did not execute across independent processes")
+        # All 12 phases must have run in distinct fresh processes, including
+        # mint-lineage; the complete PID map is bound in the receipt.
+        phase_pids = require_distinct_phase_pids(state_dir)
+        if result.get("phase_process_pids") != phase_pids:
+            raise PreconditionFailure("receipt phase-PID map does not match the recorded phase PIDs")
         if output is not None:
             write_json(output, result)
         return result
@@ -2171,6 +2345,18 @@ def main(argv: list[str] | None = None) -> int:
     if args.phase:
         if args.state is None:
             parser.error("--state is required with --phase")
+        # --phase is internal-only: the orchestrator mints an unpredictable
+        # token into its temporary state and binds it into each phase
+        # subprocess's environment. A direct external
+        # --execute-primary --phase ... invocation cannot present the token
+        # and is refused here, before any phase code (and therefore before
+        # any Nightshift contact) runs.
+        token_state = read_json(args.state)
+        token_file = Path(token_state["state_dir"]) / ".phase_token"
+        expected = token_file.read_text(encoding="utf-8").strip() if token_file.exists() else ""
+        presented = os.environ.get(PHASE_TOKEN_ENV, "")
+        if not expected or not presented or not secrets.compare_digest(presented, expected):
+            parser.error("--phase is internal-only: missing or invalid orchestrator phase token")
         try:
             {
                 "select-rootU": phase_select_rootU,
