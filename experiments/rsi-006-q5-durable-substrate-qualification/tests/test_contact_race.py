@@ -31,7 +31,17 @@ def test_simultaneous_child_starts_single_contact_single_writer(
     # Q3's gate decided exactly one winner.
     assert (work_dir / "contact_marker.json").exists()
     # Exactly one Q4 contact event.
-    assert journal_types(work_dir).count("contact") == 1
+    types = journal_types(work_dir)
+    assert types.count("contact") == 1
+    # Permanent ordering invariant: the contact entry precedes every
+    # observation/adoption entry -- durable provenance reads
+    # authorization-before-observation regardless of which worker the
+    # coordinator applies first.
+    contact_pos = types.index("contact")
+    obs_positions = [i for i, t in enumerate(types)
+                     if t in ("observation", "observation_adopted")]
+    assert obs_positions, types
+    assert all(contact_pos < p for p in obs_positions), types
     # Zero restart entries: the coordinator began the journal and never
     # called open() during ordinary operation. Count from the raw
     # journal -- opening here would mint a restart entry itself.

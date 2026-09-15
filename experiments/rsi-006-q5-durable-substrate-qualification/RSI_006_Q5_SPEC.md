@@ -105,6 +105,16 @@ evidence to the coordinator and never mutate the Q4 journal. The
 coordinator serializes all journal mutations through its single live
 instance.
 
+Durable contact ordering: the ContactGate marker is already durable --
+the winning worker wrote it at real process start. After the workers
+of a chunk join, the coordinator reconciles that marker into Q4
+exactly once, BEFORE any observation evidence from the chunk is
+committed or adopted. The durable provenance therefore always reads
+authorization-before-observation, regardless of the order in which
+worker evidence is applied. If no child started, reconciliation finds
+no marker and journals nothing. A gate winner that later failed still
+made contact: the event is journaled before the failure is handled.
+
 `ScientificTransaction.open()` is a crash/resume primitive: it appends
 a durable `restart` entry. The coordinator therefore calls it at most
 once per process lifetime (on startup, when resuming an existing
@@ -152,13 +162,17 @@ Q5 may claim only:
 6. in tested cases, simultaneous child starts under one coordinator
    produce exactly one contact winner, exactly one Q4 contact event,
    a valid journal, and zero `restart` entries;
-7. in tested cases, a real coordinator crash followed by a fresh-process
+7. in tested cases, the Q4 contact entry is journaled before every
+   observation/adoption entry from the same batch (durable
+   authorization-before-observation), even when the gate winner is
+   not first in coordinator apply order;
+8. in tested cases, a real coordinator crash followed by a fresh-process
    resume opens the transaction exactly once (exactly one `restart`
    entry), skips committed observations, and never replays uncertain
    ones;
-8. in tested cases, restart skips committed observations and never
+9. in tested cases, restart skips committed observations and never
    replays uncertain ones;
-9. Q3 scientific constants and Q3/Q4 files remain unchanged per
+10. Q3 scientific constants and Q3/Q4 files remain unchanged per
    `self_check.py`.
 
 Q5 does **not** claim: substrate qualification, scientific success,

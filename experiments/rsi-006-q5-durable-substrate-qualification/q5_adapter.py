@@ -44,9 +44,12 @@ Execution order for one observation (worker thread):
 5. wait for the subprocess; on timeout kill it and fail closed;
 6. build canonical outcome bytes; ``ledger.write_outcome`` then
    ``ledger.record_completion`` (both atomic);
-7. return the evidence to the coordinator, which journals the winner's
-   contact event (if this worker won the gate) and commits -- or adopts
-   a recoverable orphan -- in its serialized section.
+7. return the evidence to the coordinator. After the workers join,
+   the coordinator reconciles the already-durable ContactGate marker
+   into Q4 exactly once per chunk -- BEFORE any observation evidence
+   from the chunk is committed or adopted, so the durable provenance
+   always reads authorization-before-observation -- and only then
+   commits, or adopts a recoverable orphan, in its serialized section.
 
 Crash windows and their resume semantics:
 
@@ -330,13 +333,17 @@ class Coordinator:
     # ------------------------------------------------------------------
 
     def _apply(self, evidence: dict) -> dict:
-        """Journal one worker's evidence. Coordinator thread only."""
+        """Journal one worker's evidence. Coordinator thread only.
+
+        Contact is never journaled here: after the workers join,
+        ``run_all`` reconciles the already-durable ContactGate marker
+        into Q4 exactly once per chunk, BEFORE any observation evidence
+        is applied, so the durable provenance always reads
+        authorization-before-observation.
+        """
         result = evidence["result"]
         obs_id, phase = evidence["observation_id"], evidence["phase"]
         if result == "completed":
-            if evidence["gate_created"]:
-                self._tx.note_contact(mutant_id=obs_id,
-                                      child_pid=evidence["child_pid"])
             digest = self._tx.commit_observation(
                 mutant_id=obs_id, phase=phase,
                 canonical=evidence["outcome_bytes"],
@@ -431,6 +438,15 @@ class Coordinator:
                 t.start()
             for t in threads:
                 t.join()
+            # Durable contact ordering: the ContactGate marker is
+            # already durable -- the winning worker wrote it at real
+            # process start. Journal it into Q4 BEFORE any observation
+            # evidence from this chunk is applied, so the transaction
+            # provenance never reads observation-before-authorization.
+            # No-op when no child started. A gate winner that later
+            # failed (or proved uncertain) still made contact: the
+            # event is journaled before that failure is handled below.
+            self.reconcile_contact()
             for obs_id, _phase in chunk:
                 if obs_id in failures:
                     kind, exc = failures[obs_id]

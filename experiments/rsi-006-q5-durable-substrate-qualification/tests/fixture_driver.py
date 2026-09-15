@@ -129,6 +129,16 @@ def parse_crash_point(spec: str | None):
     return point, obs_id
 
 
+def parse_delay(spec):
+    """Parse --delay-spawn-for OBS:SECONDS."""
+    if not spec:
+        return None, 0.0
+    obs_id, _, secs = spec.partition(":")
+    if not obs_id or not secs:
+        raise ValueError(f"bad delay spec: {spec!r}")
+    return obs_id, float(secs)
+
+
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--work-dir", required=True)
@@ -137,6 +147,10 @@ def main() -> int:
     ap.add_argument("--workers", type=int, default=1)
     ap.add_argument("--sync-spawn", action="store_true")
     ap.add_argument("--fail-spawn-for", default=None)
+    ap.add_argument("--delay-spawn-for", default=None,
+                    help="OBS:SECONDS -- sleep SECONDS inside OBS's spawn() "
+                         "after the rendezvous, so a sibling worker "
+                         "deterministically wins ContactGate")
     ap.add_argument("--crash-point", default="none")
     ap.add_argument("--marker-dir", default=None)
     ap.add_argument("--hold", action="store_true",
@@ -167,6 +181,7 @@ def main() -> int:
             point, point_id = parse_crash_point(args.crash_point)
             crash_points = {point_id: point} if point else {}
             fail_obs = args.fail_spawn_for
+            delay_obs, delay_secs = parse_delay(args.delay_spawn_for)
             base_spawn = make_spawn(marker_dir)
 
             def argv_for(obs_id: str):
@@ -175,8 +190,12 @@ def main() -> int:
             def spawn_for(obs_id: str):
                 # Per-observation spawn so --fail-spawn-for can target
                 # one observation with a deterministic, real Popen
-                # failure (no child created).
+                # failure (no child created), and --delay-spawn-for can
+                # hold one worker's spawn path after the rendezvous so a
+                # sibling deterministically wins ContactGate.
                 def spawn(exec_nonce: str):
+                    if delay_obs == obs_id:
+                        time.sleep(delay_secs)
                     if fail_obs == obs_id:
                         return subprocess.Popen(
                             ["/nonexistent-rsi-006-q5-binary"],
