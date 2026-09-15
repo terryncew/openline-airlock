@@ -1,0 +1,46 @@
+name: RSI-006-Q4 durability-contracts gate
+
+# Non-scientific gate. Installs pytest, runs the RSI-006-Q4 self-check
+# and the fixture/contract tests, and nothing else: no real
+# repositories, no Stage 1, no substrate contact. The fixture driver
+# replays Q3's causal order against fake mutants with sha256-derived
+# outcomes; termination is injected as os._exit(1) in subprocesses and
+# resume happens from the same durable work directory. Triggers only
+# when the Q4 experiment directory or this workflow changes.
+
+on:
+  push:
+    paths:
+      - "experiments/rsi-006-q4-durable-transaction/**"
+      - ".github/workflows/rsi-006-q4-gate.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-006-q4-durable-transaction/**"
+      - ".github/workflows/rsi-006-q4-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-006-q4-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: RSI-006-Q4 self-check (non-executing)
+        run: |
+          python experiments/rsi-006-q4-durable-transaction/self_check.py
+
+      - name: Durability contract tests
+        run: |
+          python -m pytest experiments/rsi-006-q4-durable-transaction/tests/ -q -p no:cacheprovider
