@@ -81,12 +81,15 @@ zero API spend — asserted by contract test, as in Q1.
 `perturb.py` is byte-identical to the RSI-006-Q frozen generator.
 `_is_bool_candidate` uses `node.value in (True, False)`, which matches by
 `==`: integer literals `0` and `1` are also enumerated as BOOL_FLIP sites
-(`0 == False`, `1 == True`), and a BOOL_FLIP application there writes
-`False`/`True` instead of flipping a boolean. The operator set is
-unchanged and the generator is deterministic, so the guard (computed with
-the same generator) remains self-consistent. Fixing the predicate would
-change the mutant population and is explicitly out of scope for Q2; it is
-recorded here so the science layer can decide.
+(`0 == False`, `1 == True`). Application computes `not node.value`, so a
+BOOL_FLIP site on `0` becomes `True` and on `1` becomes `False` —
+int-to-bool conversions, not boolean flips. The operator label `BOOL_FLIP`
+therefore covers two different mutation kinds: genuine boolean flips and
+int-literal-to-bool conversions. The operator set is unchanged and the
+generator is deterministic, so the guard (computed with the same generator)
+remains self-consistent. Fixing the predicate would change the mutant
+population and is explicitly out of scope for Q2; it is recorded here so
+the science layer can decide.
 
 ## Causal order
 
@@ -99,8 +102,9 @@ recorded here so the science layer can decide.
    with the frozen discovery seeds. Observe. Persist canonical records.
    Seal the discovery archive (SHA-256 of the canonical observation bytes).
 5. **Only after the seal is written**, the receiver creates a fresh 256-bit
-   nonce from OS entropy and generates the confirmation mutant set.
-   Observe. Persist canonical records.
+   nonce from OS entropy and generates the confirmation mutant set from the
+   same site pool (discovery sites are not excluded; only the seed is
+   fresh). Observe. Persist canonical records.
 6. Determinism rerun on the frozen subset. Persist rerun pairs. Check
    byte-identity of observation records.
 7. Compute the qualification metrics. Emit the report. No researcher ever
@@ -153,15 +157,21 @@ fixed and defined without reference to any repository's semantics:
 
 Each mutant is applied to a pristine overlay copy of the package; the repo
 checkout is never modified. The suite runs against the overlay via
-`PYTHONPATH`. Outcomes are compared per-test to the green baseline:
-a mutant is *killed* if any test outcome differs from baseline.
+`PYTHONPATH`. Outcomes are compared per-test to the green baseline. The
+scoring contract is exact: a mutant is *killed* iff its observed behavior
+differs from baseline — at least one test outcome differs (a test missing
+from, or extra to, the baseline set counts as a difference), or the suite
+run timed out (120 s limit; green baselines complete in ≤ ~25 s, so a
+timeout is a behavioral signal, and the timeout flag is preserved in the
+record).
 
 - Outcome signature: the sorted list of `(test_id, outcome)` pairs.
 - Collection error: missing or unparseable JUnit XML marks the observation
-  as a collection error (counts against the collection-error sanity bound,
-  not as a kill). Test stdout/stderr are suppressed by the harness; the
-  cause of a collection error is therefore unobserved and must be
-  reported as such, never diagnosed.
+  as a collection error. A collection error is NOT a kill: the suite could
+  not be measured, so there is no behavioral observation; it counts only
+  against the collection-error sanity bound (< 0.10). Test stdout/stderr
+  are suppressed by the harness; the cause of a collection error is
+  therefore unobserved and must be reported as such, never diagnosed.
 - Determinism rerun: the first `det_n` discovery-half-A mutants are
   re-observed; Q-DET requires byte-identical canonical observation
   records (agreement exactly 1.0).
@@ -176,7 +186,13 @@ a mutant is *killed* if any test outcome differs from baseline.
   ≤ **±0.25**; Spearman rank correlation of per-operator kill rates
   ≥ **0.7**.
 - **Q-FRESH**: per-operator confirmation kill-rate drift ≤ **±0.30** vs
-  the discovery mean; overall kill-rate drift ≤ **±0.15**.
+  the discovery mean; overall kill-rate drift ≤ **±0.15**. Confirmation
+  measures resampling stability under a fresh seed, not transfer to unseen
+  sites. The causal guarantee is one-directional: the confirmation seed is
+  created after the discovery seal, so confirmation cannot have shaped
+  discovery. Unseen-site confirmation — withheld cases, untouched
+  repositories — belongs to the RSI-006 science layer, not to substrate
+  qualification.
 - Collection-error rate **< 0.10** (sanity bound).
 - **Q-INTACT**: exact pre/post repository tree-hash identity.
 - **Q-COST**: observations per minute, report-only.

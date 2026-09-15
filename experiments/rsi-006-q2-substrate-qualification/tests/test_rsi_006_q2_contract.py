@@ -287,3 +287,72 @@ def test_self_check_passes(capsys):
     q.self_check()
     out = capsys.readouterr().out
     assert "self-check clean" in out
+
+
+def test_compute_kill_scoring_contract():
+    # The spec's scoring contract, machine-checked: kill is behavioral only.
+    base = {"t::a": "passed", "t::b": "passed"}
+    # Collection error is never a kill, even with empty outcomes.
+    assert observe.compute_kill(
+        {"outcomes": {}, "collection_error": True, "timeout": False}, base
+    ) is False
+    # Timeout is a kill (baseline completed within the limit; flag preserved).
+    assert observe.compute_kill(
+        {"outcomes": {}, "collection_error": False, "timeout": True}, base
+    ) is True
+    # Identical outcomes: not killed.
+    assert observe.compute_kill(
+        {"outcomes": dict(base), "collection_error": False, "timeout": False},
+        base,
+    ) is False
+    # A changed outcome kills.
+    assert observe.compute_kill(
+        {"outcomes": {"t::a": "failed", "t::b": "passed"},
+         "collection_error": False, "timeout": False},
+        base,
+    ) is True
+    # A test missing from the observed set kills.
+    assert observe.compute_kill(
+        {"outcomes": {"t::a": "passed"},
+         "collection_error": False, "timeout": False},
+        base,
+    ) is True
+    # A test extra to the baseline set kills.
+    assert observe.compute_kill(
+        {"outcomes": {"t::a": "passed", "t::b": "passed", "t::c": "passed"},
+         "collection_error": False, "timeout": False},
+        base,
+    ) is True
+
+
+def test_bool_flip_quirk_matches_spec_description(tmp_path):
+    # Known generator quirk (spec, out of scope for Q2): `in (True, False)`
+    # matches by ==, so int 0/1 are BOOL_FLIP sites, and application computes
+    # `not value`: 0 -> True, 1 -> False. This test pins the spec's
+    # description to the generator's actual behavior via the public API.
+    pkg = tmp_path / "pkg"
+    pkg.mkdir()
+    (pkg / "m.py").write_text("a = 0\nb = 1\nc = True\nd = False\n")
+    mutants = perturb.generate_mutants(pkg, "quirk-probe", 50, "QP")
+    flips = {m["site_key"]: m for m in mutants if m["operator"] == "BOOL_FLIP"}
+    assert len(flips) == 4, f"expected 4 BOOL_FLIP sites, got {len(flips)}"
+    expected = {"m.py:1:4:BOOL_FLIP": "a = True",
+                "m.py:2:4:BOOL_FLIP": "b = False",
+                "m.py:3:4:BOOL_FLIP": "c = False",
+                "m.py:4:4:BOOL_FLIP": "d = True"}
+    for key, want in expected.items():
+        out = tmp_path / f"ov-{key.replace(':', '_')}"
+        out.mkdir()
+        shutil.copy(pkg / "m.py", out / "m.py")
+        perturb.apply_mutant(pkg, flips[key], out)
+        got = [ln for ln in (out / "m.py").read_text().splitlines()
+               if ln == want]
+        assert got, f"{key}: expected line {want!r} in mutated file"
+
+
+def test_spec_states_confirmation_is_resampling_not_unseen_transfer():
+    spec = (EXP_DIR / "RSI_006_Q2_SPEC.md").read_text()
+    assert "discovery sites are not excluded" in spec
+    assert "resampling stability" in spec
+    assert "not transfer to unseen" in spec or "not unseen-site transfer" in spec
+    assert "belongs to the RSI-006 science layer" in spec
