@@ -5,13 +5,17 @@ repositories and without any scientific contact:
 
   1. Q3 still matches its frozen environment receipt;
   2. Q4's merged transaction file is unchanged;
-  3. the existing Q5 adapter/ledger are unchanged from the merged HEAD;
+  3. the Q5 ledger is unchanged from the merged HEAD, and the Q5
+     adapter (changed by design in the pre-contact runner mechanism)
+     is bound by the production execution manifest;
   4. the production execution manifest carries the expected required
-     entries (including the not-yet-existing Q5 Stage 2 runner);
-  5. production qualification is currently LOCKED because
-     ``run_rsi_006_q5.py`` is absent -- and the refusal happens before
-     any environment mutation (the missing runner is a PASS condition
-     for this pre-contact mechanism, not a reason to fake a runner);
+     entries (including the Q5 Stage 2 runner, now present);
+  5. the production execution surface is COMPLETE (runner present and
+     listed, manifest validates) AND Stage 1 has still not run: no
+     production environment receipt exists, and CI never invokes
+     arming or qualification -- asserted statically, since executing
+     the modes with a complete manifest would do real environment
+     work;
   6. Stage 1 code imports no mutation/runtime scientific substrate and
      references no scientific-contact identifiers.
 
@@ -24,10 +28,8 @@ import ast
 import hashlib
 import json
 import os
-import shutil
 import subprocess
 import sys
-import tempfile
 from pathlib import Path
 
 STAGE1_DIR = Path(__file__).resolve().parent
@@ -101,13 +103,17 @@ def main() -> None:
     assert live_q4 == FROZEN_Q4_STRANSACTION_SHA256, \
         f"Q4 stransaction.py changed: {live_q4}"
 
-    # 3. Existing Q5 adapter/ledger unchanged from the merged HEAD.
-    for rel in ("experiments/rsi-006-q5-durable-substrate-qualification/"
-                "execution_ledger.py",
-                "experiments/rsi-006-q5-durable-substrate-qualification/"
-                "q5_adapter.py"):
-        live = (REPO_ROOT / rel).read_bytes()
-        assert live == _git_show(rel), f"Q5 runtime file changed: {rel}"
+    # 3. Q5 ledger unchanged from the merged HEAD. The adapter is NOT
+    #    HEAD-pinned: it changed by design in the pre-contact runner
+    #    mechanism change, so it is validated through the
+    #    manifest/runner mechanism instead -- see step 5, which asserts
+    #    the adapter is manifest-bound (any adapter change invalidates
+    #    the manifest binding, and therefore any frozen receipt).
+    ledger_rel = ("experiments/rsi-006-q5-durable-substrate-qualification/"
+                  "execution_ledger.py")
+    live_ledger = (REPO_ROOT / ledger_rel).read_bytes()
+    assert live_ledger == _git_show(ledger_rel), \
+        f"Q5 ledger changed: {ledger_rel}"
 
     # 4. Production manifest carries the expected required entries.
     manifest = q5_receipt.load_manifest(MANIFEST_PATH)
@@ -119,52 +125,48 @@ def main() -> None:
         "proofs/rsi-006-q3/environment-receipt.json"
     assert manifest["q3_receipt"]["sha256"] == FROZEN_Q3_RECEIPT_SHA256
 
-    # 5. Production qualification is LOCKED: the required Q5 Stage 2
-    #    runner is absent, and the refusal happens before any
-    #    environment mutation. The missing runner is a PASS condition.
-    try:
-        q5_receipt.validate_manifest(MANIFEST_PATH, REPO_ROOT)
-    except q5_receipt.ManifestIncomplete as e:
-        assert "experiments/rsi-006-q5-durable-substrate-qualification/" \
-            "run_rsi_006_q5.py" in e.missing, e.missing
-    else:
-        raise AssertionError(
-            "production manifest unexpectedly complete: the Q5 Stage 2 "
-            "runner must be absent until its own reviewed change lands")
-
-    # Transient scratch only: this probe exercises the lock/refusal
-    # path and produces no durable evidence, but the scratch root must
-    # still be non-volatile (the qualifier rejects volatile roots
-    # before it ever reaches the manifest lock the probe asserts), so
-    # it lives under ~/workspace. The parent is created because
-    # tempfile.mkdtemp does not create missing parents, and CI runners
-    # have no ~/workspace.
-    scratch_parent = Path.home() / "workspace"
-    scratch_parent.mkdir(parents=True, exist_ok=True)
-    scratch = Path(tempfile.mkdtemp(prefix="rsi-006-q5-stage1-selfcheck-",
-                                    dir=str(scratch_parent)))
-    try:
-        for mode in ("--qualify-env", "--arm-storage"):
-            target = scratch / ("refused-" + mode.strip("-"))
-            proc = subprocess.run(
-                [sys.executable, str(ENV_QUALIFY), mode,
-                 "--durable-root", str(target)],
-                stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True,
-                timeout=120)
-            assert proc.returncode != 0, \
-                f"{mode} unexpectedly succeeded without the runner"
-            combined = proc.stdout + proc.stderr
-            assert "run_rsi_006_q5.py" in combined, \
-                f"{mode} refusal did not name the missing runner"
-            # Refusal before ANY mutation: no attempt dir, no witness,
-            # no receipt, no lock file.
-            leftovers = [p.name for p in target.rglob("*")] \
-                if target.exists() else []
-            assert leftovers == [], \
-                f"{mode} mutated the durable root before refusing: " \
-                f"{leftovers}"
-    finally:
-        shutil.rmtree(scratch, ignore_errors=True)
+    # 5. Production execution surface is COMPLETE: the required Q5
+    #    Stage 2 runner is present and listed, and the production
+    #    manifest validates. Completeness is not authorization: Stage 1
+    #    has not run -- no production environment receipt exists -- and
+    #    nothing in CI can invoke arming or qualification. The modes
+    #    are deliberately NOT executed here: with a complete manifest
+    #    they would proceed past the preflight toward real environment
+    #    work, so the self-check asserts the boundary statically.
+    runner_rel = ("experiments/rsi-006-q5-durable-substrate-qualification/"
+                  "run_rsi_006_q5.py")
+    assert (REPO_ROOT / runner_rel).is_file(), \
+        "Q5 Stage 2 runner file missing"
+    binding = q5_receipt.validate_manifest(MANIFEST_PATH, REPO_ROOT)
+    assert runner_rel in binding["files"], \
+        "runner present but not bound by the manifest"
+    # The adapter changed by design in the pre-contact runner
+    # mechanism change, so instead of the merged-HEAD pin it is
+    # validated through the manifest binding: it must be listed, and
+    # its live bytes must hash to the bound hash. Any adapter change
+    # moves the binding and invalidates any frozen receipt.
+    adapter_rel = ("experiments/rsi-006-q5-durable-substrate-qualification/"
+                   "q5_adapter.py")
+    assert adapter_rel in binding["files"], \
+        "adapter present but not bound by the manifest"
+    assert _sha256(REPO_ROOT / adapter_rel) == binding["files"][adapter_rel], \
+        "adapter live bytes do not match the manifest binding"
+    manifest = q5_receipt.load_manifest(MANIFEST_PATH)
+    assert "does not exist yet" not in manifest.get("note", ""), \
+        "manifest note still claims the runner is absent"
+    # No production receipt anywhere in the repo outside transient
+    # fixture scratch (cleaned up by the test fixtures): Stage 1 has
+    # not run.
+    scratch = Q5_DIR / "tests" / "_scratch"
+    receipts = [p for p in REPO_ROOT.rglob("q5-environment-receipt.json")
+                if scratch not in p.parents]
+    assert receipts == [], \
+        f"production environment receipt exists: Stage 1 has run: {receipts}"
+    # CI never invokes arming or qualification.
+    for wf in ("rsi-006-q5-stage1-gate.yml", "rsi-006-q5-runner-gate.yml"):
+        text = (REPO_ROOT / ".github" / "workflows" / wf).read_text()
+        assert "--qualify-env" not in text, f"{wf} invokes --qualify-env"
+        assert "--arm-storage" not in text, f"{wf} invokes --arm-storage"
 
     # 6. Stage 1 code imports no mutation/runtime scientific substrate
     #    (static), and references no scientific-contact identifiers.
@@ -221,11 +223,13 @@ def main() -> None:
 
     print("RSI-006-Q5 Stage 1 self-check clean: Q3 byte-identical to its "
           "frozen receipt, Q4 unchanged from the merged PR #161, Q5 "
-          "adapter/ledger unchanged from HEAD, production manifest carries "
-          "the required execution surface, production qualification is "
-          "LOCKED (run_rsi_006_q5.py absent; refusal before any mutation), "
-          "Stage 1 code imports no scientific substrate. No real "
-          "repositories, no Stage 1 run, no scientific contact occurred.")
+          "ledger unchanged from HEAD with the adapter manifest-bound "
+          "(pre-contact runner mechanism), production manifest carries "
+          "the required execution surface and validates with the runner "
+          "present and listed, no production Stage 1 run (no receipt), "
+          "CI never invokes arming or qualification, Stage 1 code imports "
+          "no scientific substrate. No real repositories, no Stage 1 run, "
+          "no scientific contact occurred.")
 
 
 if __name__ == "__main__":

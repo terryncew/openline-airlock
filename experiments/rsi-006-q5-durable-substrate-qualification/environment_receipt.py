@@ -45,9 +45,11 @@ MANIFEST_SCHEMA = "airlock.rsi-006-q5.execution-manifest.v1"
 WITNESS_SCHEMA = "airlock.rsi-006-q5.storage-witness.v1"
 
 # Minimum code surface the production execution manifest must enumerate.
-# ``run_rsi_006_q5.py`` does not exist yet: until it does, the production
-# qualifier refuses before any environment mutation. Paths are relative
-# to the repository root.
+# ``run_rsi_006_q5.py`` is present and listed: the execution surface is
+# complete. Completeness is not authorization: no production Stage 1
+# run has occurred, no environment receipt exists, and scientific
+# contact requires a separately authorized invocation. Paths are
+# relative to the repository root.
 REQUIRED_MANIFEST_FILES = (
     "experiments/rsi-006-q5-durable-substrate-qualification/execution_ledger.py",
     "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py",

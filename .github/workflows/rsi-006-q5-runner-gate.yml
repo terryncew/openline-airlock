@@ -1,0 +1,77 @@
+name: RSI-006-Q5 runner gate
+
+# Fixture-only gate for the RSI-006-Q5 Stage 2 scientific runner
+# mechanism (pre-contact change only). Runs the Q5 self-check and the
+# runner's fixture tests: scientific parity (Q3-canonical bytes,
+# timeout/collection-error/kill semantics), an uninterrupted fixture
+# full run, and crash/resume convergence. Everything executes against
+# tiny local fixture packages under the repository -- never the real
+# pool, never production.
+#
+# Triggers ONLY on the runner mechanism files -- the runner itself,
+# the adapter completion-builder seam it uses, the Q5 self-check's
+# scientific-import allowlist, the runner fixture tests, the runner
+# spec section, and this workflow itself. Changes to the Stage 1
+# qualifier keep running under rsi-006-q5-stage1-gate.yml; Q3/Q4
+# changes run under their own gates.
+#
+# No production Stage 1 run happens here: no arming, no
+# qualification, no environment receipt, no real repositories, no
+# mutants against the pinned pool, no scientific contact. (This
+# comment deliberately avoids naming the production entry-point
+# flags, so the assertion below that the flags never appear in this
+# file stays meaningful.)
+
+on:
+  push:
+    paths:
+      - "experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/self_check.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_*.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
+      - ".github/workflows/rsi-006-q5-runner-gate.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/self_check.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_*.py"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
+      - ".github/workflows/rsi-006-q5-runner-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-006-q5-runner-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Q5 self-check (scientific-import allowlist enforced)
+        run: |
+          python experiments/rsi-006-q5-durable-substrate-qualification/self_check.py
+
+      - name: Runner fixture tests (parity, full run, crash/resume)
+        run: |
+          python -m pytest experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_falsifiers.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_parity.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_fullrun.py experiments/rsi-006-q5-durable-substrate-qualification/tests/test_q5_runner_crash.py -q -p no:cacheprovider
+
+      - name: Assert gate stays fixture-only and non-scientific
+        run: |
+          # The gate must never invoke the production qualification flags.
+          # The bracket trick keeps this grep from matching its own
+          # pattern text.
+          ! grep -R -- "--qualif[y]-env" .github/workflows/rsi-006-q5-runner-gate.yml
+          ! grep -R -- "--arm-storag[e]" .github/workflows/rsi-006-q5-runner-gate.yml
+          echo "runner gate is fixture-only and non-scientific: OK"

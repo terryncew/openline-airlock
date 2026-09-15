@@ -3,14 +3,16 @@ name: RSI-006-Q5 Stage 1 qualifier gate
 # Non-scientific gate for the RSI-006-Q5 Stage 1 environment-qualifier
 # mechanism (pre-contact change only). Runs the Stage 1 self-check and
 # the fixture-only Stage 1 contract tests, and asserts the production
-# lock: production qualification must refuse before any mutation
-# because run_rsi_006_q5.py is absent from the execution manifest.
+# boundary: the execution surface is complete (run_rsi_006_q5.py
+# present and listed, manifest validates), Stage 1 has not run (no
+# production receipt), and CI never invokes arming or qualification.
 #
 # Triggers ONLY on the Stage 1 mechanism files -- the qualifier, the
 # receipt module, the execution manifest, the Stage 1 spec, the Stage 1
 # tests, and this workflow itself. Changes to the Q5 durability-ledger
-# files keep running under rsi-006-q5-gate.yml; this gate does not
-# replace it.
+# files keep running under rsi-006-q5-gate.yml; the runner mechanism
+# runs under rsi-006-q5-runner-gate.yml; this gate does not replace
+# either.
 #
 # No Stage 1 run happens here: the contract tests qualify tiny local
 # fixture Git repositories only. No real repositories are cloned, no
@@ -25,6 +27,7 @@ on:
       - "experiments/rsi-006-q5-durable-substrate-qualification/stage1/**"
       - "experiments/rsi-006-q5-durable-substrate-qualification/environment_receipt.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/execution_manifest.json"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_stage1_qualifier.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
       - ".github/workflows/rsi-006-q5-stage1-gate.yml"
@@ -33,6 +36,7 @@ on:
       - "experiments/rsi-006-q5-durable-substrate-qualification/stage1/**"
       - "experiments/rsi-006-q5-durable-substrate-qualification/environment_receipt.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/execution_manifest.json"
+      - "experiments/rsi-006-q5-durable-substrate-qualification/q5_adapter.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/tests/test_stage1_qualifier.py"
       - "experiments/rsi-006-q5-durable-substrate-qualification/RSI_006_Q5_SPEC.md"
       - ".github/workflows/rsi-006-q5-stage1-gate.yml"
@@ -64,19 +68,20 @@ jobs:
         run: |
           python -m pytest experiments/rsi-006-q5-durable-substrate-qualification/tests/test_stage1_qualifier.py -q -p no:cacheprovider
 
-      - name: Assert production stays locked and CI stays non-scientific
+      - name: Assert production boundary holds and CI stays non-scientific
         run: |
-          # The production runner must stay absent: the execution
-          # manifest must keep failing closed on run_rsi_006_q5.py.
+          # The execution surface must be complete: the runner is present
+          # and listed, and the manifest validates. Completeness is not
+          # authorization: no production receipt may exist.
           python - <<'EOF'
-          import json
+          import json, os
           m = json.load(open("experiments/rsi-006-q5-durable-substrate-qualification/execution_manifest.json"))
           runner = "experiments/rsi-006-q5-durable-substrate-qualification/run_rsi_006_q5.py"
           assert runner in m["code_files"], "manifest lost the required runner binding"
-          import os
-          assert not os.path.exists(runner), \
-              "production runner present: production Stage 1 would unlock"
-          print("production lock intact: OK")
+          assert os.path.exists(runner), "runner listed but file absent"
+          assert "does not exist yet" not in m.get("note", ""), \
+              "manifest note still claims the runner is absent"
+          print("execution surface complete: OK")
           EOF
           # The gate must never invoke the production qualification flag.
           # The bracket trick keeps this grep from matching its own

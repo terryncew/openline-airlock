@@ -303,52 +303,44 @@ def verify_fixture(root, layout, **kw):
 
 
 # ---------------------------------------------------------------------------
-# Production lock: refusal before any mutation
+# Production boundary: complete surface, no Stage 1 run, CI never invokes it
 # ---------------------------------------------------------------------------
 
-def test_production_manifest_refuses_absent_runner():
-    """The production execution surface is incomplete (no run_rsi_006_q5.py)
-    and validate_manifest must refuse with the runner named."""
-    with pytest.raises(qr.ManifestIncomplete) as exc:
-        qr.validate_manifest(EXP_DIR / "execution_manifest.json", REPO_ROOT)
-    assert "run_rsi_006_q5.py" in str(exc.value)
+def test_production_manifest_validates_with_runner_present():
+    """The production execution surface is complete: the runner is
+    present and listed, and validate_manifest passes. The manifest note
+    no longer claims the runner is absent."""
+    manifest_path = EXP_DIR / "execution_manifest.json"
+    binding = qr.validate_manifest(manifest_path, REPO_ROOT)
+    runner = ("experiments/rsi-006-q5-durable-substrate-qualification/"
+              "run_rsi_006_q5.py")
+    assert (REPO_ROOT / runner).is_file(), "runner file absent"
+    assert runner in binding["files"], "runner not bound by the manifest"
+    manifest = qr.load_manifest(manifest_path)
+    assert "does not exist yet" not in manifest.get("note", ""), \
+        "manifest note still claims the runner is absent"
 
 
-def test_production_qualify_refuses_before_any_mutation(work_dir):
-    """Production --qualify-env refuses ManifestLockedError naming the
-    absent runner, with a zero-mutation boundary: no witness file, no
-    attempt directory, no repo pool, no receipt, no lock file, no
-    dependency operation, no repo mutation -- nothing is written."""
-    root = work_dir / "droot"
-    root.mkdir()
-    with pytest.raises(stage1.ManifestLockedError) as exc:
-        stage1.qualify_env(root, boot_id_reader=lambda: "boot-A")
-    assert "run_rsi_006_q5.py" in str(exc.value)
-    assert not (root / stage1.WITNESS_NAME).exists()
-    assert not (root / stage1.ATTEMPTS_DIR).exists()
-    assert not (root / stage1.POOL_DIR_NAME).exists()
-    assert not (root / stage1.RECEIPT_NAME).exists()
-    assert not (root / stage1.LOCK_NAME).exists()
-    assert list(root.iterdir()) == []
+def test_production_stage1_has_not_run():
+    """Stage 1 has not run: no production environment receipt exists
+    anywhere in the repository outside transient fixture scratch
+    (which the fixtures clean up)."""
+    scratch = TESTS_DIR / "_scratch"
+    receipts = [p for p in REPO_ROOT.rglob("q5-environment-receipt.json")
+                if scratch not in p.parents]
+    assert receipts == [], \
+        f"production environment receipt exists: Stage 1 has run: {receipts}"
+    assert not (REPO_ROOT / "proofs" / "rsi-006-q5").exists()
 
 
-def test_production_arm_refuses_before_any_mutation(work_dir):
-    """Production --arm-storage refuses ManifestLockedError naming the
-    absent runner through the SAME common preflight as --qualify-env:
-    no witness file is created, no attempt directory, no dependency
-    operation, no repo/pool mutation -- the refusal lands before either
-    mode can write any state."""
-    root = work_dir / "droot"
-    root.mkdir()
-    with pytest.raises(stage1.ManifestLockedError) as exc:
-        stage1.arm_storage(root, boot_id_reader=lambda: "boot-A")
-    assert "run_rsi_006_q5.py" in str(exc.value)
-    assert not (root / stage1.WITNESS_NAME).exists()
-    assert not (root / stage1.ATTEMPTS_DIR).exists()
-    assert not (root / stage1.POOL_DIR_NAME).exists()
-    assert not (root / stage1.RECEIPT_NAME).exists()
-    assert not (root / stage1.LOCK_NAME).exists()
-    assert list(root.iterdir()) == []
+def test_ci_never_invokes_production_stage1():
+    """Neither Q5 CI gate invokes the production arming or
+    qualification entry points."""
+    wf_dir = REPO_ROOT / ".github" / "workflows"
+    for wf in ("rsi-006-q5-stage1-gate.yml", "rsi-006-q5-runner-gate.yml"):
+        text = (wf_dir / wf).read_text()
+        assert "--qualify-env" not in text, f"{wf} invokes --qualify-env"
+        assert "--arm-storage" not in text, f"{wf} invokes --arm-storage"
 
 
 # ---------------------------------------------------------------------------

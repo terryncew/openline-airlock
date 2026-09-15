@@ -134,17 +134,19 @@ successor process opens exactly once: the journal gains exactly one
 ## Stage 1 qualifier mechanism (pre-contact; this change)
 
 The Stage 1 environment-qualifier mechanism is built and fixture-tested
-only. No production Stage 1 has run: production qualification refuses
-before any environment mutation because `run_rsi_006_q5.py` is absent
-from the execution manifest (see "Production lock" below).
+only. No production Stage 1 has run: the execution surface is
+complete (`run_rsi_006_q5.py` is present and manifest-bound -- see
+"Production lock" below), but completeness is not authorization and
+no production environment receipt exists.
 
 ### Execution manifest
 
 `execution_manifest.json` (schema
 `airlock.rsi-006-q5.execution-manifest.v1`) names the complete code
 surface allowed to govern Q5 scientific contact: the Q5 ledger/adapter,
-`environment_receipt.py`, `stage1/env_qualify.py`, the required-but-
-absent runner `run_rsi_006_q5.py`, and Q4's `stransaction.py`. It pins
+`environment_receipt.py`, `stage1/env_qualify.py`, the Q5 Stage 2 runner
+`run_rsi_006_q5.py` (present and manifest-bound as a pre-contact
+mechanism; Stage 1 unexecuted), and Q4's `stransaction.py`. It pins
 the frozen Q3 receipt (`proofs/rsi-006-q3/environment-receipt.json`,
 SHA-256 `d89327dc…7515acaa`) by path and hash. Any change to the
 manifest or to any listed file invalidates a frozen receipt.
@@ -274,26 +276,39 @@ executed and no receipt frozen.
 
 ### Production lock
 
-Production qualification (no fixture injection) fails closed with
-`ManifestLockedError` before any dependency install, repository
-clone/update, baseline, or receipt work, because the manifest requires
-`run_rsi_006_q5.py` and that file does not exist. Both production entry
-points -- `--arm-storage` and `--qualify-env` -- refuse through the
-same common execution-manifest preflight, which runs before either mode
-can write any state: no witness file, no attempt directory, no
-dependency operation, and no repo/pool mutation occur. The production
-CLI accepts no manifest replacement, no repository-set replacement, no
+The execution surface is complete: `run_rsi_006_q5.py` is present and
+bound by the production execution manifest. Completeness is not
+authorization. Production Stage 1 remains unexecuted: no production
+environment receipt exists anywhere in the repository, no storage
+witness has been armed, and no CI workflow invokes `--arm-storage` or
+`--qualify-env` (asserted statically by `stage1/self_check.py` --
+executing those modes against a complete manifest would do real
+environment work, so the self-check never runs them).
+
+Production qualification (no fixture injection) still fails closed
+with `ManifestLockedError` before any dependency install, repository
+clone/update, baseline, or receipt work whenever the execution
+surface is incomplete: the manifest requires every listed file,
+including the runner, and the common preflight raises before either
+production mode (`--arm-storage`, `--qualify-env`) can write any
+state -- no witness file, no attempt directory, no dependency
+operation, and no repo/pool mutation occur. The production CLI
+accepts no manifest replacement, no repository-set replacement, no
 frozen-pin weakening, and no boot-ID override. Fixture manifests,
 fixture pins, and synthetic boot IDs enter only through internal
-function parameters, never through CLI flags.
+function parameters, never through CLI flags. The manifest note
+records the boundary explicitly: the surface is complete, and
+scientific contact requires a separately authorized invocation
+against a verified receipt -- which has not been given.
 
 ### Claim boundary (Stage 1 mechanism; pre-contact)
 
 Q5 may additionally claim only:
 
 11. in tested cases, the production qualifier refuses with
-    `ManifestLockedError` before any environment mutation because the
-    required runner is absent;
+    `ManifestLockedError` before any environment mutation when the
+    execution surface is incomplete (a required manifest file,
+    including the runner, missing), through the common preflight;
 12. in tested cases, a missing/malformed/same-boot/moved-storage
     witness is rejected before any environment mutation;
 13. in tested cases, an interpreter invocation path outside the
@@ -308,9 +323,12 @@ Q5 may additionally claim only:
     work-directory escape;
 16. the Stage 1 self-check (`stage1/self_check.py`) passes: Q3
     byte-identical to its frozen receipt, Q4 unchanged from merged
-    PR #161, Q5 adapter/ledger unchanged from the merged HEAD,
-    production manifest carrying the required execution surface,
-    production qualification locked, and Stage 1 code importing no
+    PR #161, Q5 ledger unchanged from the merged HEAD with the Q5
+    adapter (changed by design in the pre-contact runner mechanism)
+    bound by the production manifest, production manifest carrying
+    the required execution surface with the runner present and
+    listed, no production Stage 1 run (no receipt, no CI invocation
+    of arming or qualification), and Stage 1 code importing no
     scientific substrate;
 17. the dedicated `rsi-006-q5-stage1-gate` CI workflow runs the
     self-check and the 51 fixture contract tests on Stage 1
@@ -321,8 +339,10 @@ Q5 may additionally claim only:
     the production `git show HEAD:path` path), and the frozen receipt
     binds the exact qualifier bytes that decided admissibility;
 19. in tested cases, both production entry points (`--arm-storage`
-    and `--qualify-env`) refuse with zero mutation while the runner
-    is absent, through the common preflight;
+    and `--qualify-env`) refuse with zero mutation when the execution
+    surface is incomplete, through the common preflight; with the
+    surface complete, production Stage 1 remains unexecuted -- no
+    receipt exists and no CI workflow invokes either entry point;
 20. in tested cases, a genuinely isolated venv (no `.pth`, installs
     disabled) fails at dependency admission with no baseline executed
     and no receipt frozen;
@@ -376,6 +396,65 @@ Q5 may claim only:
    replays uncertain ones;
 10. Q3 scientific constants and Q3/Q4 files remain unchanged per
    `self_check.py`.
+
+### Runner mechanism (pre-contact; this change)
+
+`run_rsi_006_q5.py` is the Q5 Stage 2 scientific runner: it executes
+the Q3 mutation-discovery protocol against verified pool checkouts
+under a Q4 scientific transaction, journaling one observation per
+mutant with the ContactGate contact exactly once, sealing discovery
+mutant sets per Q3's deterministic ordering, committing a single
+confirmation nonce, running det-reruns, and binding the terminal
+verdict report to the Q4 verdict entry by digest. Q5's adapter
+completion-builder seam carries the Q3 canonical record: the runner
+hands completed-process evidence to Q3's frozen completion builder,
+so committed observation records are Q3-canonical by construction --
+the timeout/kill/collection-error semantics Q3 proved are preserved,
+not reimplemented. The runner executes fresh work in lifecycle
+order: verify receipt, static feasibility guard, pre-contact report
+on guard failure (no transaction, no nonce, no contact), then --
+under the whole-lifetime nonblocking coordinator lock -- reverify
+the receipt, exactly one transaction `begin()`/`open()`, immediate
+`reconcile_contact()` on resume, then mutant generation and phase
+execution. The runner is present, manifest-bound, fixture-tested --
+and unexecuted against anything real.
+
+Q5 may additionally claim only:
+
+11. in tested cases, the runner's Q3 completion path produces
+    canonical observation records byte-identical to frozen Q3
+    (survivor, killed mutant, missing/extra tests, timeout,
+    collection error, unparseable JUnit, raw corrupt JUnit retained
+    in the launch sidecar);
+12. in tested cases, a builder exception propagates without a
+    fallback envelope, and a timeout with no completion builder
+    raises `UncertainExecution` (no rerun);
+13. in tested cases, an uninterrupted fixture full run reaches a
+    terminal verdict with exactly one contact, journaled before all
+    observation commits, deterministic discovery seals, a single
+    journaled confirmation nonce, 100% det-rerun agreement, no
+    duplicate execution nonces, and a Q4 verdict entry bound to the
+    report digest;
+14. in tested cases, crashes at each recoverable point (after first
+    contact, after discovery, after discovery seal, after the
+    confirmation nonce, mid-confirmation, after det-rerun, in the
+    verdict gap) resume to the same terminal scientific evaluation
+    as the uninterrupted run -- same seals, same nonce, same
+    canonical discovery records, exactly one contact, committed
+    observations skipped, recoverable completed observations adopted
+    with zero second physical execution;
+15. in tested cases, a crash after a real child start but before its
+    completion is durable fails closed on resume
+    (`UncertainExecution`): no rerun, no verdict;
+16. in tested cases, a static-guard failure writes only a pre-contact
+    report: no transaction, no execution nonce, no contact.
+
+Q5 does **not** claim: a production Stage 1 run, substrate
+qualification, scientific success, validation against real
+repositories or real mutants, authorization for Stage 1 or for any
+production runner invocation, tamper-proof witnessing against a
+malicious storage owner (see the threat boundary above), or any
+change to Q3's terminal outcome.
 
 Q5 does **not** claim: substrate qualification, scientific success,
 validation against real repositories or real mutants, authorization

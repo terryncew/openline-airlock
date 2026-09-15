@@ -22,9 +22,12 @@ Before ANY environment mutation, Stage 1 preflights (pure reads only):
   a. Q3 live files are byte-identical to the frozen Q3 receipt;
   b. the merged Q4 transaction file is unchanged;
   c. the production execution manifest is valid and complete;
-  d. every required execution file is present -- which means the real
-     production qualifier MUST refuse today, because the required Q5
-     Stage 2 runner (``run_rsi_006_q5.py``) does not exist yet;
+  d. every required execution file is present -- the Q5 Stage 2
+     runner (``run_rsi_006_q5.py``) is present and listed, so the
+     execution surface is complete. Completeness is not authorization:
+     no production Stage 1 run has occurred, no environment receipt
+     exists, and scientific contact requires a separately authorized
+     invocation against a verified receipt;
   e. the qualification-critical implementation files
      (``stage1/env_qualify.py``, ``environment_receipt.py``,
      ``execution_manifest.json``) are byte-identical to the declared
