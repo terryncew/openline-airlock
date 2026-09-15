@@ -139,8 +139,10 @@ def main() -> None:
         import stransaction as st
     finally:
         sys.path.remove(str(EXP_DIR))
+    scratch_parent = Path.home() / "workspace"
+    scratch_parent.mkdir(parents=True, exist_ok=True)
     scratch = Path(tempfile.mkdtemp(prefix="rsi-006-q4-selfcheck-",
-                                    dir=str(Path.home() / "workspace")))
+                                    dir=str(scratch_parent)))
     try:
         code_hashes = {"stransaction.py": st.sha256_file(
             EXP_DIR / "stransaction.py")}
