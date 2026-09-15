@@ -131,16 +131,218 @@ lock on real process death. After an actual coordinator crash, the
 successor process opens exactly once: the journal gains exactly one
 `restart` entry for the one genuine resume.
 
-## Stage 1 receipt (future, not this change)
+## Stage 1 qualifier mechanism (pre-contact; this change)
 
-A future authorized Q5 Stage 1 must mint a **new** environment receipt
-(schema `airlock.rsi-006-q5.env-receipt.v1`) binding: the Q5
-integration code hashes, the merged Q4 transaction code hash, the
-frozen Q3 substrate code hashes, the interpreter/dependency lock, the
-repository pins/trees, and the baseline vectors. The Q3 receipt must
-**not** be reused as Q5's scientific receipt: it names a different
-codebase. The adapter takes the receipt SHA-256 as a parameter; the
-fixture tests use a fixture receipt, which is test-only.
+The Stage 1 environment-qualifier mechanism is built and fixture-tested
+only. No production Stage 1 has run: production qualification refuses
+before any environment mutation because `run_rsi_006_q5.py` is absent
+from the execution manifest (see "Production lock" below).
+
+### Execution manifest
+
+`execution_manifest.json` (schema
+`airlock.rsi-006-q5.execution-manifest.v1`) names the complete code
+surface allowed to govern Q5 scientific contact: the Q5 ledger/adapter,
+`environment_receipt.py`, `stage1/env_qualify.py`, the required-but-
+absent runner `run_rsi_006_q5.py`, and Q4's `stransaction.py`. It pins
+the frozen Q3 receipt (`proofs/rsi-006-q3/environment-receipt.json`,
+SHA-256 `d89327dc…7515acaa`) by path and hash. Any change to the
+manifest or to any listed file invalidates a frozen receipt.
+
+### Environment receipt
+
+`environment_receipt.py` mints schema
+`airlock.rsi-006-q5.env-receipt.v1`. A frozen receipt binds: the
+execution-manifest SHA-256 and per-file hashes; the selected
+interpreter's exact probed identity (Q3's frozen probe: resolved
+executable, version, implementation); the dependency lock (exact
+installed versions read from the selected interpreter); every governed
+repository's pin, checkout SHA, and tree hash; two green deterministic
+baseline vectors per repository plus the SHA-256 of each baseline
+evidence file; the Q3 receipt path/SHA-256 and complete Q3
+`code_hashes` map; the Q4 `stransaction.py` SHA-256; the Q5 receipt
+module's own SHA-256; the storage-witness digest with armed and
+qualify boot IDs; and the attempt id. Receipts are created atomically
+exactly once; an existing receipt is never re-qualified, only
+re-verified.
+
+The receipt also binds the exact qualifier implementation that decided
+admissibility: `qualifier.source_commit` (the exact HEAD SHA) and
+`qualifier.code_hashes`, the SHA-256 of each qualification-critical
+file (`stage1/env_qualify.py`, `environment_receipt.py`,
+`execution_manifest.json`). This is a separate binding from the
+execution-manifest binding, because the two answer different
+questions: the qualifier binding says what decided the environment
+was admissible; the execution-manifest binding says what is later
+allowed to perform scientific contact. The source commit SHA alone is
+not sufficient -- a dirty working tree can execute bytes that are not
+in that commit -- so production preflight requires every tracked
+qualifier-critical file to be byte-identical to its `HEAD` bytes
+(`git show HEAD:path` comparison) and fails closed on any dirty or
+untracked qualifier file before dependency install, repository
+mutation, baseline execution, witness mutation, or receipt creation.
+
+The initial preflight binds the source state once, but qualification
+then performs dependency, repository, and baseline work before the
+receipt is frozen. Immediately before `freeze_receipt()` -- after
+baselines and after all attempt evidence is durable -- the qualifier
+re-runs the exact same pure preflight and requires the result to
+equal the initial binding exactly, and requires the Airlock git HEAD
+at freeze to equal the HEAD captured at the initial preflight. Any
+mid-qualification drift fails closed: no receipt is frozen, the
+completed attempt evidence is preserved exactly as produced, and a
+new Stage 1 attempt is required once the source state is stable. The
+receipt's `airlock_commit` comes from the stable binding that
+survived both checks, never from an unpaired final `git rev-parse
+HEAD`. A qualification never spans two source states.
+
+Q5 reuses Q3's frozen Stage 1 helpers read-only (interpreter probing,
+dependency lock, repository verification, baseline launches). Q5 does
+**not** call Q3's schema-freezing `qualify_environment()`. Q3's
+`run_baseline_checks()` writes both baseline launches of a repository
+to the same evidence filename, so run 2 overwrites run 1; Q5 preserves
+Q3's two-run admission semantics but writes distinct files
+(`<repo>-baseline-run-1.json`, `<repo>-baseline-run-2.json`), each
+separately hashed and receipt-bound. Q3 itself is untouched (frozen).
+
+### Storage witness (two-boot protocol)
+
+`--arm-storage` writes the storage witness
+(`airlock.rsi-006-q5.storage-witness.v1`) recording the arming boot ID,
+a nonce, the arming time, the durable-root path, and the filesystem
+identity (`st_dev`). Witness writes are atomic, and the operator may
+re-arm before qualification/freeze when a new storage witness is
+required; the witness is not create-once. `--qualify-env` refuses
+unless: the witness exists, parses, and matches the schema; the
+current boot ID differs from the arming boot ID (the root has proven
+it survives a boot transition); the witness's durable root equals the
+selected root; and the live filesystem identity equals the armed one
+(the root was not moved or copied to new storage). Volatile roots
+(`/tmp`, `/var/tmp`, `/dev/shm`) are rejected at arming time. The
+create-once environment receipt permanently binds the final
+successful witness bytes (digest plus armed boot ID, arming time,
+durable root, and filesystem identity): after receipt freeze,
+changing or re-arming the witness makes verification fail, and
+re-verification additionally requires the CURRENT live filesystem
+identity of the durable root to equal the bound identity, so copying
+or remounting the qualified root onto different storage at the same
+pathname fails closed before scientific contact. `st_dev` is not
+claimed to be cryptographic or globally stable storage identity; the
+claim is only that Q5 detects the tested change in filesystem
+identity between arming, qualification, and verification.
+
+Exact threat boundary: the storage witness demonstrates that bytes
+written beneath the selected durable root were later observed intact
+under a different Linux boot ID, with filesystem/root identity
+cross-checks. It detects the tested persistence and migration
+failures. It is not cryptographic attestation against an actor with
+write access to the durable root. The receipt permanently records the
+claimed armed/qualify boot IDs, the arming time, and the witness
+digest, so an auditor sees exactly what was asserted. This boundary is
+covered by fixture tests (`test_witness_fs_changed_rejected`,
+`test_witness_tampered_rejected`, `test_witness_same_boot_rejected`).
+
+### Attempt preservation and locking
+
+Each qualification run takes a nonblocking `flock` on the durable root
+(a second simultaneous qualifier is excluded before any mutation) and
+works in an append-only attempt directory (`attempts/000001`,
+`000002`, ...). A failed attempt's evidence is never overwritten: the
+next attempt gets a new directory, and a repair must leave the failed
+attempt byte-identical. The selected interpreter invocation path must
+live beneath the durable root (e.g. `<root>/venv/bin/python`). The
+check is lexical on purpose: it proves the selected *invocation path*
+is beneath the root -- it does not prove the symlink *target* is. A
+normal venv's `bin/python` typically points at a system interpreter
+outside the root, and resolving the link would reject every ordinary
+venv. What the receipt binds instead is the *resolved* interpreter
+identity (resolved executable, version, implementation -- probed from
+the selected interpreter itself, never trusted from the running
+process), and the verifier fails closed if that identity changes.
+Lexical containment keeps the invocation path inside the durable
+unit; the identity binding is what detects a swapped or moved
+interpreter. Stage 2 work directories must live beneath the qualified
+durable root.
+
+Fixture interpreters expose the parent environment's installed
+packages to the fixture venv through a `.pth` file purely as fixture
+convenience (so pytest is importable without a network install); this
+is not interpreter-isolation evidence. A dedicated negative test
+qualifies against a genuinely isolated venv (no `.pth` exposure,
+installs disabled) and fails at dependency admission with no baseline
+executed and no receipt frozen.
+
+### Production lock
+
+Production qualification (no fixture injection) fails closed with
+`ManifestLockedError` before any dependency install, repository
+clone/update, baseline, or receipt work, because the manifest requires
+`run_rsi_006_q5.py` and that file does not exist. Both production entry
+points -- `--arm-storage` and `--qualify-env` -- refuse through the
+same common execution-manifest preflight, which runs before either mode
+can write any state: no witness file, no attempt directory, no
+dependency operation, and no repo/pool mutation occur. The production
+CLI accepts no manifest replacement, no repository-set replacement, no
+frozen-pin weakening, and no boot-ID override. Fixture manifests,
+fixture pins, and synthetic boot IDs enter only through internal
+function parameters, never through CLI flags.
+
+### Claim boundary (Stage 1 mechanism; pre-contact)
+
+Q5 may additionally claim only:
+
+11. in tested cases, the production qualifier refuses with
+    `ManifestLockedError` before any environment mutation because the
+    required runner is absent;
+12. in tested cases, a missing/malformed/same-boot/moved-storage
+    witness is rejected before any environment mutation;
+13. in tested cases, an interpreter invocation path outside the
+    durable root is rejected before any environment mutation, and the
+    frozen receipt records the resolved interpreter identity used;
+14. in tested cases, a failed qualification attempt preserves its
+    evidence byte-identical while a later attempt succeeds and
+    freezes;
+15. in tested cases, a frozen receipt re-verifies against the live
+    environment and detects interpreter drift, dependency drift,
+    repository drift, manifest drift, witness drift, and Stage 2
+    work-directory escape;
+16. the Stage 1 self-check (`stage1/self_check.py`) passes: Q3
+    byte-identical to its frozen receipt, Q4 unchanged from merged
+    PR #161, Q5 adapter/ledger unchanged from the merged HEAD,
+    production manifest carrying the required execution surface,
+    production qualification locked, and Stage 1 code importing no
+    scientific substrate;
+17. the dedicated `rsi-006-q5-stage1-gate` CI workflow runs the
+    self-check and the 51 fixture contract tests on Stage 1
+    mechanism changes only, and spec changes trigger that gate;
+18. in tested cases, a modified qualification-critical file with
+    unchanged declared source identity is refused before any
+    environment mutation (both the fixture byte-comparison path and
+    the production `git show HEAD:path` path), and the frozen receipt
+    binds the exact qualifier bytes that decided admissibility;
+19. in tested cases, both production entry points (`--arm-storage`
+    and `--qualify-env`) refuse with zero mutation while the runner
+    is absent, through the common preflight;
+20. in tested cases, a genuinely isolated venv (no `.pth`, installs
+    disabled) fails at dependency admission with no baseline executed
+    and no receipt frozen;
+21. in tested cases, source drift after the initial preflight (a
+    manifest-governed file mutated mid-qualification, or the Airlock
+    HEAD moving with governed bytes unchanged) fails closed at the
+    final pre-freeze preflight: no receipt is frozen, the completed
+    attempt evidence is preserved exactly as produced, and a new
+    attempt is required once the source state is stable;
+22. in tested cases, receipt re-verification parses and cross-checks
+    the bound storage witness and rejects a changed CURRENT live
+    filesystem identity for the durable root, so a copy or remount of
+    the qualified root onto different storage at the same pathname
+    fails closed before scientific contact.
+
+Q5 does **not** claim: a production Stage 1 run, substrate
+qualification, scientific success, validation against real
+repositories or real mutants, authorization for Stage 1, tamper-proof
+witnessing against a malicious storage owner (see the threat boundary
+above), or any change to Q3's terminal outcome.
 
 ## Claim boundary (pre-contact)
 
