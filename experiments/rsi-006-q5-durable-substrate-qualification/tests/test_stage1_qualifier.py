@@ -303,7 +303,8 @@ def verify_fixture(root, layout, **kw):
 
 
 # ---------------------------------------------------------------------------
-# Production boundary: complete surface, no Stage 1 run, CI never invokes it
+# Production boundary: complete surface, CI never invokes it,
+# production receipt is not committed
 # ---------------------------------------------------------------------------
 
 def test_production_manifest_validates_with_runner_present():
@@ -321,16 +322,16 @@ def test_production_manifest_validates_with_runner_present():
         "manifest note still claims the runner is absent"
 
 
-def test_production_stage1_has_not_run():
-    """Stage 1 has not run: no production environment receipt exists
-    anywhere in the repository outside transient fixture scratch
-    (which the fixtures clean up)."""
+def test_production_environment_receipt_is_not_committed():
+    """Production Stage 1 was executed externally and Q5 is frozen:
+    no production environment receipt exists anywhere in the repository
+    outside transient fixture scratch (which the fixtures clean up).
+    The live production receipt remains outside the repository."""
     scratch = TESTS_DIR / "_scratch"
     receipts = [p for p in REPO_ROOT.rglob("q5-environment-receipt.json")
                 if scratch not in p.parents]
     assert receipts == [], \
-        f"production environment receipt exists: Stage 1 has run: {receipts}"
-    assert not (REPO_ROOT / "proofs" / "rsi-006-q5").exists()
+        f"production environment receipt committed: {receipts}"
 
 
 def test_ci_never_invokes_production_stage1():
