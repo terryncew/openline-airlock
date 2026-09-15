@@ -5,7 +5,13 @@ Frozen 2026-09-15. Airlock HEAD `c82f0242e6556bbc8d920291f444090b526adeee`.
 This is a proof-only freeze. Runtime evidence was copied and hashed; nothing
 in the durable root was modified. `freeze-record.json` carries the
 machine-readable bindings; `INTEGRITY_MANIFEST.md` lists every file with its
-SHA-256; `verify_freeze.py` re-verifies the whole freeze.
+SHA-256; `verify_freeze.py` independently re-verifies the manifest inventory,
+recomputes every journal entry digest per the frozen Q4 canonicalization,
+re-verifies the orphan adoption bindings from copied bytes, and reports
+every claim in one of two categories: (A) independently verified from frozen
+bytes, or (B) recorded at capture time. Absence claims about the runtime
+directory that no hashed inventory captured live in category B, stated
+explicitly.
 
 ## What happened
 
@@ -33,8 +39,11 @@ The real recovery path preserved the original authorization/transaction
 lineage across a real process crash: one `tx_begin`, one contact, one
 `restart`, no replay of 192 committed observations, one verified orphan
 adoption with zero second physical execution, refusal to replay an
-ambiguous started execution, and a continuous durable journal/hash chain
-(196 entries, 0 breaks). This is the behavior the frozen Q5 specification
+ambiguous started execution, and a GENESIS-anchored durable journal whose
+196 entry digests all recompute exactly per the frozen Q4 canonicalization
+(0 recompute mismatches, 0 linkage breaks; payload and timestamp tampering
+are caught by recomputation, as the verifier's mutation self-test
+demonstrates). This is the behavior the frozen Q5 specification
 prescribes for exactly this crash location.
 
 ### 2. Scientific verdict: NOT EARNED
