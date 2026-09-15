@@ -20,8 +20,11 @@ must preserve that distinction. The execution state is therefore:
   binds the child PID and the exec_nonce, i.e. this specific physical
   execution.
 - ``record_spawn_failed`` -- atomically persisted when ``Popen`` raises
-  and no child was created. Proof of zero execution: a genuine first
-  attempt remains allowed afterwards.
+  and no child was created. Proof of zero execution: in the generic
+  path a genuine first attempt remains allowed afterwards; in the
+  scientific path the spawn failure is Q3's completed observation
+  (``launch_spawn_failed``), persisted with its canonical outcome and
+  completion and committed normally.
 - ``write_outcome`` -- the canonical outcome bytes, atomically persisted
   after the subprocess completes. This is the ledger's independent copy;
   the transaction journal keeps its own.
@@ -36,8 +39,12 @@ Resume classification (``classify``):
   re-execute;
 - no prepared record -> ``fresh``: the work may run (attempt 1);
 - prepared + a matching definitive ``spawn_failed`` (same attempt) ->
-  ``retry_allowed``: no child was provably created, so a genuine first
-  attempt remains allowed;
+  generic path: ``retry_allowed`` -- no child was provably created, so
+  a genuine first attempt remains allowed. Scientific path:
+  ``spawn_failed`` + verified completion -> ``recoverable`` (adopt the
+  exact first result); ``spawn_failed`` without verified completion ->
+  ``UncertainExecution`` (the spawn failure is already Q3's scored
+  observation; it is never retried);
 - started + verified completion -> ``recoverable``: adopt the exact
   first result via ``ScientificTransaction.adopt_orphan_observation``;
 - started without verified completion -> ``UncertainExecution``: fail
@@ -289,7 +296,8 @@ def _check_record(path: Path, schema: str, **bindings) -> dict:
 
 
 def classify(*, work_dir: Path, tx, observation_id: str, phase: str,
-             receipt_sha256: str, code_hashes: dict):
+             receipt_sha256: str, code_hashes: dict,
+             scientific: bool = False):
     """Classify one observation for resume.
 
     Returns one of:
@@ -299,9 +307,12 @@ def classify(*, work_dir: Path, tx, observation_id: str, phase: str,
     - ``("fresh", {"attempt": 1})`` -- no prepared record: may run;
     - ``("retry_allowed", {"attempt": n})`` -- prepared, and a matching
       definitive ``spawn_failed`` for the same attempt: no child was
-      created, so a genuine first attempt remains allowed;
+      created, so a genuine first attempt remains allowed. This is the
+      generic (non-scientific) path only;
     - ``("recoverable", {"outcome_bytes": bytes, "evidence": dict})`` --
-      started with verified completion: adopt the exact first result.
+      started with verified completion, or (scientific path) a
+      ``spawn_failed`` with verified completion: adopt the exact first
+      result.
 
     Raises ``UncertainExecution`` when the state cannot be verified --
     fail closed, never rerun. In particular:
@@ -309,7 +320,10 @@ def classify(*, work_dir: Path, tx, observation_id: str, phase: str,
     - started without verified completion -> fail closed;
     - prepared without a definitive ``spawn_failed`` -> fail closed,
       because absence of a ``started`` record is not proof that the
-      child never existed.
+      child never existed;
+    - scientific path: ``spawn_failed`` without verified completion ->
+      fail closed. The spawn failure is already Q3's scored
+      observation (``launch_spawn_failed``); it is never retried.
     """
     _check_id(observation_id)
     bindings = _bindings(txid=tx.txid, observation_id=observation_id,
@@ -370,6 +384,49 @@ def classify(*, work_dir: Path, tx, observation_id: str, phase: str,
     if failed_path.exists():
         failed = _check_record(failed_path, SPAWN_FAILED_SCHEMA, **bindings)
         if failed.get("attempt") == prepared.get("attempt"):
+            if scientific:
+                # Scientific path: the spawn failure IS Q3's completed
+                # observation (launch_spawn_failed), not a retryable
+                # launch miss. With a verified completion it is
+                # adoptable exactly like a started one; without a
+                # verified completion the Q3-scored outcome was never
+                # durably formed, and retrying would re-launch what Q3
+                # already scored -- fail closed.
+                completion_path = _completion_path(work_dir,
+                                                   observation_id)
+                if not completion_path.exists():
+                    raise UncertainExecution(
+                        f"observation {observation_id}: scientific spawn "
+                        f"failure without verified completion; refusing "
+                        f"to retry a Q3-scored observation")
+                completion = _check_record(completion_path,
+                                           COMPLETION_SCHEMA, **bindings)
+                outcome_path = _outcome_path(work_dir, observation_id)
+                if not outcome_path.exists():
+                    raise UncertainExecution(
+                        f"observation {observation_id}: spawn-failure "
+                        f"completion present but outcome bytes missing")
+                outcome_bytes = outcome_path.read_bytes()
+                digest = hashlib.sha256(outcome_bytes).hexdigest()
+                if digest != completion["outcome_digest"]:
+                    raise UncertainExecution(
+                        f"observation {observation_id}: spawn-failure "
+                        f"outcome bytes do not match the completion "
+                        f"digest")
+                evidence = {
+                    "schema": ADOPT_EVIDENCE_SCHEMA,
+                    "txid": tx.txid,
+                    "observation_id": observation_id,
+                    "phase": phase,
+                    "receipt_sha256": receipt_sha256,
+                    "code_hashes": dict(code_hashes),
+                    "outcome_digest": digest,
+                    "ledger_prepared": prepared,
+                    "ledger_spawn_failed": failed,
+                    "ledger_completion": completion,
+                }
+                return ("recoverable", {"outcome_bytes": outcome_bytes,
+                                        "evidence": evidence})
             return ("retry_allowed",
                     {"attempt": prepared["attempt"] + 1})
     # Either no spawn_failed record, or it answers an older attempt: the

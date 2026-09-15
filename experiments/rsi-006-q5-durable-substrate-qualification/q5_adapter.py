@@ -35,14 +35,31 @@ Execution order for one observation (worker thread):
    retry_allowed -> continue;
 2. ``ledger.record_prepared`` (atomic), BEFORE the spawn is attempted;
 3. ``spawn(exec_nonce)``; on ``OSError`` (no child created):
-   ``ledger.record_spawn_failed`` (atomic) and return -- zero contact,
-   zero execution, a genuine first attempt remains allowed;
+   ``ledger.record_spawn_failed`` (atomic) -- zero contact, zero
+   execution. Without a scientific ``spawn_failure_builder`` the worker
+   returns ``spawn_failed`` and a genuine first attempt remains allowed
+   (the pre-repair generic behavior, unchanged). With a
+   ``spawn_failure_builder`` the OSError becomes a completed scientific
+   observation (the caller's Q3-equivalent ``launch_spawn_failed``
+   record): the canonical outcome bytes and completion are persisted
+   durably -- no ``started`` record, no contact-gate call -- and the
+   evidence is committed normally;
 4. on success, immediately -- from Q3's post-``Popen`` position, after
    the child provably exists: ``ledger.record_started`` (atomic), then
    the contact boundary ``gate.note_process_started`` arbitrates the
    race (the winner is recorded for journaling by the coordinator);
-5. wait for the subprocess; on timeout kill it and fail closed;
-6. build canonical outcome bytes; ``ledger.write_outcome`` then
+5. wait for the subprocess (configurable ceiling, default
+   ``WAIT_TIMEOUT_S``); on timeout kill the child exactly once and reap
+   it. Without a completion builder the completion is unverifiable and
+   the run fails closed (``UncertainExecution``), as before; with a
+   builder the timeout is a completed scientific observation and the
+   builder is invoked;
+6. build canonical outcome bytes -- either via the optional per-
+   observation ``completion_builder(observation_id, evidence)``, which
+   turns completed-process evidence into the caller's canonical bytes
+   plus launch sidecar (e.g. Q3's canonical observation record and
+   Q3-equivalent launch sidecar), or via the generic Q5 envelope when
+   no builder is given; ``ledger.write_outcome`` then
    ``ledger.record_completion`` (both atomic);
 7. return the evidence to the coordinator. After the workers join,
    the coordinator reconciles the already-durable ContactGate marker
@@ -63,6 +80,14 @@ Crash windows and their resume semantics:
 - die after completion evidence but before the coordinator journals ->
   started + verified completion -> ``adopt_orphan_observation``: the
   exact first result, zero second execution;
+- die inside the scientific spawn-failure path (``spawn_failed``
+  persisted but completion evidence not yet durable) -> scientific
+  classification fails closed with ``UncertainExecution``: the spawn
+  failure is already Q3's scored observation, so it is never retried;
+- die after the scientific spawn-failure completion is durable but
+  before the coordinator journals -> ``spawn_failed`` + verified
+  completion -> ``adopt_orphan_observation``: the exact first result,
+  zero second ``Popen``;
 - die after the gate win but before the journal contact entry ->
   ``reconcile_contact`` re-journals the winner's marker on next start,
   on the successor's single opened instance: exactly one contact event,
@@ -115,6 +140,16 @@ class CoordinatorExclusionError(Exception):
     """
 
 
+class _Crash(Exception):
+    """Test-only crash injection.
+
+    Raised by the runner's phase-level crash hooks to simulate a
+    process dying mid-phase (the adapter's own per-observation crash
+    windows use ``os._exit`` for the same purpose). Never raised on
+    production paths.
+    """
+
+
 @contextmanager
 def interprocess_lock(work_dir: Path):
     """Coordinator-exclusion lock: one coordinator per work directory.
@@ -157,12 +192,17 @@ class Coordinator:
     """
 
     def __init__(self, *, work_dir: Path, tx, gate,
-                 receipt_sha256: str, code_hashes: dict):
+                 receipt_sha256: str, code_hashes: dict,
+                 wait_timeout_s: float = WAIT_TIMEOUT_S):
         self._work_dir = Path(work_dir)
         self._tx = tx
         self._gate = gate
         self._receipt_sha256 = receipt_sha256
         self._code_hashes = dict(code_hashes)
+        # Subprocess wait ceiling for this coordinator. The module
+        # default WAIT_TIMEOUT_S is unchanged; the production runner
+        # passes Q3's frozen RUN_TIMEOUT_S.
+        self._wait_timeout_s = wait_timeout_s
         if len(receipt_sha256) != 64:
             raise ValueError("receipt_sha256 must be a sha256 hex digest")
         # Guards the transaction reads workers perform during classify
@@ -199,20 +239,51 @@ class Coordinator:
     # worker side: runs in a worker thread, never touches the journal
     # ------------------------------------------------------------------
 
-    def _classify(self, observation_id: str, phase: str):
+    def _classify(self, observation_id: str, phase: str,
+                  scientific: bool = False):
+        """Classify one observation for resume.
+
+        ``scientific`` is True when the runner's scientific builders are
+        active (a spawn failure is Q3's scored observation, not a
+        retryable generic failure); the ledger then adopts a
+        spawn_failed + verified completion and fails closed on a
+        spawn_failed without one.
+        """
         with self._read_lock:
             return ledger.classify(
                 work_dir=self._work_dir, tx=self._tx,
                 observation_id=observation_id, phase=phase,
                 receipt_sha256=self._receipt_sha256,
-                code_hashes=self._code_hashes)
+                code_hashes=self._code_hashes,
+                scientific=scientific)
 
     def _worker_run(self, *, observation_id: str, phase: str, spawn,
-                    argv: list, barrier=None, _crash_hook=None) -> dict:
-        """Execute one observation; return evidence to the coordinator."""
+                    argv: list, barrier=None, _crash_hook=None,
+                    completion_builder=None,
+                    spawn_failure_builder=None) -> dict:
+        """Execute one observation; return evidence to the coordinator.
+
+        ``completion_builder``, when given, is
+        ``builder(observation_id, evidence) -> (outcome_bytes, launch)``
+        (or ``None`` to fall back to the generic envelope). It is
+        invoked for every completed process -- including a timed-out
+        child, which is then a completed scientific observation.
+
+        ``spawn_failure_builder``, when given, is
+        ``builder(observation_id, spawn_evidence) -> (outcome_bytes,
+        launch)`` invoked when ``spawn`` raises ``OSError``. It turns
+        the spawn failure into the caller's completed scientific
+        observation (Q3's ``launch_spawn_failed`` record): no
+        ``started`` record, no contact-gate call, the canonical outcome
+        bytes and completion persisted durably and committed normally.
+        Without it the OSError path keeps the pre-repair generic
+        behavior: ``spawn_failed`` is recorded and returned, retryable.
+        """
         bindings = dict(receipt_sha256=self._receipt_sha256,
                         code_hashes=self._code_hashes)
-        status, payload = self._classify(observation_id, phase)
+        status, payload = self._classify(
+            observation_id, phase,
+            scientific=spawn_failure_builder is not None)
         base = {"observation_id": observation_id, "phase": phase}
         if status == "committed":
             return {**base, "result": "skipped_committed",
@@ -242,19 +313,54 @@ class Coordinator:
 
         exec_nonce = os.urandom(16).hex()
         start_ts = time.time()
+        start_mono = time.monotonic()
         try:
             proc = spawn(exec_nonce)
         except OSError as exc:
-            # Q3 treats a Popen failure as zero scientific contact; the
-            # ledger records the proof so a genuine first attempt remains
-            # allowed. Nothing was executed, nothing was authorized.
+            if spawn_failure_builder is None:
+                # Generic path, unchanged: a Popen failure is zero
+                # scientific contact; the ledger records the proof so a
+                # genuine first attempt remains allowed. Nothing was
+                # executed, nothing was authorized.
+                ledger.record_spawn_failed(
+                    work_dir=self._work_dir, txid=self._tx.txid,
+                    observation_id=observation_id, phase=phase,
+                    attempt=attempt,
+                    error=f"{type(exc).__name__}: {exc}", **bindings)
+                return {**base, "result": "spawn_failed",
+                        "attempt": attempt,
+                        "error": f"{type(exc).__name__}: {exc}"}
+            # Scientific path: frozen Q3 treats a Popen OSError as a
+            # completed canonical observation (disposition
+            # "launch_spawn_failed"). No child exists, so there is no
+            # started record and no ContactGate call -- nothing crossed
+            # the contact boundary. The spawn_failed proof, the
+            # canonical outcome bytes, and the completion are persisted
+            # durably; the coordinator commits them normally. The
+            # observation names no physical execution, so its
+            # exec_nonce is null.
+            end_ts = time.time()
+            outcome_bytes, launch = spawn_failure_builder(
+                observation_id, {"start_ts": start_ts, "end_ts": end_ts,
+                                 "error": exc, "attempt": attempt})
             ledger.record_spawn_failed(
                 work_dir=self._work_dir, txid=self._tx.txid,
                 observation_id=observation_id, phase=phase,
                 attempt=attempt,
                 error=f"{type(exc).__name__}: {exc}", **bindings)
-            return {**base, "result": "spawn_failed", "attempt": attempt,
-                    "error": f"{type(exc).__name__}: {exc}"}
+            digest = ledger.write_outcome(
+                work_dir=self._work_dir, observation_id=observation_id,
+                outcome_bytes=outcome_bytes)
+            ledger.record_completion(
+                work_dir=self._work_dir, txid=self._tx.txid,
+                observation_id=observation_id, phase=phase,
+                outcome_digest=digest, **bindings)
+            if _crash_hook is not None:
+                _crash_hook("after_spawn_failure_completion")
+            return {**base, "result": "completed",
+                    "outcome_bytes": outcome_bytes, "launch": launch,
+                    "gate_created": False, "child_pid": None,
+                    "exec_nonce": None}
         if _crash_hook is not None:
             _crash_hook("after_spawn")
         # Post-Popen position (Q3's on_process_start): the child
@@ -274,32 +380,65 @@ class Coordinator:
         if _crash_hook is not None:
             _crash_hook("after_started")
         try:
-            stdout_b, stderr_b = proc.communicate(timeout=WAIT_TIMEOUT_S)
+            stdout_b, stderr_b = proc.communicate(
+                timeout=self._wait_timeout_s)
             exit_status = proc.returncode
+            timed_out = False
         except subprocess.TimeoutExpired:
-            proc.kill()
+            # Kill exactly once, then reap: the child is gone and its
+            # pipes are drained. With a completion builder this timeout
+            # is a completed scientific observation (Q3: timeout=True,
+            # collection_error=False, kill=True); without one the
+            # completion is unverifiable and the run fails closed,
+            # exactly as before.
+            try:
+                proc.kill()
+            except OSError:
+                pass
             stdout_b, stderr_b = proc.communicate()
-            raise UncertainExecution(
-                f"observation {observation_id}: subprocess timed out and "
-                f"was killed; completion unverifiable, refusing to rerun")
+            exit_status = None
+            timed_out = True
         end_ts = time.time()
+        end_mono = time.monotonic()
 
-        outcome = {
-            "schema": OUTCOME_SCHEMA,
-            "observation_id": observation_id,
-            "phase": phase,
-            "txid": self._tx.txid,
+        builder_evidence = {
             "exec_nonce": exec_nonce,
             "child_pid": proc.pid,
             "argv": list(argv),
             "exit_status": exit_status,
-            "stdout_b64": base64.b64encode(stdout_b).decode("ascii"),
-            "stderr_b64": base64.b64encode(stderr_b).decode("ascii"),
-            "duration_s": round(end_ts - start_ts, 3),
+            "timeout": timed_out,
+            "stdout": stdout_b,
+            "stderr": stderr_b,
+            "duration_s": round(end_mono - start_mono, 3),
+            "started_utc": start_ts,
+            "ended_utc": end_ts,
+            "started_monotonic": start_mono,
+            "ended_monotonic": end_mono,
             "contact_created": gate_result["created"],
         }
-        outcome_bytes = (json.dumps(outcome, sort_keys=True) + "\n") \
-            .encode("utf-8")
+        built = None
+        if completion_builder is not None:
+            # The builder turns completed-process evidence into the
+            # caller's canonical outcome bytes plus launch sidecar
+            # (e.g. Q3's canonical observation record). Returning None
+            # falls back to the generic Q5 envelope. A builder
+            # exception is a deterministic code failure: it propagates
+            # as-is and is not execution uncertainty.
+            built = completion_builder(observation_id, builder_evidence)
+        if built is None and timed_out:
+            raise UncertainExecution(
+                f"observation {observation_id}: subprocess timed out and "
+                f"was killed; completion unverifiable, refusing to rerun")
+
+        if built is not None:
+            outcome_bytes, launch = built
+        else:
+            outcome_bytes, launch = self._generic_completion(
+                observation_id=observation_id, phase=phase, argv=argv,
+                exec_nonce=exec_nonce, child_pid=proc.pid,
+                exit_status=exit_status, stdout_b=stdout_b,
+                stderr_b=stderr_b, start_ts=start_ts, end_ts=end_ts,
+                contact_created=gate_result["created"])
         digest = ledger.write_outcome(
             work_dir=self._work_dir, observation_id=observation_id,
             outcome_bytes=outcome_bytes)
@@ -310,23 +449,51 @@ class Coordinator:
         if _crash_hook is not None:
             _crash_hook("after_completion")
 
+        return {**base, "result": "completed",
+                "outcome_bytes": outcome_bytes, "launch": launch,
+                "gate_created": gate_result["created"],
+                "child_pid": proc.pid, "exec_nonce": exec_nonce}
+
+    def _generic_completion(self, *, observation_id: str, phase: str,
+                            argv: list, exec_nonce: str, child_pid: int,
+                            exit_status, stdout_b: bytes, stderr_b: bytes,
+                            start_ts: float, end_ts: float,
+                            contact_created: bool) -> tuple[bytes, dict]:
+        """The pre-repair generic Q5 envelope + launch sidecar.
+
+        Used when no completion builder is given. Byte-identical to the
+        pre-repair construction.
+        """
+        outcome = {
+            "schema": OUTCOME_SCHEMA,
+            "observation_id": observation_id,
+            "phase": phase,
+            "txid": self._tx.txid,
+            "exec_nonce": exec_nonce,
+            "child_pid": child_pid,
+            "argv": list(argv),
+            "exit_status": exit_status,
+            "stdout_b64": base64.b64encode(stdout_b).decode("ascii"),
+            "stderr_b64": base64.b64encode(stderr_b).decode("ascii"),
+            "duration_s": round(end_ts - start_ts, 3),
+            "contact_created": contact_created,
+        }
+        outcome_bytes = (json.dumps(outcome, sort_keys=True) + "\n") \
+            .encode("utf-8")
         launch = {
             "schema": LAUNCH_SCHEMA,
             "observation_id": observation_id,
             "phase": phase,
-            "child_pid": proc.pid,
+            "child_pid": child_pid,
             "argv": list(argv),
             "exit_status": exit_status,
             "duration_s": round(end_ts - start_ts, 3),
             "exec_nonce": exec_nonce,
             "stdout_b64": base64.b64encode(stdout_b).decode("ascii"),
             "stderr_b64": base64.b64encode(stderr_b).decode("ascii"),
-            "contact_created": gate_result["created"],
+            "contact_created": contact_created,
         }
-        return {**base, "result": "completed",
-                "outcome_bytes": outcome_bytes, "launch": launch,
-                "gate_created": gate_result["created"],
-                "child_pid": proc.pid, "exec_nonce": exec_nonce}
+        return outcome_bytes, launch
 
     # ------------------------------------------------------------------
     # coordinator side: serialized journal mutations, coordinator thread
@@ -367,7 +534,9 @@ class Coordinator:
     def run_all(self, *, observations: list, spawn, argv_for,
                 spawn_for=None, crash_points: dict | None = None,
                 sync_spawn: bool = False,
-                max_workers: int = 1) -> list:
+                max_workers: int = 1,
+                completion_builder=None,
+                spawn_failure_builder=None) -> list:
         """Run observations through worker threads; journal serially.
 
         ``observations``: list of ``(observation_id, phase)``. Workers
@@ -379,6 +548,20 @@ class Coordinator:
         ``spawn`` is ``spawn(exec_nonce) -> Popen``; ``spawn_for``, when
         given, is ``spawn_for(observation_id) -> spawn`` and lets the
         caller vary the spawn per observation.
+
+        ``completion_builder``, when given, is invoked per observation
+        as ``builder(observation_id, evidence) -> (outcome_bytes,
+        launch)`` (or ``None`` for the generic envelope). With a
+        builder, a timed-out child is a completed scientific
+        observation; without one, a timeout fails closed with
+        ``UncertainExecution``.
+
+        ``spawn_failure_builder``, when given, is invoked per
+        observation as ``builder(observation_id, spawn_evidence) ->
+        (outcome_bytes, launch)`` when ``spawn`` raises ``OSError``,
+        turning the spawn failure into a completed scientific
+        observation (Q3 ``launch_spawn_failed`` semantics) instead of
+        the retryable generic ``spawn_failed`` return.
         """
         crash_points = crash_points or {}
         if sync_spawn and max_workers < len(observations):
@@ -408,7 +591,9 @@ class Coordinator:
                 results[obs_id] = self._worker_run(
                     observation_id=obs_id, phase=phase, spawn=obs_spawn,
                     argv=argv_for(obs_id), barrier=barrier,
-                    _crash_hook=hook if want else None)
+                    _crash_hook=hook if want else None,
+                    completion_builder=completion_builder,
+                    spawn_failure_builder=spawn_failure_builder)
             except UncertainExecution as exc:
                 failures[obs_id] = ("uncertain", exc)
             except Exception as exc:  # noqa: BLE001 -- reported, not hidden

@@ -10,8 +10,12 @@ Verifies, without importing the mutation substrate:
   3. Q4's merged transaction layer (stransaction.py) still hashes to the
      value merged in PR #161: Q4 preserved unchanged;
   4. no Q5 module imports researcher/model-access packages, the mutation
-     substrate, or the Stage 1 repair module (Q3's contact gate is the one
-     allowed Q3 import: it is the authorization boundary, not science);
+     substrate, or the Stage 1 repair module -- except the Stage 2
+     runner and its fixture tests, which are the explicit scientific
+     exception (SCIENTIFIC_IMPORT_ALLOWLIST names exactly the frozen
+     Q3 imports each may carry). Q3's contact gate is the one allowed
+     Q3 import elsewhere: it is the authorization boundary, not
+     science);
   5. the adapter round-trips begin/run/open/resume on a scratch directory
      (no /tmp), including ledger start/completion records and the
      exactly-once contact transition.
@@ -41,6 +45,10 @@ SPEC_PATH = EXP_DIR / "RSI_006_Q5_SPEC.md"
 # Frozen Q3 scientific constants. Must match RSI_006_Q5_SPEC.md exactly.
 FROZEN_SEED_A = "RSI-006-Q-discovery-A"
 FROZEN_SEED_B = "RSI-006-Q-discovery-B"
+# The per-observation subprocess ceiling. The production runner passes
+# this frozen value into the adapter; the adapter's fixture default
+# (60 s) is never used for scientific work.
+FROZEN_RUN_TIMEOUT_S = 120
 FROZEN_BUDGETS = {
     "more-itertools": (72, 72, 10, 20),
     "cachetools": (102, 102, 20, 60),
@@ -74,10 +82,30 @@ FROZEN_Q4_STRANSACTION_SHA256 = \
     "d7a54c1b4a658d7e566464d6ed5ebaf194ab868a70544c2155053a9a90797b04"
 
 # Q3's contact gate is the authorization boundary Q5 preserves; it is the
-# only Q3 module Q5 may import. Everything scientific stays out.
+# only Q3 module the substrate-free Q5 machinery may import.
 FORBIDDEN_IMPORTS = ("openai", "anthropic", "google.generativeai", "boto3",
                      "langchain", "transformers", "huggingface_hub",
                      "perturb", "observe", "env_qualify")
+
+# The Stage 2 runner (run_rsi_006_q5.py) is the INTENTIONALLY SCIENTIFIC
+# part of Q5: it imports Q3's frozen observe / perturb / run_rsi_006_q3 /
+# pool_config read-only and uses them directly -- no copies, no
+# reimplementation, no indirect-import tricks. The adapter, ledger,
+# receipt, and Stage 1 machinery stay substrate-free. The runner and its
+# fixture tests are the ONLY files where these scientific imports are
+# permitted; every other Q5 module and test keeps the ban. The values
+# below name exactly which scientific imports each allowlisted file may
+# carry: no other file, and no other import, is exempted.
+SCIENTIFIC_IMPORT_ALLOWLIST = {
+    "run_rsi_006_q5.py": ("observe", "perturb", "run_rsi_006_q3",
+                          "pool_config"),
+    "q5_fixture_support.py": ("observe", "perturb", "run_rsi_006_q3"),
+    "test_q5_runner_falsifiers.py": ("observe", "perturb"),
+    "test_q5_runner_parity.py": ("observe", "perturb", "run_rsi_006_q3"),
+    "test_q5_runner_fullrun.py": ("observe", "perturb", "run_rsi_006_q3"),
+    "test_q5_runner_crash.py": ("observe", "perturb", "run_rsi_006_q3"),
+    "test_q5_runner_spawn_failure.py": ("perturb", "run_rsi_006_q3"),
+}
 
 
 def _extract_assign(path: Path, name: str):
@@ -122,6 +150,8 @@ def main() -> None:
     assert _extract_assign(runner, "SEED_B") == FROZEN_SEED_B
     assert _extract_assign(runner, "BUDGETS") == FROZEN_BUDGETS
     assert _extract_assign(runner, "THRESH") == FROZEN_THRESH
+    assert _extract_assign(Q3_DIR / "observe.py", "RUN_TIMEOUT_S") == \
+        FROZEN_RUN_TIMEOUT_S
     assert tuple(_extract_assign(
         Q3_DIR / "perturb.py", "OPERATORS")) == FROZEN_OPERATORS
     sys.path.insert(0, str(Q3_DIR))  # pool_config is pure data, no substrate
@@ -154,11 +184,18 @@ def main() -> None:
     assert live_q4 == FROZEN_Q4_STRANSACTION_SHA256, \
         f"Q4 stransaction.py changed: {live_q4}"
 
-    # 4. Q5 modules import nothing forbidden.
+    # 4. Q5 modules import nothing forbidden. The Stage 2 runner and its
+    #    fixture tests are the explicit scientific exception (see
+    #    SCIENTIFIC_IMPORT_ALLOWLIST): they may import exactly the named
+    #    frozen Q3 modules, nothing else.
     for path in EXP_DIR.glob("*.py"):
-        _assert_no_import_of(path, FORBIDDEN_IMPORTS)
+        allowed = SCIENTIFIC_IMPORT_ALLOWLIST.get(path.name, ())
+        _assert_no_import_of(
+            path, tuple(b for b in FORBIDDEN_IMPORTS if b not in allowed))
     for path in (EXP_DIR / "tests").glob("*.py"):
-        _assert_no_import_of(path, FORBIDDEN_IMPORTS)
+        allowed = SCIENTIFIC_IMPORT_ALLOWLIST.get(path.name, ())
+        _assert_no_import_of(
+            path, tuple(b for b in FORBIDDEN_IMPORTS if b not in allowed))
 
     # 5. Adapter smoke: ledger + contact gate + transaction round-trip on
     #    a scratch dir outside /tmp, with a real (trivial) subprocess.
