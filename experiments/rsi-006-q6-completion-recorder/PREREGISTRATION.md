@@ -120,22 +120,25 @@ That behavior is correct and stays.
 **Covered by Q6:** coordinator-process failure **after** a scientific
 child has genuinely started, where the one-shot completion recorder
 process **and** the durable root survive long enough for the recorder
-to durably seal that child's exact completion.
+to reach the **Q6 durable completion boundary** (defined in §5:
+outcome → Q6 launch sidecar → Q6 recorder seal → existing Q5
+`<id>.complete.json` LAST).
 
 **Not covered (out of scope, fail closed as Q5 does today):**
 
-- recorder dies before the seal (→ `UncertainExecution`, zero replay);
+- recorder dies before the Q6 durable completion boundary
+  (→ `UncertainExecution`, zero replay);
 - coordinator and recorder co-die;
 - host loss, durable-storage loss, or external destruction of the
   process group;
 - recovery requiring a supervisor, daemon, queue, broker, pool,
   distributed coordination, consensus, or cross-host recovery;
-- arbitrary successor-restart timing — see §7.
+- arbitrary successor-restart timing — see §8.
 
 New precise assumption (frozen):
 
 > The coordinator may fail, but the recorder process and durable root
-> must survive until the recorder's atomic completion seal.
+> must survive until the Q6 durable completion boundary.
 
 ---
 
@@ -145,7 +148,7 @@ The strongest claim Q6 may earn, and no stronger:
 
 > "Under coordinator-process failure after a scientific child has
 > started, if the one-shot completion recorder and durable root
-> survive long enough to seal that child's exact completion, a
+> survive long enough to reach the Q6 durable completion boundary, a
 > successor can recover the completed observation into the same
 > transaction without a second scientific execution."
 
@@ -293,6 +296,19 @@ inside the §5 complexity bar, or return NO-GO.
 
 ### Sealed recorder artifacts and exact write order (frozen)
 
+Terminology (frozen, used throughout):
+
+- **Q6 recorder seal** = `<id>.q6_seal.json`; it digest-binds the Q6
+  outcome/launch/config evidence.
+- **Q6 durable completion boundary** = the entire ordered sequence
+  below has completed and the existing Q5 `<id>.complete.json`
+  exists LAST.
+
+The Q6 recovery claim is earned only after the **Q6 durable
+completion boundary**. A recorder that writes `q6_seal.json` and dies
+before Q5 `record_completion` has NOT reached the durable completion
+boundary: resume remains `UncertainExecution`, zero replay.
+
 Q5 persists outcome bytes and the completion record, but the launch
 sidecar exists only in coordinator memory until journal commit — and
 the Q5 completion record binds only the outcome digest, not any
@@ -343,6 +359,12 @@ verifies:
 
 Tamper with outcome, sidecar, seal, or any binding → fail closed.
 No adoption, no replay.
+
+Threat boundary (frozen): the Q6 seal is digest-bound
+receiver-owned evidence against stale, replaced, or misbound
+configuration within the defined process model. It is NOT a
+signature, and it does NOT claim protection against a malicious
+OS/root coherently rewriting the entire durable root.
 
 ### Coordinator injection (frozen)
 
@@ -466,8 +488,10 @@ without serializing ambient secrets. The recorder must not sanitize
 or alter its inherited environment before the scientific spawn.
 Before the scientific child `Popen`, the recorder reconstructs
 `env = dict(os.environ); env.update(sealed_env_overrides)`, computes
-the canonical digest exactly as the coordinator did, and requires it
-to equal the sealed `prepared_env_sha256`. Mismatch → zero
+`sha256(json.dumps(env, sort_keys=True, separators=(",", ":"),
+ensure_ascii=False).encode("utf-8")).hexdigest()` exactly as the
+coordinator did, and requires it to equal the sealed
+`prepared_env_sha256`. Mismatch → zero
 scientific child spawn, fail closed. The recorder uses the
 reconstructed and verified `env` both for the scientific child
 `Popen` and when invoking the frozen `build_q3_completion` /
@@ -503,11 +527,20 @@ not changed. The binding is therefore established additively:
   or secrets), wait timeout, canonical builder dotted name,
   serialized builder context (`repo_name`, `mutant`, `baseline`,
   `python`, `junit_path`), and the gate marker path.
-- The coordinator additionally computes `prepared_env_sha256`: the
-  SHA-256 over a canonical representation of the exact Q5
-  `prep["env"]` mapping — `"\n".join(f"{k}={v}" for k, v in
-  sorted(env.items()))` encoded UTF-8 — bound into the config. The
-  mapping itself is NOT serialized into the config.
+- The coordinator additionally computes `prepared_env_sha256` as
+  `sha256(canonical_env_bytes).hexdigest()`, where
+  `canonical_env_bytes = json.dumps(env, sort_keys=True,
+  separators=(",", ":"), ensure_ascii=False).encode("utf-8")` over
+  the exact Q5 `prep["env"]` mapping. (A plain `key=value` newline
+  join is not injective — environment values may contain newlines —
+  so it is rejected; the canonical JSON form is.) The full
+  environment mapping is NEVER persisted and NEVER placed in the
+  recorder config; only the digest is stored. Coordinator and
+  recorder call the exact same canonicalization rule.
+- The recorder reconstructs `env = dict(os.environ)` then
+  `env.update(sealed_env_overrides)`, hashes the canonical JSON
+  bytes identically, and requires exact equality with
+  `prepared_env_sha256` before scientific child `Popen`.
 - The coordinator computes SHA-256 over those exact bytes.
 - The config file is written atomically, create-once (a second write
   for the same observation+attempt fails closed).
@@ -539,14 +572,17 @@ exists for the observation+attempt (first seal wins; see F4).
 
 ## 8. Successor timing is part of the claim boundary (frozen)
 
-> "Successor recovery is evaluated after recorder completion has
-> either become durable or the recorder has failed to produce a seal."
+> "Successor recovery is evaluated only after the Q6 durable
+> completion boundary has been reached, or the recorder has failed
+> to produce the Q6 recorder seal."
 
 There is no supervisor, queue, or liveness service coordinating
-immediate restart with a still-running recorder. If the recorder never
-produces a seal, existing Q5 fail-closed behavior
-(`UncertainExecution`, zero replay) remains authoritative. "Wait for
-the recorder" must not become a new distributed liveness protocol.
+immediate restart with a still-running recorder. If the recorder
+never produces the Q6 recorder seal — and a fortiori if it produces
+the seal but never reaches the Q6 durable completion boundary —
+existing Q5 fail-closed behavior (`UncertainExecution`, zero replay)
+remains authoritative. "Wait for the recorder" must not become a new
+distributed liveness protocol.
 
 ---
 
@@ -661,10 +697,11 @@ Sequence:
 Expected: `adopt_orphan_observation` in the journal (crash path only),
 exactly one contact event, no replay.
 
-### F2 — RECORDER DOES NOT SEAL
+### F2 — RECORDER DOES NOT REACH THE DURABLE COMPLETION BOUNDARY
 
-- child started; coordinator dies; recorder dies / is killed before a
-  durable completion seal;
+- child started; coordinator dies; recorder dies / is killed before
+  the Q6 durable completion boundary (including the case where the
+  Q6 recorder seal was written but Q5 `record_completion` was not);
 - successor runs after recorder failure is established.
 
 Expected: `UncertainExecution`, zero replay, no fabricated result, no
@@ -687,7 +724,11 @@ binding case (including the env-digest case) must additionally
 produce **zero scientific child spawn**: the recorder exits before
 `Popen`. (The ledger's existing binding checks plus the Q6
 launch-sidecar/seal digest binding and the §7 config-digest check do
-this work; F3 proves it.)
+this work; F3 proves it.) A small unit case is frozen alongside: the
+canonicalization must distinguish an environment value containing a
+newline (e.g. `{"A": "x\ny"}`) from the multi-key mapping the old
+`key=value` newline encoding could conflate (e.g. `{"A": "x", "y":
+""}`) — distinct canonical bytes, distinct digests.
 
 ### F4 — DUPLICATE / LATE SEAL
 
