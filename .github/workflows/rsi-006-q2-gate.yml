@@ -1,0 +1,58 @@
+name: RSI-006-Q2 substrate-qualification gate
+
+# Non-scientific gate. Installs pytest, runs the RSI-006-Q2 self-check and
+# contract tests, and asserts the stage's frozen non-scientific properties:
+# deterministic generation, the spec-bound operator set, single-site
+# mutation, no researcher/model-access code path, frozen budgets/thresholds,
+# the pre-observation feasibility guard, and canonical record persistence.
+# The full qualification run is local-only (it clones external repos and runs
+# hundreds of mutant observations) and NEVER runs in CI. This workflow
+# performs no qualification execution and contains no scientific content.
+
+on:
+  push:
+    paths:
+      - "experiments/rsi-006-q2-substrate-qualification/**"
+      - ".github/workflows/rsi-006-q2-gate.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-006-q2-substrate-qualification/**"
+      - ".github/workflows/rsi-006-q2-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-006-q2-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: RSI-006-Q2 self-check (non-executing)
+        run: |
+          python experiments/rsi-006-q2-substrate-qualification/run_rsi_006_q2.py --self-check
+
+      - name: Contract tests
+        run: |
+          python -m pytest experiments/rsi-006-q2-substrate-qualification/tests/ -q -p no:cacheprovider
+
+      - name: Assert no qualification execution in CI
+        run: |
+          # The gate must never invoke the qualification run flag. The bracket
+          # trick keeps this grep from matching its own pattern text
+          # (cf. the RSI-006-Q gate self-reference defect).
+          ! grep -R -- "--qualif[y]" .github/workflows/rsi-006-q2-gate.yml
+          # The stage modules expose no scientific-primary surface at all.
+          ! grep -R "execute-primary" experiments/rsi-006-q2-substrate-qualification/perturb.py experiments/rsi-006-q2-substrate-qualification/observe.py experiments/rsi-006-q2-substrate-qualification/run_rsi_006_q2.py
+          ! grep -Ri "nightshift" experiments/rsi-006-q2-substrate-qualification/perturb.py experiments/rsi-006-q2-substrate-qualification/observe.py experiments/rsi-006-q2-substrate-qualification/run_rsi_006_q2.py
+          echo "gate is non-executing: OK"
