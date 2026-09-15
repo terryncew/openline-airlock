@@ -78,9 +78,17 @@ receipt (`proofs/rsi-006-q3/environment-receipt.json`).
 Substrate-agnostic: it journals opaque canonical observation bytes keyed
 by mutant ID and knows nothing about mutants, repositories, or pytest.
 
-- **Receiver-owned transaction ID**, derived deterministically from the
-  environment receipt SHA-256 and the Q4 code hashes, created at
-  `begin()` before any contact. Identical on every resume.
+- **Receiver-owned authorization instance**, created before contact:
+  `begin()` takes a receiver-owned authorization-instance value
+  (`tx_nonce`, 256-bit hex -- fresh OS entropy per authorization in a
+  real run, passed in by the receiver rather than minted by the layer).
+  The nonce is bound into the transaction ID alongside the environment
+  receipt SHA-256 and the Q4 code hashes, so two fresh transactions
+  with identical receipt/code bindings still get different IDs. The
+  nonce is persisted in `tx_begin`; `open()` recovers it from the
+  verified journal and re-derives the identical ID, so a resume can
+  only continue the authorization it began with. Adopting another
+  transaction's orphan evidence fails on the txid binding.
 - **No ephemeral state**: `begin`/`open` refuse any work directory
   resolving under `/tmp`, `/var/tmp`, or `/dev/shm`. Fail closed.
 - **Atomic, fsynced journal and artifacts**: temp file + fsync +
@@ -100,10 +108,14 @@ by mutant ID and knows nothing about mutants, repositories, or pytest.
 - **Observations committed by ID and digest**; re-committing an ID is
   rejected (`DuplicateWork`). Completed observations are never rerun.
 - **Resume verifies everything**: journal chain, receipt and code-hash
-  bindings, and every committed artifact's digest. Then it appends a
-  `restart` entry (so launch metadata records the restart) and the
-  driver replays the plan, skipping committed work. No new nonce, seed,
-  threshold, budget, pin, operator, or scoring value on resume.
+  bindings, the recovered authorization nonce (re-derived transaction
+  ID must match `tx_begin`), and every committed artifact: outcome
+  bytes, launch/provenance sidecar (journaled `launch_digest`), and
+  for adopted observations the persisted orphan-evidence record
+  (journaled `evidence_digest`). Then it appends a `restart` entry (so
+  launch metadata records the restart) and the driver replays the
+  plan, skipping committed work. No new nonce, seed, threshold,
+  budget, pin, operator, or scoring value on resume.
 - **Corrupted or incomplete checkpoint state fails closed**: no resume,
   no verdict.
 - **Verdict/report commits atomically**: report written atomically
@@ -133,11 +145,15 @@ be proven, so it must not be silently re-derived.
 
 Adoption is journaled as `observation_adopted`, distinct from a fresh
 `observation` entry so provenance stays auditable. An adopted
-observation counts as committed for resume/pending and digest purposes,
-and its artifact is re-verified on every later resume like any other
-committed observation. Adoption is itself crash-safe: a crash between
-the artifact write and the journal append leaves the same orphan the
-next resume can adopt.
+observation counts as committed for resume/pending and digest purposes.
+The exact evidence record relied upon is persisted as an artifact
+(`artifacts/adoption_evidence/<id>.json`) with its digest bound in the
+journal entry, and the adopted launch sidecar digest is bound there
+too; outcome, launch, and evidence artifacts are all re-verified on
+every later resume. Missing or tampered launch sidecars and missing or
+tampered adopted-evidence artifacts fail closed. Adoption is itself
+crash-safe: a crash between the artifact write and the journal append
+leaves the same orphan the next resume can adopt.
 
 ## Crash-injection contract tests
 
@@ -168,10 +184,13 @@ may differ and must record the restart (restart count ≥ 1 in
 post-crash launches, 0 in control).
 
 Negative tests: tampered journal entry → fail closed; tampered
-observation artifact → fail closed; receipt binding drift on resume →
-fail closed; duplicate observation commit → rejected; duplicate nonce
-commit → rejected; double contact → single event, second call returns
-the original; work dir under /tmp → refused; begin over an existing
+observation artifact → fail closed; missing or tampered launch
+sidecar → fail closed; missing or tampered adopted-evidence artifact →
+fail closed; receipt binding drift on resume → fail closed; duplicate
+observation commit → rejected; duplicate nonce commit → rejected;
+double contact → single event, second call returns the original;
+adopting another transaction's valid orphan evidence → rejected on the
+txid binding; work dir under /tmp → refused; begin over an existing
 journal → refused.
 
 ## Claim boundary (exact)
@@ -190,9 +209,12 @@ Q4 does NOT claim:
 - that the transaction layer is proven against real mutant workloads,
   real repositories, or real host failures (fixtures only);
 - that any scientific contact occurred (none did);
-- that the fixture's deterministic test nonce says anything about
-  Q3's fresh-entropy confirmation semantics (it is a testability
-  stand-in; the layer is nonce-agnostic).
+- that the fixture's deterministic test nonce and pinned
+  authorization-instance value say anything about Q3's fresh-entropy
+  confirmation semantics or real-run authorization freshness (they are
+  testability stand-ins so control and resumed runs stay comparable;
+  the layer's distinct-txid-per-authorization property is covered by a
+  dedicated in-process test with fresh entropy).
 
 ## Anti-rescue (restated for Q4)
 

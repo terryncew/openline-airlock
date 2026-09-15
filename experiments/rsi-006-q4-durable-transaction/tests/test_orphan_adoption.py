@@ -177,9 +177,10 @@ def test_commit_gap_orphan_artifact_adopted(fresh_dir):
 # negative tests: unverifiable orphans fail closed
 # --------------------------------------------------------------------------
 
-def _begun_tx(d: Path):
+def _begun_tx(d: Path, tx_nonce: str | None = None):
     return st.ScientificTransaction.begin(
-        d, receipt_sha256=FIXTURE_RECEIPT_SHA, code_hashes=code_hashes())
+        d, receipt_sha256=FIXTURE_RECEIPT_SHA, code_hashes=code_hashes(),
+        tx_nonce=tx_nonce or os.urandom(32).hex())
 
 
 def _evidence(tx, mid: str, digest: str, **over) -> dict:
@@ -242,3 +243,51 @@ def test_torn_exec_receipt_fails_closed(fresh_dir):
     with pytest.raises(st.OrphanUnverifiable):
         scan_and_adopt_orphans(tx, d, [("m1", "discovery")])
     assert "m1" not in tx.observations
+
+
+# --------------------------------------------------------------------------
+# authorization-instance tests: distinct txids per fresh authorization,
+# nonce recovered and verified on resume, cross-transaction adoption
+# --------------------------------------------------------------------------
+
+def test_two_fresh_transactions_have_different_txids(fresh_dir):
+    """Identical receipt/code bindings, fresh authorization nonces ->
+    different transaction IDs."""
+    a = _begun_tx(fresh_dir / "a")
+    b = _begun_tx(fresh_dir / "b")
+    assert a.tx_nonce != b.tx_nonce
+    assert a.txid != b.txid
+
+
+def test_resume_recovers_same_nonce_and_txid(fresh_dir):
+    """open() recovers the persisted authorization-instance value and
+    re-derives the identical transaction ID."""
+    tx = _begun_tx(fresh_dir)
+    nonce, txid = tx.tx_nonce, tx.txid
+    tx2 = st.ScientificTransaction.open(
+        fresh_dir, receipt_sha256=FIXTURE_RECEIPT_SHA,
+        code_hashes=code_hashes())
+    assert tx2.tx_nonce == nonce
+    assert tx2.txid == txid
+    assert tx2.txid == st.derive_txid(FIXTURE_RECEIPT_SHA, code_hashes(),
+                                      nonce)
+
+
+def test_adopt_cross_transaction_evidence_fails_closed(fresh_dir):
+    """A's valid orphan evidence is foreign to B: B must fail closed --
+    never adopt, never silently re-execute."""
+    txA = _begun_tx(fresh_dir / "a")
+    txB = _begun_tx(fresh_dir / "b")
+    assert txA.txid != txB.txid
+    outcome = b'{"m":1}'
+    ev = _evidence(txA, "m1", st.sha256_bytes(outcome))
+    # The evidence is genuinely valid for A: adoption succeeds there.
+    txA.adopt_orphan_observation(mutant_id="m1", phase="discovery",
+                                 outcome_bytes=outcome, evidence=ev)
+    assert "m1" in txA.observations
+    # The same evidence is rejected by B on the txid binding.
+    with pytest.raises(st.OrphanUnverifiable):
+        txB.adopt_orphan_observation(mutant_id="m1", phase="discovery",
+                                     outcome_bytes=outcome, evidence=ev)
+    assert "m1" not in txB.observations
+    assert txB.pending(["m1"]) == ["m1"]

@@ -18,7 +18,11 @@ RSI_006_Q4_SPEC.md, none touching scientific constants):
   - the confirmation nonce is derived deterministically from the
     transaction ID so control and resumed runs are comparable; the
     transaction layer is nonce-agnostic and the real protocol keeps
-    Q3's fresh-OS-entropy semantics.
+    Q3's fresh-OS-entropy semantics;
+  - the receiver-owned authorization-instance value is a pinned
+    constant (FIXTURE_TX_NONCE) so control and resumed runs share a
+    transaction ID; a real runner passes fresh os.urandom(32).hex()
+    per authorization.
 
 With ``--exec-log`` the driver additionally maintains an independently
 durable, append-only execution receipt OUTSIDE the Q4 journal
@@ -62,6 +66,14 @@ DET_PER_REPO = 2
 FAKE_OPERATORS = ("OP_X", "OP_Y", "OP_Z")
 
 FIXTURE_RECEIPT_SHA = st.sha256_bytes(b"RSI-006-Q4-FIXTURE-RECEIPT-V1")
+# Deterministic stand-in for the receiver-owned authorization-instance
+# value. A real Q4 runner would pass os.urandom(32).hex() -- fresh 256
+# bits per authorization, created before contact. The fixture pins one
+# constant so the uninterrupted control and the crashed/resumed runs of
+# the same test share a transaction ID and stay comparable; the layer's
+# freshness property (different nonces -> different txids) is covered by
+# a dedicated in-process test.
+FIXTURE_TX_NONCE = st.sha256_bytes(b"RSI-006-Q4-FIXTURE-TX-NONCE-V1")
 
 
 def code_hashes() -> dict[str, str]:
@@ -294,7 +306,7 @@ def main() -> None:
     else:
         tx = st.ScientificTransaction.begin(
             work_dir, receipt_sha256=FIXTURE_RECEIPT_SHA,
-            code_hashes=code_hashes())
+            code_hashes=code_hashes(), tx_nonce=FIXTURE_TX_NONCE)
 
     # Launch metadata must record every restart, even when the resumed
     # process commits no new observations (e.g. crash at verdict time).

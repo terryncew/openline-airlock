@@ -104,15 +104,29 @@ def sha256_file(path: Path) -> str:
     return hashlib.sha256(Path(path).read_bytes()).hexdigest()
 
 
-def derive_txid(receipt_sha256: str, code_hashes: Mapping[str, str]) -> str:
+def _valid_tx_nonce(tx_nonce: object) -> bool:
+    return (isinstance(tx_nonce, str) and len(tx_nonce) == 64
+            and all(c in "0123456789abcdef" for c in tx_nonce))
+
+
+def derive_txid(receipt_sha256: str, code_hashes: Mapping[str, str],
+                tx_nonce: str) -> str:
     """Derive the receiver-owned transaction ID.
 
-    Deterministic binding of the environment receipt and the Q4 code
-    hashes. Created before contact; identical on every resume because
-    every input is frozen. No randomness, no clock.
+    Binds the environment receipt, the Q4 code hashes, and the
+    receiver-owned authorization-instance nonce. The nonce is created
+    before contact and persisted in tx_begin; resume recovers the same
+    value, so the ID is stable across restarts but distinct for every
+    fresh authorization -- two transactions with identical receipt/code
+    bindings still get different IDs. No clock involved.
     """
+    if not _valid_tx_nonce(tx_nonce):
+        raise TransactionError(
+            "tx_nonce must be a 256-bit hex value (64 lowercase hex chars)")
     h = hashlib.sha256()
     h.update(b"RSI-006-Q4-TX\x00")
+    h.update(b"authorization-instance\x00" + tx_nonce.encode("utf-8")
+             + b"\x00")
     h.update(receipt_sha256.encode("utf-8") + b"\x00")
     for name in sorted(code_hashes):
         h.update(name.encode("utf-8") + b"\x00"
@@ -174,18 +188,21 @@ class ScientificTransaction:
     closed.
     """
 
-    def __init__(self, work_dir: Path, txid: str):
+    def __init__(self, work_dir: Path, *, txid: str, tx_nonce: str):
         self._work_dir = work_dir
         self._journal_dir = work_dir / "journal"
         self._artifacts_dir = work_dir / "artifacts"
         self._obs_dir = self._artifacts_dir / "observations"
         self._launch_dir = self._artifacts_dir / "launches"
+        self._evidence_dir = self._artifacts_dir / "adoption_evidence"
         self._txid = txid
+        self._tx_nonce = tx_nonce
         # Rebuilt from the journal on open; appended to on begin.
         self._entries: list[dict] = []
         self._contact: dict | None = None
         self._observations: dict[str, str] = {}   # mutant_id -> digest
         self._obs_phase: dict[str, str] = {}      # mutant_id -> phase
+        self._obs_payloads: dict[str, dict] = {}  # mutant_id -> journal payload
         self._seals: dict[str, dict] = {}          # repo -> seal entry payload
         self._nonce: str | None = None
         self._verdict: dict | None = None
@@ -197,23 +214,33 @@ class ScientificTransaction:
 
     @classmethod
     def begin(cls, work_dir: Path | str, *, receipt_sha256: str,
-              code_hashes: Mapping[str, str]) -> "ScientificTransaction":
-        """Create a new transaction. The ID is derived before any contact."""
+              code_hashes: Mapping[str, str],
+              tx_nonce: str) -> "ScientificTransaction":
+        """Create a new transaction. The ID is derived before any contact.
+
+        ``tx_nonce`` is the receiver-owned authorization-instance value
+        (256-bit hex): fresh per authorization, created before contact,
+        bound into the transaction ID and persisted in tx_begin. The
+        receiver owns its generation; the layer validates and binds it.
+        """
         resolved = _work_dir_ok(work_dir)
         journal_dir = resolved / "journal"
         if journal_dir.exists() and any(journal_dir.iterdir()):
             raise TransactionError(
                 f"journal already exists at {journal_dir}: use open() to "
                 f"resume, refusing to begin a second transaction here")
-        tx = cls(resolved, derive_txid(receipt_sha256, dict(code_hashes)))
+        txid = derive_txid(receipt_sha256, dict(code_hashes), tx_nonce)
+        tx = cls(resolved, txid=txid, tx_nonce=tx_nonce)
         tx._journal_dir.mkdir(parents=True, exist_ok=True)
         tx._artifacts_dir.mkdir(parents=True, exist_ok=True)
         tx._obs_dir.mkdir(parents=True, exist_ok=True)
         tx._launch_dir.mkdir(parents=True, exist_ok=True)
+        tx._evidence_dir.mkdir(parents=True, exist_ok=True)
         tx._clean_tmps()
         tx._append(T_BEGIN, {
             "schema": TX_SCHEMA,
             "txid": tx._txid,
+            "tx_nonce": tx_nonce,
             "receipt_sha256": receipt_sha256,
             "code_hashes": dict(code_hashes),
         })
@@ -227,18 +254,31 @@ class ScientificTransaction:
         """Resume an existing transaction after a crash.
 
         Verifies, in order: work-dir durability, journal chain integrity,
-        receipt/code bindings, and every committed artifact. Appends a
-        ``restart`` entry only after all verification passes. Any failure
-        raises and the transaction fails closed: no resume, no verdict.
+        receipt/code bindings, and every committed artifact. The
+        authorization-instance nonce is recovered from the verified
+        tx_begin entry and the transaction ID re-derived from it, so a
+        resumed transaction can only ever continue the authorization it
+        began with. Appends a ``restart`` entry only after all
+        verification passes. Any failure raises and the transaction
+        fails closed: no resume, no verdict.
         """
         resolved = _work_dir_ok(work_dir)
         journal_dir = resolved / "journal"
         if not journal_dir.is_dir():
             raise TransactionError(
                 f"no transaction journal at {journal_dir}")
-        tx = cls(resolved, derive_txid(receipt_sha256, dict(code_hashes)))
+        tx = cls(resolved, txid="", tx_nonce="")
         tx._clean_tmps()
         tx._load_and_verify_chain()
+        # Recover the authorization-instance value from the verified
+        # tx_begin before the transaction ID can be re-derived.
+        tx_nonce = tx._entries[0]["payload"].get("tx_nonce")
+        if not _valid_tx_nonce(tx_nonce):
+            raise CheckpointCorrupt(
+                "tx_begin carries no valid authorization-instance nonce: "
+                "cannot re-derive the transaction ID")
+        tx._tx_nonce = tx_nonce
+        tx._txid = derive_txid(receipt_sha256, dict(code_hashes), tx_nonce)
         tx._verify_bindings(receipt_sha256, dict(code_hashes))
         tx._rebuild_state()
         tx._verify_artifacts()
@@ -269,7 +309,7 @@ class ScientificTransaction:
 
     def _clean_tmps(self) -> None:
         for d in (self._journal_dir, self._artifacts_dir,
-                  self._obs_dir, self._launch_dir):
+                  self._obs_dir, self._launch_dir, self._evidence_dir):
             if not d.is_dir():
                 continue
             for p in d.iterdir():
@@ -318,6 +358,12 @@ class ScientificTransaction:
             raise BindingMismatch(
                 "Q4 code-hash binding drifted since tx_begin: "
                 "refusing to resume")
+        if not _valid_tx_nonce(begin_payload.get("tx_nonce")):
+            raise CheckpointCorrupt(
+                "tx_begin authorization-instance nonce invalid")
+        if begin_payload.get("tx_nonce") != self._tx_nonce:
+            raise CheckpointCorrupt(
+                "authorization-instance nonce mismatch on resume")
         if begin_payload.get("txid") != self._txid:
             raise CheckpointCorrupt("txid binding mismatch")
         self._receipt_sha256 = receipt_sha256
@@ -332,6 +378,7 @@ class ScientificTransaction:
         elif t == T_OBSERVATION or t == T_OBSERVATION_ADOPTED:
             self._observations[p["mutant_id"]] = p["digest"]
             self._obs_phase[p["mutant_id"]] = p["phase"]
+            self._obs_payloads[p["mutant_id"]] = p
         elif t == T_SEAL:
             self._seals[p["repo"]] = p
         elif t == T_NONCE and self._nonce is None:
@@ -346,7 +393,8 @@ class ScientificTransaction:
             self._apply(entry)
 
     def _verify_artifacts(self) -> None:
-        for mid, digest in self._observations.items():
+        for mid, payload in self._obs_payloads.items():
+            digest = payload["digest"]
             path = self._obs_dir / f"{mid}.json"
             try:
                 blob = path.read_bytes()
@@ -356,6 +404,33 @@ class ScientificTransaction:
             if sha256_bytes(blob) != digest:
                 raise CheckpointCorrupt(
                     f"committed observation {mid} artifact digest mismatch")
+            # Launch/provenance sidecar: the journaled launch digest must
+            # match the persisted sidecar on every resume, for ordinary
+            # and adopted observations alike.
+            launch_path = self._launch_dir / f"{mid}.json"
+            try:
+                launch_blob = launch_path.read_bytes()
+            except OSError:
+                raise CheckpointCorrupt(
+                    f"committed observation {mid} launch sidecar missing")
+            if sha256_bytes(launch_blob) != payload.get("launch_digest"):
+                raise CheckpointCorrupt(
+                    f"committed observation {mid} launch sidecar digest "
+                    f"mismatch")
+            # Adopted observations additionally bind the exact
+            # orphan-evidence record relied upon at adoption time.
+            if "evidence_digest" in payload:
+                ev_path = self._evidence_dir / f"{mid}.json"
+                try:
+                    ev_blob = ev_path.read_bytes()
+                except OSError:
+                    raise CheckpointCorrupt(
+                        f"adopted observation {mid} evidence artifact "
+                        f"missing")
+                if sha256_bytes(ev_blob) != payload["evidence_digest"]:
+                    raise CheckpointCorrupt(
+                        f"adopted observation {mid} evidence artifact "
+                        f"digest mismatch")
         if self._verdict is not None:
             path = self._artifacts_dir / "report.json"
             try:
@@ -374,6 +449,11 @@ class ScientificTransaction:
     @property
     def txid(self) -> str:
         return self._txid
+
+    @property
+    def tx_nonce(self) -> str:
+        """The receiver-owned authorization-instance value for this tx."""
+        return self._tx_nonce
 
     @property
     def work_dir(self) -> Path:
@@ -511,9 +591,12 @@ class ScientificTransaction:
         The adopted observation is journaled as ``observation_adopted``
         (distinct from a fresh ``observation`` entry, so provenance is
         auditable), counts as committed for ``pending()`` /
-        ``results_digest()``, and its artifact is re-verified on every
-        later resume like any other committed observation. Adopting an
-        already-committed ID is rejected as duplicate work.
+        ``results_digest()``. The exact evidence record relied upon is
+        persisted under ``artifacts/adoption_evidence/`` with its digest
+        bound in the journal entry, and the adopted launch sidecar digest
+        is bound too; outcome, launch, and evidence artifacts are all
+        re-verified on every later resume. Adopting an already-committed
+        ID is rejected as duplicate work.
         """
         if mutant_id in self._observations:
             raise DuplicateWork(
@@ -552,16 +635,23 @@ class ScientificTransaction:
         if not isinstance(launch, dict):
             raise OrphanUnverifiable("orphan evidence launch is not a record")
         _atomic_write(self._obs_dir / f"{mutant_id}.json", outcome_bytes)
+        # Persist the exact evidence record relied upon, as a
+        # restart-verifiable artifact. evidence_digest in the journal
+        # entry below binds it on every open().
+        _atomic_write(self._evidence_dir / f"{mutant_id}.json",
+                      canonical_bytes(evidence))
         launch_blob = canonical_bytes({
             **launch, "mutant_id": mutant_id, "phase": phase,
             "observation_digest": digest, "adopted": True,
         })
+        launch_digest = sha256_bytes(launch_blob + b"\n")
         _atomic_write(self._launch_dir / f"{mutant_id}.json",
                       launch_blob + b"\n")
         self._append(T_OBSERVATION_ADOPTED, {
             "mutant_id": mutant_id,
             "phase": phase,
             "digest": digest,
+            "launch_digest": launch_digest,
             "adopted_from": "orphan_evidence",
             "evidence_digest": sha256_bytes(canonical_bytes(evidence)),
         })

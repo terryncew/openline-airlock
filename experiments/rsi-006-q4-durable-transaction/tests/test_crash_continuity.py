@@ -11,6 +11,7 @@ may differ and must record the restart.
 """
 
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -139,9 +140,11 @@ def test_double_crash_resumes_equal(control, fresh_dir):
 # negative tests: fail closed, reject duplicates
 # --------------------------------------------------------------------------
 
-def _unit_tx(d: Path, receipt: str = "a" * 64):
+def _unit_tx(d: Path, receipt: str = "a" * 64,
+             tx_nonce: str | None = None):
     return st.ScientificTransaction.begin(
-        d, receipt_sha256=receipt, code_hashes={"k": "v"})
+        d, receipt_sha256=receipt, code_hashes={"k": "v"},
+        tx_nonce=tx_nonce or os.urandom(32).hex())
 
 
 def _unit_open(d: Path, receipt: str = "a" * 64):
@@ -219,7 +222,8 @@ def test_tmp_work_dir_refused():
     with pytest.raises(st.TransactionError):
         st.ScientificTransaction.begin("/tmp/q4-must-not-exist",
                                        receipt_sha256="a" * 64,
-                                       code_hashes={})
+                                       code_hashes={},
+                                       tx_nonce=os.urandom(32).hex())
 
 
 def test_begin_over_existing_journal_refused(fresh_dir):

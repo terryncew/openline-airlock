@@ -20,6 +20,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import json
+import os
 import shutil
 import sys
 import tempfile
@@ -143,8 +144,10 @@ def main() -> None:
     try:
         code_hashes = {"stransaction.py": st.sha256_file(
             EXP_DIR / "stransaction.py")}
+        tx_nonce = os.urandom(32).hex()
         tx = st.ScientificTransaction.begin(
-            scratch, receipt_sha256="f" * 64, code_hashes=code_hashes)
+            scratch, receipt_sha256="f" * 64, code_hashes=code_hashes,
+            tx_nonce=tx_nonce)
         txid = tx.txid
         r = tx.note_contact(mutant_id="smoke-1", child_pid=1234)
         assert r["created"] is True
@@ -153,10 +156,12 @@ def main() -> None:
                                   launch={"note": "smoke"})
         assert tx.observations == {"smoke-1": d}
         tx.commit_nonce(nonce_hex="ab" * 32)
-        # Resume in a "new process": bindings verified, work skipped.
+        # Resume in a "new process": bindings verified, nonce recovered,
+        # work skipped.
         tx2 = st.ScientificTransaction.open(
             scratch, receipt_sha256="f" * 64, code_hashes=code_hashes)
         assert tx2.txid == txid
+        assert tx2.tx_nonce == tx_nonce
         assert tx2.contact_event["mutant_id"] == "smoke-1"
         assert tx2.nonce == "ab" * 32
         assert tx2.pending(["smoke-1", "smoke-2"]) == ["smoke-2"]
