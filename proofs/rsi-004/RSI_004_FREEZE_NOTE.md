@@ -65,12 +65,22 @@ of this code fails the same way at the same place.
 
 ## Anti-rescue
 
+The preregistered Nightshift-contact anti-rescue trigger was not reached
+because no Nightshift contact occurred. Separately, the explicit
+authorization permitted exactly one primary invocation and prohibited rerun
+or repair after that first attempt. That one-run authorization was consumed
+when the authorized top-level primary command was executed. RSI-004 is
+therefore permanently closed with a harness crash and no scientific
+outcome.
+
 The primary-contact marker WAS written at 2026-09-14 17:56:00 PDT, before
-the crash, so the primary was initiated. Anti-rescue is therefore in force
-for RSI-004 exactly as if contact had occurred: no rerun, no repair, no
-tuning, no threshold change, no reinterpretation, no completion of the
-outcome under this experiment ID. A successor repair would require a new
-experiment ID and separate authorization.
+the crash. It is evidence that the authorized primary invocation began,
+not evidence of actual Nightshift contact: marker creation and the
+preregistered Nightshift-contact trigger are distinct, and only the former
+occurred here. No rerun, no repair, no tuning, no threshold change, no
+reinterpretation, no completion of the outcome under this experiment ID. A
+successor repair would require a new experiment ID and separate
+authorization.
 
 ## Scope notes (for the record, not claims)
 
