@@ -27,7 +27,7 @@ all frozen before any implementation:
    NO-GO before implementation. This is part of the Q6 boundedness test.
 2. **F1's kill point was too late.** Killing the coordinator after a
    completion record is already durable does not test the new gap — Q5
-   already adopts durable completions. F1 is corrected in §9: the
+   already adopts durable completions. F1 is corrected in §10: the
    coordinator dies after the scientific child has genuinely started
    and contact has crossed, but **before completion becomes durable**.
 3. **Normal runs stay normal commits.** An uninterrupted Q6 observation
@@ -37,7 +37,7 @@ all frozen before any implementation:
    adoption. F5 verifies the journal provenance shape, not just the
    scientific bytes.
 4. **Q6 needs its own code/environment binding.** The frozen Q5 receipt
-   does not authorize new recorder code. §8 specifies the Q6 manifest,
+   does not authorize new recorder code. §9 specifies the Q6 manifest,
    Q6 code hashes, and Q6 environment receipt as a thin additive layer.
 
 ---
@@ -153,10 +153,10 @@ written):
 - `q6_runner.py` — only if the scientific runner needs a Q6 entry
   point; it must import `run_rsi_006_q5` read-only and change nothing
   in it. To be created only if the wrapper cannot be avoided.
-- `q6_receipt.py` — the Q6 code/environment binding layer per §8
+- `q6_receipt.py` — the Q6 code/environment binding layer per §9
   (target: ≤150 lines).
-- `execution_manifest.json` — the Q6 execution manifest per §8.
-- `tests/` — F1–F5 falsifier tests per §9, plus unit tests for the
+- `execution_manifest.json` — the Q6 execution manifest per §9.
+- `tests/` — F1–F5 falsifier tests per §10, plus unit tests for the
   recorder. Fixture-only; no scientific contact.
 
 Reused read-only (never copied, never forked):
@@ -173,12 +173,16 @@ Reused read-only (never copied, never forked):
 - `ContactGate` — imported from frozen Q3 `contact.py`, instantiated
   on the same gate path, called at the same boundary (immediately
   after the scientific child's successful `Popen`).
-- `build_q3_completion` — the existing canonical scientific builder
-  from `run_rsi_006_q5.py`, imported read-only and invoked inside the
-  recorder. Pre-implementation check: the runner module is import-safe
-  (`if __name__ == "__main__"` guard) and the builder is a module-level
-  pure function; if either check fails, the implementation must STOP
-  and return NO-GO rather than copy the builder.
+- `build_q3_completion` / `build_q3_spawn_failure` — the existing
+  canonical scientific builders from `run_rsi_006_q5.py`, resolved by
+  the recorder via frozen dotted names
+  (`run_rsi_006_q5.build_q3_completion`,
+  `run_rsi_006_q5.build_q3_spawn_failure`) after importing the runner
+  module read-only. The runner module is import-safe (`if __name__ ==
+  "__main__"` guard at line 1014) and both builders are module-level
+  pure functions taking explicit keyword arguments — verified, not
+  assumed. If either check fails at implementation time, STOP and
+  return NO-GO rather than copy a builder.
 - Q4 `ScientificTransaction` — untouched; commit/adopt/journal
   semantics unchanged.
 
@@ -188,10 +192,80 @@ In Q5, the coordinator's `_worker_run` owns: `Popen → record_started
 → ContactGate → communicate/wait → canonical build → write_outcome →
 record_completion`. In Q6, the subclass's `_worker_run` keeps
 `_classify` and `record_prepared` in the coordinator, then launches
-the one-shot recorder subprocess with a sealed, create-once
-configuration. The recorder owns the post-spawn sequence and nothing
-else. The coordinator never sees the raw child result except through
-the recorder's durable artifacts.
+the one-shot recorder subprocess with a sealed, digest-bound
+configuration (§7). The recorder owns the post-spawn sequence and
+nothing else. The coordinator never sees the raw child result except
+through the recorder's durable artifacts.
+
+When no scientific builder is active (generic path), the override
+delegates to `super()._worker_run(...)` — exact Q5 behavior, zero
+duplication. The recorder path applies only when a completion builder
+is active.
+
+### Additive seam proof (frozen)
+
+Inspected against exact base main
+`da3cc7a6ba737fd6e46e01cff6c62f501106f845`. No closure introspection,
+no callable serialization, no Q5 edits, no `run_all` override.
+
+- **Exact Q5 method constructing `spawn`:** `run_rsi_006_q5.py`,
+  `_ScientificRunner._spawn_for` (line 465) returns the closure at
+  line 468. The closure's complete inputs are three fields of the
+  runner's prep dict: `prep["argv"]`, `prep["run_dir"]`,
+  `prep["env"]` — the child is `subprocess.Popen(argv, cwd=run_dir,
+  env=env, stdout=PIPE, stderr=PIPE)`. Nothing else is captured.
+- **Exact Q5 method constructing builder context:**
+  `_ScientificRunner._prepare_observation` (line 415) fills
+  `self._prep[observation_id]` with `repo_name`, `mutant`,
+  `baseline`, `run_dir`, `junit_path`, `python`, `argv`, `env`,
+  `env_overrides`, `overlay_root`; `_builder` (line 475) delegates to
+  the module-level pure function `build_q3_completion` (line 116),
+  which takes all of these as explicit keyword arguments. The spawn-
+  failure builder (line 485) likewise delegates to module-level
+  `build_q3_spawn_failure`.
+- **Exact Q5 method constructing the gate:**
+  `ContactGate(self._stage2_dir / "contact_marker.json")`
+  (`run_rsi_006_q5.py` line 916); the gate exposes its path via the
+  `marker_path` property (`contact.py`), so the recorder needs no new
+  plumbing to find it.
+- **Exact data the recorder needs:** txid, observation ID, phase,
+  attempt, receipt SHA, code hashes, exec_nonce, exact child `argv`,
+  `run_dir` (cwd identity), `env_overrides` (only), `python`,
+  `repo_name`, `mutant`, `baseline`, `junit_path`, wait timeout
+  (Q3's frozen `RUN_TIMEOUT_S`, asserted `== 120` at runner import),
+  canonical builder dotted name, gate marker path. The full ambient
+  `env` is NOT serialized: the recorder inherits the coordinator's
+  environment through `Popen` and applies the sealed `env_overrides`
+  (`PYTHONDONTWRITEBYTECODE`, `PYTHONPATH`), reproducing Q5's exact
+  child env without moving secrets through the config. The recorder
+  must not sanitize its own environment before spawning the
+  scientific child — frozen invariant.
+- **Exact Q6 seam:** a Q6 runner subclass overrides `_spawn_for`
+  (5 lines): call `super()._spawn_for(observation_id)`, attach the
+  prep dict as an attribute on the returned closure
+  (`spawn.q6_prep = self._prep[observation_id]`), return it. This is
+  attribute attachment, not closure introspection — the closure's
+  internals are never read. The Q6 `_worker_run` override reads
+  `getattr(spawn, "q6_prep", None)`; when absent it delegates to
+  `super()._worker_run(...)`. The canonical builder is resolved by
+  the recorder importing `run_rsi_006_q5` read-only and looking up
+  `build_q3_completion` by its frozen dotted name
+  (`run_rsi_006_q5.build_q3_completion`); the spawn-failure builder
+  likewise (`run_rsi_006_q5.build_q3_spawn_failure`), invoked by the
+  recorder itself on `Popen` `OSError` with no child, no `started`
+  record, and no gate call — mirroring Q5 exactly.
+- **Parent methods remaining inherited untouched:**
+  `Coordinator.run_all`, `Coordinator._apply`,
+  `Coordinator._classify`, `Coordinator._generic_completion`,
+  `Coordinator.reconcile_contact`, `interprocess_lock`; all
+  `ledger.*` functions; `ContactGate`; Q4 `ScientificTransaction`;
+  the runner's `_prepare_observation`, `_cleanup_prep`, `_run_phase`,
+  mutant generation, and verdict machinery.
+
+If the implementation discovers this seam is insufficient, the
+prereg must NOT be quietly relaxed: either show a still-small
+additive wrapper seam that changes no scientific semantics and stays
+inside the §5 complexity bar, or return NO-GO.
 
 ### New durable artifact (frozen)
 
@@ -239,12 +313,23 @@ prepared exists
 → recorder calls ContactGate immediately after successful
   scientific-child Popen
 → recorder waits / applies the already-frozen timeout behavior
+  (Q3's frozen RUN_TIMEOUT_S, from the sealed config)
+→ if the scientific Popen raises OSError: recorder invokes the
+  existing canonical spawn-failure builder itself — no child, no
+  started record, no gate call — then seals exactly as Q5 does
 → recorder invokes the existing canonical scientific builder
 → recorder durably writes exact outcome
 → recorder durably writes exact launch/result sidecar
 → recorder writes completion seal LAST
 → recorder exits
 ```
+
+Recorder environment invariant (frozen): the recorder inherits the
+coordinator's ambient environment through its own `Popen` and applies
+only the sealed `env_overrides` when spawning the scientific child —
+reproducing Q5's exact child `Popen(argv, cwd=run_dir, env=env)`
+without serializing ambient secrets. The recorder must not sanitize
+or alter its inherited environment before the scientific spawn.
 
 The recorder must NOT: own the Q4 journal; acquire the coordinator
 lock; commit or adopt observations; generate scientific seeds; choose
@@ -261,28 +346,45 @@ recorder performs no coordinator-lock acquisition and no
 
 ---
 
-## 7. Binding the recorder to the exact attempt
+## 7. Binding the recorder to the exact attempt (digest-bound config)
 
-Before launching the scientific child, the recorder verifies the
-durable prepared record matches, byte-exact: txid, observation ID,
-phase, attempt, receipt SHA, code hashes. The scientific `started`
-record continues to bind the exact scientific child PID and
-exec_nonce under the same attempt.
+The frozen Q5 `prepared` schema contains no Q6 config hash, and Q5 is
+not changed. The binding is therefore established additively:
 
-- The recorder configuration is immutable/create-once: written
-  atomically by the coordinator before recorder launch, verified by
-  the recorder before spawn, and any replacement or tampering after
-  preparation fails closed (no new physical execution from a
-  stale/misbound config).
-- A stale or misbound recorder config must never create a new
-  physical execution: on any binding mismatch the recorder exits
-  without spawning.
-- Do not serialize the full ambient environment or secrets. Pass or
-  inherit only what is needed to recreate Q5's exact child invocation
-  (argv, wait timeout, builder dotted name + serialized builder
-  context).
-- The recorder aborts without spawning if a completion record already
-  exists for the observation+attempt (first seal wins; see F4).
+- The coordinator constructs canonical Q6 recorder-config bytes:
+  `json.dumps(config, sort_keys=True).encode("utf-8")` where the
+  config binds at least: txid, observation ID, phase, attempt, receipt
+  SHA, code hashes, exact child `argv`, `run_dir` (cwd identity),
+  required `env_overrides` only (never the full ambient environment
+  or secrets), wait timeout, canonical builder dotted name,
+  serialized builder context (`repo_name`, `mutant`, `baseline`,
+  `python`, `junit_path`), and the gate marker path.
+- The coordinator computes SHA-256 over those exact bytes.
+- The config file is written atomically, create-once (a second write
+  for the same observation+attempt fails closed).
+- The recorder is launched with BOTH the config path AND the expected
+  config SHA-256 passed directly in the recorder's `argv` (not read
+  from any file).
+- Before any scientific child `Popen`, the recorder: reads the config
+  bytes, recomputes SHA-256, compares it to the expected digest from
+  its launch argv, and verifies the config bindings against the
+  durable prepared record (txid, observation ID, phase, attempt,
+  receipt SHA, code hashes — byte-exact).
+- Any mismatch — digest mismatch, binding mismatch, tampered bytes,
+  replaced config file, changed child argv, changed builder context —
+  makes the recorder exit **before** any scientific child spawn. Zero
+  child spawn on any config failure.
+
+This closes the "replace config after preparation" hole without
+modifying Q5. Threat boundary (frozen): this binds the
+receiver-owned execution against stale, replaced, or misbound
+configuration inside the defined process model. It does not claim
+resistance to a malicious OS or root attacker.
+
+The scientific `started` record continues to bind the exact
+scientific child PID and exec_nonce under the same attempt. The
+recorder aborts without spawning if a completion record already
+exists for the observation+attempt (first seal wins; see F4).
 
 ---
 
@@ -327,7 +429,7 @@ Q6 obtains its own binding as a thin additive layer:
   own constant check and then delegates to the pure helpers. No
   qualifier redesign.
 - Frozen Q3 receipt, pins, pool, seeds, budgets, operators, and
-  thresholds are reused exactly (§12). No scientific contact occurs
+  thresholds are reused exactly (§11). No scientific contact occurs
   during environment qualification.
 
 **Complexity stop (frozen):** if establishing this binding requires a
@@ -348,32 +450,45 @@ scientific-context claim remains out of scope for Q6.
 ### F1 — COORDINATOR DIES BEFORE COMPLETION, RECORDER SURVIVES
 (primary earned case)
 
+The kill point is deterministic, not a poll race. The fixture
+scientific child cooperates through a **fixture-only**
+synchronization primitive (a ready-file plus a release-file); this
+mechanism is absent from production code.
+
 Required state at coordinator kill — all asserted by the test driver:
 
 - scientific `started` durable for the exact child/exec_nonce;
 - ContactGate crossed exactly once;
 - **completion NOT durable** (`<id>.complete.json` absent). If
-  completion is already durable at kill time, the test is invalid —
-  Q5 already adopts durable completions, and killing then would not
-  test the new gap.
+  completion is somehow already durable at kill time, F1 is invalid
+  and must not count — Q5 already adopts durable completions, and
+  killing then would not test the new gap.
 
 Sequence:
 
-1. begin transaction; recorder launched with sealed config;
-2. recorder `Popen`s the actual scientific (fixture) child;
-3. durable `started` exists for that exact child/exec_nonce;
-4. ContactGate crossed exactly once;
-5. assert NO durable completion exists yet;
-6. kill the coordinator process (SIGKILL, external driver);
-7. assert coordinator dead; recorder + scientific child remain alive;
-8. child finishes; orphaned recorder writes exact outcome, then exact
-   launch sidecar, then completion seal LAST;
-9. only AFTER the seal exists, start the successor on the same
-   durable root;
-10. successor opens the same transaction, classifies as recoverable,
+1. begin transaction; coordinator writes the digest-bound recorder
+   config and launches the recorder;
+2. recorder verifies config digest + prepared bindings, then `Popen`s
+   the fixture scientific child;
+3. recorder writes `started`; calls ContactGate exactly once;
+4. fixture child signals "started/ready" through the fixture sync
+   file, then **blocks before completing**;
+5. driver confirms: Q5 `started` record durable for the exact
+   child/exec_nonce, ContactGate crossed exactly once, completion
+   absent;
+6. driver SIGKILLs the coordinator process (external driver, not a
+   crash hook);
+7. driver asserts the coordinator is dead; recorder + scientific
+   child remain alive;
+8. driver releases the child; the child completes;
+9. the orphaned recorder writes exact outcome, then exact launch
+   sidecar, then completion seal LAST;
+10. only AFTER the seal exists, the successor starts on the same
+    durable root;
+11. successor opens the same transaction, classifies as recoverable,
     verifies, and adopts the exact completion;
-11. zero second scientific `Popen`;
-12. same txid/contact/attempt/exec_nonce; journal verifies; terminal
+12. zero second scientific `Popen`;
+13. same txid/contact/attempt/exec_nonce; journal verifies; terminal
     scientific canonical bytes equal the uninterrupted control run.
 
 Expected: `adopt_orphan_observation` in the journal (crash path only),
@@ -393,11 +508,16 @@ verdict. Q6 must not weaken Q5.
 Independently test at least: wrong txid; wrong observation ID; wrong
 phase; wrong attempt; wrong receipt SHA; wrong code hashes; wrong
 exec_nonce / scientific execution identity; changed outcome bytes;
-changed outcome digest; changed or mismatched launch sidecar/seal.
+changed outcome digest; changed or mismatched launch sidecar/seal;
+recorder config byte tamper; recorder config file replacement;
+correct tx/observation bindings but changed child `argv`; changed
+builder context; wrong expected config digest passed in recorder argv.
 
-Expected: fail closed — zero adoption, zero rerun. (The ledger's
-existing binding checks plus the Q6 launch-sidecar digest binding do
-this work; F3 proves it.)
+Expected: fail closed — zero adoption, zero rerun. Every config-
+binding case must additionally produce **zero scientific child
+spawn**: the recorder exits before `Popen`. (The ledger's existing
+binding checks plus the Q6 launch-sidecar digest binding and the §7
+config-digest check do this work; F3 proves it.)
 
 ### F4 — DUPLICATE / LATE SEAL
 
@@ -454,22 +574,40 @@ so F5 requires byte-level journal-shape parity modulo the new
 
 ---
 
-## 12. Contact and repeatability boundaries (frozen)
+## 12. Contact, qualification, and repeatability (frozen)
 
-- **First irreversible Q6 scientific contact** is defined as the first
-  real (non-fixture) observation subprocess spawned under a frozen Q6
-  environment receipt after the terminal substrate-qualification
-  decision authorizes RSI-006 productivity. F1–F5 mechanism tests are
-  not scientific contact.
+The corrected sequence — RSI-006 productivity cannot be authorized
+until the substrate is qualified:
+
+1. Q6 mechanism implementation (additive only, §5);
+2. F1–F5 fixture mechanism tests (§10);
+3. Q6 Stage 1 environment qualification → frozen Q6 environment
+   receipt (§9);
+4. exactly one authorized Q6 terminal substrate-qualification
+   execution using the same frozen Q3 scientific workload and
+   constants (§11);
+5. terminal substrate verdict (§14);
+6. ONLY `QUALIFIED_RSI_006_Q6_SUBSTRATE` may authorize RSI-006
+   productivity — and that authorization is a separate decision, not
+   granted by this preregistration.
+
+- **First irreversible Q6 scientific contact** is therefore the first
+  real (non-fixture) observation subprocess spawned during the
+  authorized Q6 terminal substrate-qualification execution under the
+  frozen Q6 environment receipt. It is NOT after productivity
+  authorization. F1–F5 mechanism tests are not scientific contact.
 - **What may be repeated pre-contact:** Stage 1 arming/qualification
-  attempts (each preserving its attempt evidence byte-identical),
-  fixture mechanism tests, recorder unit tests, self-checks, and
-  receipt re-verification. None of these creates scientific contact.
+  attempts (each preserving its attempt evidence byte-identical under
+  the existing pre-contact evidence-preservation rules), fixture
+  mechanism tests, recorder unit tests, self-checks, and receipt
+  re-verification. None of these creates scientific contact. The
+  static feasibility guard remains pre-contact.
 - **What cannot change after first contact:** the Q6 execution
   manifest and every file it binds, the Q6 environment receipt, Q3
   pins/constants/thresholds, the scientific pool, and this
   preregistration's falsifier definitions. Any change invalidates the
-  Q6 receipt exactly as manifest changes invalidate Q5's.
+  Q6 receipt exactly as manifest changes invalidate Q5's. No
+  tuning, no rescue, no additional repair after contact.
 
 ---
 
@@ -491,38 +629,103 @@ There is no Q7 durability ladder.
 
 ---
 
-## 14. Terminal verdict vocabulary (frozen)
+## 14. Verdict vocabulary (frozen)
+
+Mechanism level (F1–F5; deliberately unconfusable with scientific
+verdicts):
 
 - Per falsifier: **HOLDS** or **VIOLATED**.
-- Q6 overall: **Q6-PASS** (F1–F5 all HOLD, no Q5 invariant weakened,
-  F5 parity byte-exact) or **Q6-FAIL(<reason>)**.
-- **Q6-FAIL → STOP.** No rescue, no reinterpretation, no Q7. The
-  negative result goes to the terminal substrate-qualification
-  decision as evidence.
-- Q6 mechanism tests never produce a scientific verdict. Never label
-  Q6 PASS/FAIL/QUALIFIED/NOT_QUALIFIED in the scientific sense, and
-  never claim substrate qualification from mechanism tests alone.
-- The unrepaired case keeps Q5's frozen description:
-  `FAIL_CLOSED_UNCERTAIN_EXECUTION_AFTER_CONTACT` — safety behavior
-  earned, scientific verdict not earned, substrate qualification not
-  earned.
+- Mechanism overall: **Q6_MECHANISM_HOLDS** (F1–F5 all HOLD, no Q5
+  invariant weakened, F5 parity byte-exact) or
+  **Q6_MECHANISM_VIOLATED(\<reason\>)**.
+- **Q6_MECHANISM_VIOLATED → STOP.** No rescue, no reinterpretation,
+  no Q7. The negative result is preserved as evidence; RSI-006
+  productivity remains unauthorized.
+
+Production stage (frozen now, used only after §12 step 4):
+
+- Pre-contact only: **INCONCLUSIVE_RSI_006_Q6_PRECONDITION_FAILURE**
+  (the static feasibility guard failed: no transaction, no contact,
+  no verdict — same boundary as Q5's pre-contact report).
+- Terminal scientific verdicts:
+  **QUALIFIED_RSI_006_Q6_SUBSTRATE** /
+  **NOT_QUALIFIED_RSI_006_Q6_SUBSTRATE**.
+- If execution fails after scientific contact before a scientific
+  verdict: freeze the exact descriptive execution failure (in the
+  style of Q5's `FAIL_CLOSED_UNCERTAIN_EXECUTION_AFTER_CONTACT`);
+  scientific verdict NOT EARNED; substrate qualification NOT EARNED;
+  no rerun, no rescue; no Q7; RSI-006 productivity remains
+  unauthorized.
+
+Q6 mechanism tests never produce a scientific verdict. Bare
+`Q6-PASS`/`Q6-FAIL` are retired — they risk being read later as the
+substrate verdict. Never claim substrate qualification from mechanism
+tests alone.
+
+The unrepaired case keeps Q5's frozen description:
+`FAIL_CLOSED_UNCERTAIN_EXECUTION_AFTER_CONTACT` — safety behavior
+earned, scientific verdict not earned, substrate qualification not
+earned.
 
 ---
 
-## 15. Pre-implementation checklist (must all hold before code)
+## 15. Terminal Q6 path (frozen)
+
+One complete path, no branches around it:
+
+PRE-CONTACT:
+
+- implement the additive mechanism (§5);
+- run F1–F5 fixture mechanism tests (§10);
+- if **Q6_MECHANISM_VIOLATED** → STOP, no Q7;
+- if **Q6_MECHANISM_HOLDS** → freeze the implementation;
+- run Q6 Stage 1 qualification against the final exact execution
+  surface; Stage 1 may be repeated only under the existing
+  pre-contact evidence-preservation rules;
+- freeze the Q6 environment receipt (§9);
+- the static feasibility guard remains pre-contact; its failure is
+  `INCONCLUSIVE_RSI_006_Q6_PRECONDITION_FAILURE` — no transaction,
+  no contact, no verdict.
+
+CONTACT:
+
+- exactly one authorized Q6 terminal substrate-qualification
+  execution (§12 step 4);
+- the first real scientific child `Popen` consumes
+  authorization/contact exactly as frozen;
+- no tuning, no rescue, no additional repair after this point.
+
+TERMINAL:
+
+- `QUALIFIED_RSI_006_Q6_SUBSTRATE` → the substrate prerequisite is
+  finally earned; RSI-006 productivity may be *separately* authorized
+  (this preregistration does not authorize it);
+- `NOT_QUALIFIED_RSI_006_Q6_SUBSTRATE` → stop; RSI-006 productivity
+  unauthorized;
+- post-contact execution failure before verdict → freeze the exact
+  descriptive failure; scientific verdict NOT EARNED; substrate
+  qualification NOT EARNED; stop; no Q7; productivity unauthorized.
+
+There is no additional Q6 repair after contact.
+
+## 16. Pre-implementation checklist (must all hold before code)
 
 1. Branch is `prereg/rsi-006-q6` at exact base main
-   `da3cc7a6ba737fd6e46e01cff6c62f501106f845`; this document is the
-   only addition; no frozen file changed (verified by diff).
-2. `run_rsi_006_q5` is import-safe and `build_q3_completion` is a
-   module-level pure function resolvable by dotted name — else NO-GO.
+   `da3cc7a6ba737fd6e46e01cff6c62f501106f845`; compared with exact
+   base main, the branch adds exactly one preregistration file and
+   modifies zero pre-existing tracked files — no Q5, Q4, Q3, or
+   `proofs/` file changed (verified by diff).
+2. The additive seam proof (§5) holds as written: `run_rsi_006_q5`
+   import-safe, builders resolvable by dotted name, `_spawn_for`
+   attribute seam sufficient — else NO-GO.
 3. The `_worker_run` override can be expressed by subclassing with the
    reuse list in §5 intact — else NO-GO.
 4. The Q6 binding wrapper fits the ≤150-line target without qualifier
    redesign — else NO-GO.
 5. F1–F5 procedures above are implementable against fixtures with the
-   corrected kill point (completion NOT durable at coordinator death)
-   — else the falsifier, not the bar, is at fault: return to review.
+   deterministic barrier and the corrected kill point (completion NOT
+   durable at coordinator death) — else the falsifier, not the bar,
+   is at fault: return to review.
 
 Implementation, Q6 Stage 1, and any scientific contact each require
 separate explicit authorization. This preregistration authorizes none
