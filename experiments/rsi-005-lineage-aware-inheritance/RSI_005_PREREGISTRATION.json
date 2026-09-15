@@ -8,8 +8,8 @@
     "qualified_harness_runner_sha256": "1fa894bd623eb4aacc39645ad546c0d31889dec391b1a65d65a27842937665e3",
     "qualified_harness_source_commit": "ffd1030b884664db37fe4d8ff66a58c06fbf5060",
     "scientific_runner_path": "experiments/rsi-005-lineage-aware-inheritance/run_rsi_005_scientific.py",
-    "scientific_runner_sha256": "a135d69404407e26afbefa8d3f56a1ea21f3b933fba5d8e0cb44002d4daabf18",
-    "scientific_runner_sha256_method": "SHA-256 of run_rsi_005_scientific.py with the single PREREG_SHA256 assignment line replaced by PREREG_SHA256 = \"000...0\" (64 zeros) before hashing. This NORMALIZED binding is the prereg-bound canonical runner identity; it is deliberately distinct from the LITERAL runtime file hash (sha256_file of the exact bytes at execution time), which the receipt binds separately as scientific_runner_file_sha256. The canonicalization makes the runner hash independent of the preregistration hash, so the runner->prereg and prereg->runner bindings hold simultaneously. Recomputed by test_rsi_005_scientific_contract.py::test_prereg_and_runner_mutual_binding.",
+    "scientific_runner_sha256": "b4aa5e5d3f425761ac5ec5de7512e3ff5b3d0859adc500a9c7d986625425acb5",
+    "scientific_runner_sha256_method": "SHA-256 of run_rsi_005_scientific.py with the single PREREG_SHA256 assignment line replaced by PREREG_SHA256 = \"000...0\" (64 zeros) before hashing. This NORMALIZED binding is the prereg-bound canonical runner identity; it is deliberately distinct from the LITERAL runtime file hash (sha256_file of the exact bytes at execution time), which the receipt binds separately as scientific_runner_file_sha256. The canonicalization makes the runner hash independent of the preregistration hash, so the runner->prereg and prereg->runner bindings hold simultaneously. The local pre-primary self-check independently requires normalized_runner_sha256() of the executing runner to equal this prereg-bound value (the prereg file itself is the authority; no hard-coded constant in the runner). validate_receipt_bindings() requires the receipt's scientific_runner_normalized_sha256 to equal BOTH the executing runner's normalized hash and this prereg-bound value. Recomputed by test_rsi_005_scientific_contract.py::test_prereg_and_runner_mutual_binding.",
     "verified_memory_commit": "36e3d0e0dab6a121abc1c14accbaa7310b5c2186",
     "verified_memory_evidence_py_sha256": "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9"
   },
@@ -38,7 +38,8 @@
     "scope": "single-required-parent lineage only",
     "sibling_branch": "unrelated accepted sibling branch (rootU) must remain usable"
   },
-  "decided": "DECIDED \u2014 FROZEN BEFORE PRIMARY CONTACT. The sequence, pins, verdicts, cause codes, and verification rules below match run_rsi_005_scientific.py as committed. This preregistration SUPERSEDES b5095232cefd14c927d8db2bf22a45c68b1875e91396b995d57272429427cb91 before primary contact; zero Nightshift contact has occurred under RSI-005, so the correction is legitimate under the same experiment ID. No candidate execution, no REOPEN, no primary marker, no result.json, and no scientific receipt have occurred. Primary execution remains gated behind --execute-primary and has NOT been authorized.",
+  "decided": "DECIDED \u2014 FROZEN BEFORE PRIMARY CONTACT. The sequence, pins, verdicts, cause codes, and verification rules below match run_rsi_005_scientific.py as committed. This preregistration SUPERSEDES b5095232cefd14c927d8db2bf22a45c68b1875e91396b995d57272429427cb91 and 4565af3dbc0c9efa6c7a3f7470a89f91a81bdb25c008b94dc6e41cc491faf5cf before primary contact; zero Nightshift contact has occurred under RSI-005, so the correction is legitimate under the same experiment ID. No candidate execution, no REOPEN, no primary marker, no result.json, and no scientific receipt have occurred. Primary execution remains gated behind --execute-primary and has NOT been authorized.",
+  "execution_head_provenance": "execution_head_sha is mandatory exact Git provenance. _execution_head_sha() returns exactly one lowercase 40-char Git SHA or fails closed; there is no UNKNOWN escape hatch. The local pre-primary self-check proves the execution HEAD is resolvable and well-formed before any primary phase dispatch; validate_receipt_bindings() rejects UNKNOWN, empty/missing, and malformed values; INCONCLUSIVE terminal evidence likewise requires an exact 40-char execution HEAD. No substitute value is invented if Git HEAD cannot be resolved: that is a pre-primary/harness failure and the scientific primary must not begin.",
   "experiment": "RSI-005",
   "future_primary_receipt_binds": [
     "airlock_base_sha",
@@ -47,7 +48,7 @@
     "scientific_runner_normalized_sha256 (prereg-bound canonical runner identity)",
     "scientific_runner_file_sha256 (literal bytes that executed)",
     "preregistration_sha256",
-    "execution_head_sha (git rev-parse HEAD at execution time)",
+    "execution_head_sha (mandatory exact 40-char git rev-parse HEAD at execution time; never UNKNOWN)",
     "verified_memory_sha (pinned commit)",
     "verified_memory_evidence_py_sha256 (pinned bytes)",
     "generation receipts",
@@ -127,6 +128,11 @@
     {
       "reason": "pre-primary contract repair: complete receipt package bindings; canonical vs raw lineage identity; true reopen-process termination before separately dispatched reproject; exact Verified Memory local provenance check; explicit cause-code propagation. Scientific question, verdicts, cause codes, lineage semantics, and claim boundary unchanged.",
       "sha256": "b5095232cefd14c927d8db2bf22a45c68b1875e91396b995d57272429427cb91",
+      "status": "superseded before primary contact"
+    },
+    {
+      "reason": "final pre-primary binding repair: the prereg-bound normalized scientific-runner identity is verified again by the local pre-primary self-check (no hard-coded constant); execution_head_sha is mandatory exact Git provenance and may never be UNKNOWN. Scientific question, lineage contract, sequence, verdicts, cause codes, anti-rescue trigger, and no-rerun rule unchanged.",
+      "sha256": "4565af3dbc0c9efa6c7a3f7470a89f91a81bdb25c008b94dc6e41cc491faf5cf",
       "status": "superseded before primary contact"
     }
   ],

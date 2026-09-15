@@ -521,3 +521,45 @@ def test_no_substring_cause_inference_in_runner():
     the scientific runner."""
     src = RUNNER_PATH.read_text(encoding="utf-8")
     assert "_cause_for_precondition" not in src
+
+
+def test_prereg_bound_normalized_runner_enforced(monkeypatch):
+    """The local self-check requires normalized_runner_sha256() to equal the
+    prereg-bound bindings.scientific_runner_sha256 (no hard-coded constant);
+    a wrong prereg-bound hash fails the binding check, and
+    validate_receipt_bindings requires the receipt's normalized hash to equal
+    BOTH the executing runner's hash and the prereg-bound hash."""
+    assert sci._prereg_runner_binding_problems() == []
+    assert sci._prereg_bound_runner_sha256() == sci.normalized_runner_sha256()
+
+    monkeypatch.setattr(sci, "_prereg_bound_runner_sha256", lambda: "f" * 64)
+    problems = sci._prereg_runner_binding_problems()
+    assert problems != [], "wrong prereg-bound runner hash must fail the binding check"
+    assert sci.validate_receipt_bindings(_minimal_receipt()) != []
+
+
+def test_execution_head_exact_and_fail_closed(monkeypatch):
+    """execution_head_sha is mandatory exact Git provenance: a valid 40-char
+    HEAD is accepted; UNKNOWN, malformed, empty, and missing values are
+    rejected by receipt validation; an unresolvable Git HEAD fails the
+    pre-primary self-check closed (no substitute value)."""
+    head = sci._execution_head_sha()
+    assert re.fullmatch(r"[0-9a-f]{64}", head) is None
+    assert re.fullmatch(r"[0-9a-f]{40}", head), head
+
+    good = _minimal_receipt()
+    assert sci.validate_receipt_bindings(good) == []
+    for bad in ("UNKNOWN", "xyz", "", "0" * 39, "0" * 41, "G" + "0" * 39):
+        broken = dict(good)
+        broken["execution_head_sha"] = bad
+        assert any("execution_head_sha" in p for p in sci.validate_receipt_bindings(broken)), bad
+    missing = dict(good)
+    del missing["execution_head_sha"]
+    assert any("execution_head_sha" in p for p in sci.validate_receipt_bindings(missing))
+
+    def _boom() -> str:
+        raise RuntimeError("RSI-005 cannot resolve execution Git HEAD: boom")
+
+    monkeypatch.setattr(sci, "_execution_head_sha", _boom)
+    problems = sci.self_check()
+    assert any("Git HEAD" in p for p in problems), problems

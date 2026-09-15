@@ -76,7 +76,7 @@ except ImportError as exc:  # fail closed: the repaired projector is part of the
 PREREG_PATH = Path(__file__).with_name("RSI_005_PREREGISTRATION.json")
 # Frozen SHA-256 of the scientific preregistration file bytes. Filled when the
 # preregistration is frozen; self-check fails closed on any drift.
-PREREG_SHA256 = "4565af3dbc0c9efa6c7a3f7470a89f91a81bdb25c008b94dc6e41cc491faf5cf"
+PREREG_SHA256 = "256b41d726f5f8597b4e23ed2169f10974a034d9433f5fd0d5ba861ead8f2ac5"
 
 # Frozen bindings (DECIDED - FROZEN BEFORE PRIMARY CONTACT).
 AIRLOCK_BASE_MAIN = "5e319f069c247138ff17186674829e99feba1d9c"
@@ -660,6 +660,15 @@ def validate_receipt_bindings(receipt: dict[str, Any]) -> list[str]:
         problems.append("receipt qualified_harness_source_commit does not match the qualified harness source commit")
     if receipt.get("scientific_runner_normalized_sha256") != normalized_runner_sha256():
         problems.append("receipt scientific_runner_normalized_sha256 does not match the canonicalized runner hash")
+    # The receipt's normalized runner hash must ALSO equal the normalized
+    # runner hash frozen in the preregistration. This closes the case where
+    # the runner changes after preregistration while PREREG_SHA256 and the
+    # prereg file remain unchanged.
+    bound_runner = _prereg_bound_runner_sha256()
+    if not re.fullmatch(r"[0-9a-f]{64}", bound_runner):
+        problems.append("prereg-bound scientific_runner_sha256 is missing or malformed")
+    elif receipt.get("scientific_runner_normalized_sha256") != bound_runner:
+        problems.append("receipt scientific_runner_normalized_sha256 does not match the prereg-bound runner hash")
     if receipt.get("preregistration_sha256") != sha256_file(PREREG_PATH):
         problems.append("receipt preregistration_sha256 does not match the frozen preregistration file")
     for k in ("scientific_runner_file_sha256",):
@@ -667,8 +676,11 @@ def validate_receipt_bindings(receipt: dict[str, Any]) -> list[str]:
         if not isinstance(v, str) or not re.fullmatch(r"[0-9a-f]{64}", v):
             problems.append(f"receipt {k} is not a 64-char lowercase hex SHA-256")
     head = receipt.get("execution_head_sha")
-    if head != "UNKNOWN" and (not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head)):
-        problems.append("receipt execution_head_sha is not a 40-char git SHA nor UNKNOWN")
+    if not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head):
+        problems.append(
+            "receipt execution_head_sha must be an exact 40-char lowercase "
+            "Git SHA (never UNKNOWN, empty, or malformed)"
+        )
     if receipt.get("verified_memory_sha") != VERIFIED_MEMORY_COMMIT:
         problems.append("receipt verified_memory_sha does not match the pinned Verified Memory commit")
     if receipt.get("verified_memory_evidence_py_sha256") != EVIDENCE_PY_SHA256:
@@ -1703,19 +1715,57 @@ def normalized_runner_sha256() -> str:
 
 
 def _execution_head_sha() -> str:
-    """git rev-parse HEAD of the repository at execution time, or UNKNOWN."""
+    """Exactly one lowercase 40-char Git HEAD SHA, or fail closed.
+
+    There is no UNKNOWN escape hatch: if Git HEAD cannot be resolved or is
+    malformed, the scientific primary must not begin. That is a
+    pre-primary/harness failure, never a substitute value."""
     try:
-        return sh("git", "rev-parse", "HEAD",
+        head = sh("git", "rev-parse", "HEAD",
                   cwd=str(Path(__file__).resolve().parents[2])).strip()
-    except RuntimeError:
-        return "UNKNOWN"
+    except RuntimeError as exc:
+        raise RuntimeError(f"RSI-005 cannot resolve execution Git HEAD: {exc}") from exc
+    if not re.fullmatch(r"[0-9a-f]{40}", head):
+        raise RuntimeError(f"RSI-005 execution Git HEAD malformed: {head!r}")
+    return head
+
+
+def _prereg_bound_runner_sha256() -> str:
+    """The normalized scientific-runner hash frozen in the preregistration
+    file (bindings.scientific_runner_sha256). The prereg file itself is the
+    authority; no hard-coded constant, so no second circular binding."""
+    try:
+        doc = json.loads(PREREG_PATH.read_text(encoding="utf-8"))
+        bound = doc["bindings"]["scientific_runner_sha256"]
+    except (OSError, ValueError, KeyError, TypeError):
+        return ""
+    return bound if isinstance(bound, str) else ""
+
+
+def _prereg_runner_binding_problems() -> list[str]:
+    """Fail closed unless the executing runner's normalized hash equals the
+    prereg-bound normalized runner hash. The prereg file was already
+    hash-verified against PREREG_SHA256 before this runs."""
+    bound = _prereg_bound_runner_sha256()
+    if not re.fullmatch(r"[0-9a-f]{64}", bound):
+        return ["prereg-bound scientific_runner_sha256 is missing or malformed"]
+    if normalized_runner_sha256() != bound:
+        return [
+            "executing scientific runner's normalized hash does not match "
+            "the prereg-bound scientific_runner_sha256"
+        ]
+    return []
 
 
 def _static_package_identities() -> dict[str, str]:
     """Static identities of the exact scientific package that executed:
     which harness, which runner, which preregistration, which Airlock base,
     which Verified Memory, and which Git HEAD. Bound in both the successful
-    receipt and INCONCLUSIVE terminal evidence."""
+    receipt and INCONCLUSIVE terminal evidence. The execution HEAD is
+    mandatory and exact: _execution_head_sha() fails closed (no UNKNOWN)
+    if Git HEAD cannot be resolved, so INCONCLUSIVE evidence likewise
+    requires an exact 40-char HEAD; a mid-run resolution failure surfaces
+    as a harness error, never a substitute value."""
     return {
         "airlock_base_sha": AIRLOCK_BASE_MAIN,
         "qualified_harness_sha256": QUALIFIED_HARNESS_SHA256,
@@ -2036,6 +2086,22 @@ def self_check() -> list[str]:
     # the exact pinned commit AND its evidence.py must match the pinned
     # bytes. The authorized primary runs locally, not only in CI.
     problems.extend(_verified_memory_commit_problems())
+
+    # 7. Prereg-bound normalized runner identity: the frozen preregistration
+    # (already hash-verified above) binds bindings.scientific_runner_sha256;
+    # the executing runner's normalized hash must equal it. The prereg file
+    # itself is the authority (no hard-coded constant, no second circular
+    # binding).
+    problems.extend(_prereg_runner_binding_problems())
+
+    # 8. Execution HEAD provenance: git rev-parse HEAD must resolve to
+    # exactly one lowercase 40-char SHA before any primary phase dispatch.
+    # Unresolvable or malformed HEAD is a pre-primary failure: the primary
+    # must not begin, and no substitute value is invented.
+    try:
+        _execution_head_sha()
+    except RuntimeError as exc:
+        problems.append(str(exc))
 
     return problems
 
