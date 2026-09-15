@@ -40,6 +40,23 @@ all frozen before any implementation:
    does not authorize new recorder code. §9 specifies the Q6 manifest,
    Q6 code hashes, and Q6 environment receipt as a thin additive layer.
 
+### Fixup round 2 (2026-09-15)
+
+A second review found four more contract problems, all frozen here
+before implementation: (a) the Q6 coordinator was not wired into the
+frozen runner — §5 now freezes a runtime dependency-injection seam
+(a `qa` proxy resolving `Coordinator` to `Q6Coordinator` for the
+duration of the frozen `Stage2Runner.run()`); (b) the Q6 launch
+sidecar was not bound to recovery — §5 now freezes recovery-side
+verification that attaches the verified exact launch to the adoption
+evidence Q4 already consumes; (c) the launch sidecar was not
+cryptographically sealed — §5 now freezes a Q6 recorder-seal artifact
+with exact write order and digest equations; (d) F5's "byte-level
+journal parity" was invalid — §10 now freezes byte-exact canonical
+bytes plus semantic/structural journal parity under preregistered
+normalization. Class names corrected to the frozen `Stage2Runner`
+throughout.
+
 ---
 
 ## 2. Lineage and immutable dependencies
@@ -150,9 +167,11 @@ written):
   (target: ≤200 lines). Everything else (`_classify`, `_apply`,
   `_generic_completion`, `reconcile_contact`, `run_all`,
   `interprocess_lock`) is inherited unchanged.
-- `q6_runner.py` — only if the scientific runner needs a Q6 entry
-  point; it must import `run_rsi_006_q5` read-only and change nothing
-  in it. To be created only if the wrapper cannot be avoided.
+- `q6_runner.py` — required but small: `Q6Stage2Runner`
+  (`Stage2Runner` subclass overriding only `_spawn_for` for the
+  `q6_prep` attachment) plus the Q6 entrypoint that installs the
+  `qa` proxy for the duration of the frozen parent `run()`
+  (target: ≤80 lines).
 - `q6_receipt.py` — the Q6 code/environment binding layer per §9
   (target: ≤150 lines).
 - `execution_manifest.json` — the Q6 execution manifest per §9.
@@ -209,13 +228,13 @@ Inspected against exact base main
 no callable serialization, no Q5 edits, no `run_all` override.
 
 - **Exact Q5 method constructing `spawn`:** `run_rsi_006_q5.py`,
-  `_ScientificRunner._spawn_for` (line 465) returns the closure at
+  `Stage2Runner._spawn_for` (line 465) returns the closure at
   line 468. The closure's complete inputs are three fields of the
   runner's prep dict: `prep["argv"]`, `prep["run_dir"]`,
   `prep["env"]` — the child is `subprocess.Popen(argv, cwd=run_dir,
   env=env, stdout=PIPE, stderr=PIPE)`. Nothing else is captured.
 - **Exact Q5 method constructing builder context:**
-  `_ScientificRunner._prepare_observation` (line 415) fills
+  `Stage2Runner._prepare_observation` (line 415) fills
   `self._prep[observation_id]` with `repo_name`, `mutant`,
   `baseline`, `run_dir`, `junit_path`, `python`, `argv`, `env`,
   `env_overrides`, `overlay_root`; `_builder` (line 475) delegates to
@@ -240,20 +259,25 @@ no callable serialization, no Q5 edits, no `run_all` override.
   child env without moving secrets through the config. The recorder
   must not sanitize its own environment before spawning the
   scientific child — frozen invariant.
-- **Exact Q6 seam:** a Q6 runner subclass overrides `_spawn_for`
-  (5 lines): call `super()._spawn_for(observation_id)`, attach the
-  prep dict as an attribute on the returned closure
+- **Exact Q6 seam:** `Q6Stage2Runner` (a `Stage2Runner` subclass)
+  overrides `_spawn_for` (5 lines): call
+  `super()._spawn_for(observation_id)`, attach the prep dict as an
+  attribute on the returned closure
   (`spawn.q6_prep = self._prep[observation_id]`), return it. This is
   attribute attachment, not closure introspection — the closure's
-  internals are never read. The Q6 `_worker_run` override reads
-  `getattr(spawn, "q6_prep", None)`; when absent it delegates to
-  `super()._worker_run(...)`. The canonical builder is resolved by
-  the recorder importing `run_rsi_006_q5` read-only and looking up
-  `build_q3_completion` by its frozen dotted name
-  (`run_rsi_006_q5.build_q3_completion`); the spawn-failure builder
-  likewise (`run_rsi_006_q5.build_q3_spawn_failure`), invoked by the
-  recorder itself on `Popen` `OSError` with no child, no `started`
-  record, and no gate call — mirroring Q5 exactly.
+  internals are never read. The Q6 `_worker_run` override (on
+  `Q6Coordinator`, not the runner) reads `getattr(spawn, "q6_prep",
+  None)`; when absent it delegates to `super()._worker_run(...)`.
+  Wiring the Q6 coordinator into the frozen runner is handled by the
+  **Coordinator injection** seam below — `_spawn_for` alone is not
+  sufficient, and this prereg does not claim otherwise. The
+  canonical builder is resolved by the recorder importing
+  `run_rsi_006_q5` read-only and looking up `build_q3_completion` by
+  its frozen dotted name (`run_rsi_006_q5.build_q3_completion`); the
+  spawn-failure builder likewise
+  (`run_rsi_006_q5.build_q3_spawn_failure`), invoked by the recorder
+  itself on `Popen` `OSError` with no child, no `started` record,
+  and no gate call — mirroring Q5 exactly.
 - **Parent methods remaining inherited untouched:**
   `Coordinator.run_all`, `Coordinator._apply`,
   `Coordinator._classify`, `Coordinator._generic_completion`,
@@ -267,27 +291,134 @@ prereg must NOT be quietly relaxed: either show a still-small
 additive wrapper seam that changes no scientific semantics and stays
 inside the §5 complexity bar, or return NO-GO.
 
-### New durable artifact (frozen)
+### Sealed recorder artifacts and exact write order (frozen)
 
 Q5 persists outcome bytes and the completion record, but the launch
-sidecar exists only in coordinator memory until journal commit. Q6
-requires the seal to carry everything either a live coordinator or a
-later successor needs, so the recorder persists, in this exact order,
-all atomic (tmp + fsync + rename + directory fsync):
+sidecar exists only in coordinator memory until journal commit — and
+the Q5 completion record binds only the outcome digest, not any
+launch sidecar. Q6 therefore adds two small artifacts, all writes
+atomic (tmp + fsync + rename + directory fsync), in this exact order:
 
 1. exact outcome bytes (`<id>.outcome.json`, existing ledger path);
-2. exact launch/result sidecar (`<id>.q6_launch.json`, new schema
-   `airlock.rsi-006-q6.launch-sidecar.v1`, binding txid, observation
-   ID, phase, attempt, exec_nonce, receipt SHA, code hashes, and the
-   outcome digest);
-3. completion record LAST (`<id>.complete.json`, existing
-   `record_completion`).
+2. exact Q6 launch sidecar (`<id>.q6_launch.json`), schema
+   `airlock.rsi-006-q6.launch-sidecar.v1`, containing:
+   - Q6 bindings: txid, observation ID, phase, attempt, receipt SHA,
+     code hashes, exec_nonce;
+   - the exact frozen-Q3 `launch` record as a nested object;
+   - outcome digest (SHA-256 of artifact 1);
+   - recorder-config digest (SHA-256 of the §7 config bytes);
+3. exact Q6 recorder seal (`<id>.q6_seal.json`), schema
+   `airlock.rsi-006-q6.recorder-seal.v1`, binding at least:
+   - txid, observation ID, phase, attempt, receipt SHA, code hashes;
+   - exec_nonce for a real started child, or null for the canonical
+     spawn-failure disposition;
+   - outcome SHA-256;
+   - Q6 launch-sidecar SHA-256 (over the exact bytes of artifact 2);
+   - recorder-config SHA-256;
+   - exact scientific child PID where applicable;
+   - terminal recorder disposition, sufficient to distinguish
+     normal / timeout / spawn-failure;
+4. existing Q5 `record_completion` LAST (`<id>.complete.json`).
 
-The completion seal therefore means: all inputs required for either a
-normal commit or a later verified recovery are already durable. The
-live coordinator reads the sealed launch sidecar and passes it to the
-inherited `_apply` → `commit_observation` unchanged — a normal commit
-with normal journal/provenance semantics.
+The frozen Q5 completion schema is NOT altered; frozen Q4 adoption is
+NOT altered. This is additive evidence only.
+
+The completion boundary now means: if `<id>.complete.json` exists on
+a Q6 execution, then Q6 outcome + launch sidecar + Q6 seal were
+already durable.
+
+On both the live commit path and the crash-recovery path, Q6
+verifies:
+
+- Q5 completion `outcome_digest` == Q6 seal `outcome_sha256` ==
+  SHA-256(exact outcome bytes);
+- Q6 seal `launch_sha256` == SHA-256(exact `<id>.q6_launch.json`
+  bytes);
+- Q6 seal `config_sha256` == SHA-256(exact recorder-config bytes);
+- all txid / observation / phase / attempt / receipt / code-hash /
+  config / exec-nonce / child-PID bindings agree with the durable
+  prepared + started records (for the spawn-failure disposition:
+  exec_nonce null, no started record, disposition
+  `spawn-failure` — verified instead).
+
+Tamper with outcome, sidecar, seal, or any binding → fail closed.
+No adoption, no replay.
+
+### Coordinator injection (frozen)
+
+Frozen `Stage2Runner.run()` constructs `qa.Coordinator(...)`
+directly (line 917), where `qa` is `import q5_adapter as qa` (line
+57). Overriding `_spawn_for` alone therefore cannot install the Q6
+coordinator — the `_worker_run` override would never run. The
+additive seam is runtime dependency injection, not a file edit:
+
+- Q6 defines `Q6Coordinator(q5_adapter.Coordinator)`, overriding
+  **only** `_worker_run` as specified in this section.
+- Q6 defines `Q6Stage2Runner(run_rsi_006_q5.Stage2Runner)`,
+  overriding **only** `_spawn_for` for the `q6_prep` attachment.
+- The Q6 entrypoint wraps `super().run(...)` so that, for its
+  duration only, `run_rsi_006_q5.qa` resolves `Coordinator` to
+  `Q6Coordinator` while every other attribute (`interprocess_lock`,
+  `_Crash`, and any future `qa.*`) delegates unchanged to the frozen
+  `q5_adapter` module via `__getattr__`. The runner module uses
+  exactly three `qa.*` attributes (`Coordinator` ×5,
+  `interprocess_lock` ×1, `_Crash` ×1 — verified against exact base
+  main), so the proxy surface is fully enumerated.
+- The original module alias is restored in `finally`, even on
+  exception. Q5 is never modified on disk and never left
+  monkeypatched globally: after Q6 returns or raises,
+  `run_rsi_006_q5.qa` is byte-identically the frozen module.
+- The frozen parent `run`, `_run_phase`, `run_all`, `_apply`, and
+  journal logic remain byte-identical; only the dynamic
+  `qa.Coordinator` lookup resolves differently inside the Q6
+  invocation.
+
+This is preferred over mutating `q5_adapter.Coordinator` globally,
+which would leak Q6 behavior into any direct frozen-Q5 invocation in
+the same process.
+
+### Recovery-side verification (frozen)
+
+Frozen `execution_ledger.classify()` verifies prepared / started /
+completion / outcome digest and returns recovery evidence containing
+`ledger_prepared`, `ledger_started`, `ledger_completion`,
+`outcome_digest`, and the tx/phase/receipt/code bindings — but it
+knows nothing of `<id>.q6_launch.json`. Frozen Q4
+`adopt_orphan_observation()` then does `launch =
+evidence.get("launch", {})`. Inheriting Q5 classification unchanged
+would therefore ignore the Q6 launch sidecar during crash recovery,
+breaking F3 and the exact-provenance claim. Q5 `_classify` stays
+untouched; Q6 adds verification around the recoverable result:
+
+On `status == "recoverable"` inside the Q6 `_worker_run` override:
+
+- start from the inherited `self._classify(...)` (frozen Q5);
+- require the Q6 launch artifact and Q6 seal; verify the digest
+  equations and all bindings from the sealed-artifacts section
+  above, cross-checked against the durable prepared + started
+  records (or, for the spawn-failure disposition, against the
+  `spawn_failed` record with exec_nonce null);
+- extract the exact frozen-Q3 launch dict nested in the verified
+  sidecar;
+- attach it to the adoption evidence:
+  `payload["evidence"]["launch"] = verified_exact_launch`;
+- return the ordinary inherited recoverable shape
+  (`result: "recoverable"`, `outcome_bytes`, `evidence`).
+
+The inherited `_apply` is untouched; it calls frozen Q4
+`adopt_orphan_observation`, which persists/binds the verified launch
+under the existing adopted-observation path.
+
+If Q5 says `recoverable` but the Q6 launch/seal evidence is missing,
+corrupt, misbound, or does not match the exact started execution:
+FAIL CLOSED. No adoption. No replay.
+
+For the uninterrupted path: the recorder seals the artifacts; the
+live Q6 worker reads and verifies the same exact Q6 launch/seal
+evidence, then returns `result: "completed"` with the verified exact
+launch dict; the inherited `_apply` performs the ordinary
+`commit_observation`. One recorder evidence chain supports both the
+normal commit and the verified adoption — no second provenance path.
 
 **Complexity stop (frozen):** if this layer cannot be expressed within
 the file/line targets above without duplicating ledger, journal, or
@@ -316,11 +447,14 @@ prepared exists
   (Q3's frozen RUN_TIMEOUT_S, from the sealed config)
 → if the scientific Popen raises OSError: recorder invokes the
   existing canonical spawn-failure builder itself — no child, no
-  started record, no gate call — then seals exactly as Q5 does
+  started record, no gate call — then seals outcome → launch sidecar
+  → Q6 recorder seal (exec_nonce null, disposition spawn-failure) →
+  Q5 completion LAST
 → recorder invokes the existing canonical scientific builder
 → recorder durably writes exact outcome
-→ recorder durably writes exact launch/result sidecar
-→ recorder writes completion seal LAST
+→ recorder durably writes exact Q6 launch sidecar
+→ recorder durably writes the exact Q6 recorder seal
+→ recorder writes the existing Q5 completion record LAST
 → recorder exits
 ```
 
@@ -330,6 +464,16 @@ only the sealed `env_overrides` when spawning the scientific child —
 reproducing Q5's exact child `Popen(argv, cwd=run_dir, env=env)`
 without serializing ambient secrets. The recorder must not sanitize
 or alter its inherited environment before the scientific spawn.
+Before the scientific child `Popen`, the recorder reconstructs
+`env = dict(os.environ); env.update(sealed_env_overrides)`, computes
+the canonical digest exactly as the coordinator did, and requires it
+to equal the sealed `prepared_env_sha256`. Mismatch → zero
+scientific child spawn, fail closed. The recorder uses the
+reconstructed and verified `env` both for the scientific child
+`Popen` and when invoking the frozen `build_q3_completion` /
+spawn-failure builder. This binds the exact prepared launch
+environment without exposing ambient secrets; it does not claim
+protection from a malicious OS/root.
 
 The recorder must NOT: own the Q4 journal; acquire the coordinator
 lock; commit or adopt observations; generate scientific seeds; choose
@@ -359,6 +503,11 @@ not changed. The binding is therefore established additively:
   or secrets), wait timeout, canonical builder dotted name,
   serialized builder context (`repo_name`, `mutant`, `baseline`,
   `python`, `junit_path`), and the gate marker path.
+- The coordinator additionally computes `prepared_env_sha256`: the
+  SHA-256 over a canonical representation of the exact Q5
+  `prep["env"]` mapping — `"\n".join(f"{k}={v}" for k, v in
+  sorted(env.items()))` encoded UTF-8 — bound into the config. The
+  mapping itself is NOT serialized into the config.
 - The coordinator computes SHA-256 over those exact bytes.
 - The config file is written atomically, create-once (a second write
   for the same observation+attempt fails closed).
@@ -447,6 +596,22 @@ canonical builder active (the scientific path) — **zero real
 repositories, zero real mutants, zero scientific contact.** A full
 scientific-context claim remains out of scope for Q6.
 
+### Injection hygiene tests (frozen)
+
+Before F1–F5, and runnable without any scientific child:
+
+- direct frozen-Q5 invocation still constructs the frozen Q5
+  `Coordinator`;
+- Q6 invocation constructs `Q6Coordinator`;
+- after Q6 returns or raises, `run_rsi_006_q5.qa` is restored
+  exactly (identity with the frozen module);
+- no Q5 module/file state remains altered after a Q6 invocation;
+- the frozen parent `run`, `_run_phase`, `run_all`, `_apply`, and
+  journal logic are byte-identical (verified against exact base
+  main).
+
+If any hygiene test fails, the seam is not additive → NO-GO.
+
 ### F1 — COORDINATOR DIES BEFORE COMPLETION, RECORDER SURVIVES
 (primary earned case)
 
@@ -481,10 +646,12 @@ Sequence:
 7. driver asserts the coordinator is dead; recorder + scientific
    child remain alive;
 8. driver releases the child; the child completes;
-9. the orphaned recorder writes exact outcome, then exact launch
-   sidecar, then completion seal LAST;
-10. only AFTER the seal exists, the successor starts on the same
-    durable root;
+9. the orphaned recorder writes exact outcome, then exact Q6 launch
+   sidecar, then the Q6 recorder seal, then the existing Q5
+   completion record LAST;
+10. only AFTER the Q5 completion record exists (the LAST write in
+    the sealed order), the successor starts on the same durable
+    root;
 11. successor opens the same transaction, classifies as recoverable,
     verifies, and adopts the exact completion;
 12. zero second scientific `Popen`;
@@ -511,13 +678,16 @@ exec_nonce / scientific execution identity; changed outcome bytes;
 changed outcome digest; changed or mismatched launch sidecar/seal;
 recorder config byte tamper; recorder config file replacement;
 correct tx/observation bindings but changed child `argv`; changed
-builder context; wrong expected config digest passed in recorder argv.
+builder context; wrong expected config digest passed in recorder
+argv; ambient/inherited environment drift causing a
+`prepared_env_sha256` mismatch.
 
 Expected: fail closed — zero adoption, zero rerun. Every config-
-binding case must additionally produce **zero scientific child
-spawn**: the recorder exits before `Popen`. (The ledger's existing
-binding checks plus the Q6 launch-sidecar digest binding and the §7
-config-digest check do this work; F3 proves it.)
+binding case (including the env-digest case) must additionally
+produce **zero scientific child spawn**: the recorder exits before
+`Popen`. (The ledger's existing binding checks plus the Q6
+launch-sidecar/seal digest binding and the §7 config-digest check do
+this work; F3 proves it.)
 
 ### F4 — DUPLICATE / LATE SEAL
 
@@ -532,22 +702,39 @@ without spawning if a completion record already exists.
 ### F5 — UNINTERRUPTED PARITY
 
 Run the same fixture through A. frozen Q5 behavior and B. Q6 recorder
-behavior with no crash. Require:
+behavior with no crash. Two separate Q5 and Q6 runs cannot have
+byte-identical journals, so F5 freezes a narrower target:
 
-- same scientific canonical outcome bytes;
-- same timeout/kill/collection-error semantics;
-- same contact position;
-- same scientific child invocation;
-- normal commit remains normal commit: the journal shows
-  `commit_observation` with the exact sealed launch, and **no**
-  `observation_adopted` entry merely because the Q6 recorder was
-  present;
-- no scientific scoring or verdict difference.
+**Byte-exact:**
+- canonical scientific observation bytes/digest identical for the
+  same deterministic fixture;
+- where the frozen builder produces deterministic spawn-failure
+  canonical bytes, those are also identical.
 
-Only explicitly preregistered provenance differences inherent to the
-new recorder role are allowed — none are preregistered at this time,
-so F5 requires byte-level journal-shape parity modulo the new
-`<id>.q6_launch.json` artifact's existence.
+**Semantic / structural:**
+- same scientific child argv;
+- exact prepared-environment digest parity;
+- same cwd identity;
+- same timeout / collection-error / kill disposition;
+- contact remains after the real child `Popen` and before
+  observation commit;
+- uninterrupted Q6 produces ordinary `observation`, NOT
+  `observation_adopted`;
+- same observation ID / phase / scientific digest;
+- same relevant journal event ordering;
+- no added scientific decision or scoring event;
+- no verdict difference.
+
+**Explicitly normalized / ignored (expected volatile/provenance
+fields only):** txid / transaction nonce; timestamps; child PID;
+exec nonce; duration/timing values; receipt/code hashes that
+necessarily differ because Q6 has its own bound execution surface;
+the new recorder artifacts and their provenance.
+
+No other semantic difference is allowed. The mechanism-level
+criterion is therefore: "F5 canonical scientific bytes byte-exact
+and journal semantic/structural parity under the preregistered
+normalization" — NOT "F5 parity byte-exact".
 
 ## 11. Standing rules inherited (frozen)
 
@@ -636,8 +823,9 @@ verdicts):
 
 - Per falsifier: **HOLDS** or **VIOLATED**.
 - Mechanism overall: **Q6_MECHANISM_HOLDS** (F1–F5 all HOLD, no Q5
-  invariant weakened, F5 parity byte-exact) or
-  **Q6_MECHANISM_VIOLATED(\<reason\>)**.
+  invariant weakened, F5 canonical scientific bytes byte-exact and
+  journal semantic/structural parity under the preregistered
+  normalization) or **Q6_MECHANISM_VIOLATED(\<reason\>)**.
 - **Q6_MECHANISM_VIOLATED → STOP.** No rescue, no reinterpretation,
   no Q7. The negative result is preserved as evidence; RSI-006
   productivity remains unauthorized.
@@ -717,7 +905,9 @@ There is no additional Q6 repair after contact.
    `proofs/` file changed (verified by diff).
 2. The additive seam proof (§5) holds as written: `run_rsi_006_q5`
    import-safe, builders resolvable by dotted name, `_spawn_for`
-   attribute seam sufficient — else NO-GO.
+   attribute seam sufficient, coordinator injection via the `qa`
+   proxy with exact `finally` restoration and all injection hygiene
+   tests green — else NO-GO.
 3. The `_worker_run` override can be expressed by subclassing with the
    reuse list in §5 intact — else NO-GO.
 4. The Q6 binding wrapper fits the ≤150-line target without qualifier
