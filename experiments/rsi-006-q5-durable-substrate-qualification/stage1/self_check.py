@@ -132,8 +132,17 @@ def main() -> None:
             "production manifest unexpectedly complete: the Q5 Stage 2 "
             "runner must be absent until its own reviewed change lands")
 
+    # Transient scratch only: this probe exercises the lock/refusal
+    # path and produces no durable evidence, but the scratch root must
+    # still be non-volatile (the qualifier rejects volatile roots
+    # before it ever reaches the manifest lock the probe asserts), so
+    # it lives under ~/workspace. The parent is created because
+    # tempfile.mkdtemp does not create missing parents, and CI runners
+    # have no ~/workspace.
+    scratch_parent = Path.home() / "workspace"
+    scratch_parent.mkdir(parents=True, exist_ok=True)
     scratch = Path(tempfile.mkdtemp(prefix="rsi-006-q5-stage1-selfcheck-",
-                                    dir=str(Path.home() / "workspace")))
+                                    dir=str(scratch_parent)))
     try:
         for mode in ("--qualify-env", "--arm-storage"):
             target = scratch / ("refused-" + mode.strip("-"))
