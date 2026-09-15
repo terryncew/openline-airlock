@@ -1,0 +1,119 @@
+name: RSI-005 scientific-package gate
+
+# Non-executing gate for the RSI-005 scientific package (frozen preregistration
+# + scientific runner + contract tests). This workflow:
+#   1. installs the exact pinned dependencies,
+#   2. runs the scientific runner's default non-executing self-check,
+#   3. runs all contract tests (harness + scientific),
+#   4. re-runs the already-qualified harness qualification (non-scientific)
+#      and asserts PRE_NIGHTSHIFT_BOUNDARY with zero forbidden effects,
+#   5. asserts no primary-contact marker, no REOPEN, no result.json, and no
+#      scientific receipt exists afterwards.
+# It must never pass the primary execution flag to any runner. The guard step
+# builds the flag at runtime so the guard cannot match its own script text.
+
+on:
+  push:
+    paths:
+      - "experiments/rsi-005-lineage-aware-inheritance/**"
+      - ".github/workflows/rsi-005-scientific-gate.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-005-lineage-aware-inheritance/**"
+      - ".github/workflows/rsi-005-scientific-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-005-scientific-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install Airlock and exact pinned Verified Memory
+        run: |
+          python -m pip install .
+          python -m pip install "git+https://github.com/terryncew/openline-verified-memory.git@36e3d0e0dab6a121abc1c14accbaa7310b5c2186"
+          python -m pip install pytest
+
+      - name: Verify dependency bytes
+        run: |
+          python - <<'PY'
+          import hashlib, json
+          from importlib.metadata import distribution
+          from pathlib import Path
+          import openline_verified_memory as ovm
+
+          evidence = Path(ovm.__file__).with_name("evidence.py")
+          digest = hashlib.sha256(evidence.read_bytes()).hexdigest()
+          assert digest == "ba02bc78c999120b31ea68fcb4f4fd2d12967c705e380204d0ee093b1d874ec9", digest
+          direct_url = json.loads(distribution("openline-verified-memory").read_text("direct_url.json"))
+          commit_id = direct_url["vcs_info"]["commit_id"]
+          assert commit_id == "36e3d0e0dab6a121abc1c14accbaa7310b5c2186", commit_id
+          print("dependency bytes verified:", commit_id, digest[:16])
+          PY
+
+      - name: RSI-005 scientific self-check (non-executing)
+        run: |
+          python experiments/rsi-005-lineage-aware-inheritance/run_rsi_005_scientific.py --self-check
+
+      - name: RSI-005 contract tests (harness + scientific)
+        run: |
+          python -m pytest experiments/rsi-005-lineage-aware-inheritance/tests/ -q
+
+      - name: Re-run qualified harness qualification (non-scientific)
+        run: |
+          python experiments/rsi-005-lineage-aware-inheritance/run_rsi_005.py \
+            --qualify-harness --output /tmp/rsi-005-qualification.json
+
+      - name: Assert qualification evidence and zero forbidden effects
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          exp = Path("experiments/rsi-005-lineage-aware-inheritance")
+          ev = json.loads(Path("/tmp/rsi-005-qualification.json").read_text())
+
+          assert ev["qualification_status"] == "QUALIFIED_RSI_005_PRE_NIGHTSHIFT_HARNESS", ev["qualification_status"]
+          assert ev["boundary_reached"] == "PRE_NIGHTSHIFT_BOUNDARY"
+          assert ev["distinct_process"] is True
+          assert ev["state_dir_created"] is True
+          assert ev["phase_token_round_trip"] is True
+          assert ev["child_state_reload_ok"] is True
+          assert ev["marker_exists_before"] is False
+          assert ev["marker_exists_after"] is False
+          assert ev["nightshift_contacts"] == 0
+          assert ev["candidate_executions"] == 0
+          assert ev["phase_scientific_executions"] == 0
+          assert ev["reopen_mutations"] == 0
+
+          forbidden = [
+              exp / ".rsi-005-primary-contact",
+              exp / "result.json",
+              exp / "receipt.json",
+          ]
+          for p in forbidden:
+              assert not p.exists(), f"forbidden artifact exists: {p}"
+          reopen_leftovers = [p for p in exp.rglob("*reopen*") if p.name != "RSI_005_PREREGISTRATION.json"]
+          assert not reopen_leftovers, f"REOPEN artifacts exist: {reopen_leftovers}"
+          print("qualification evidence verified; zero forbidden effects")
+          PY
+
+      - name: Assert the primary gate is never opened in CI
+        run: |
+          flag="--execute"
+          flag="${flag}-primary"
+          if grep -q -- "$flag" .github/workflows/rsi-005-scientific-gate.yml; then
+            echo "CI must never pass the primary execution flag to a runner" >&2
+            exit 1
+          fi
+          echo "primary gate closed in CI"
