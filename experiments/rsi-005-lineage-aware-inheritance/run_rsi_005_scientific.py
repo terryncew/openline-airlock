@@ -39,6 +39,7 @@ import ast
 import hashlib
 import json
 import os
+import re
 import secrets
 import shutil
 import subprocess
@@ -75,7 +76,7 @@ except ImportError as exc:  # fail closed: the repaired projector is part of the
 PREREG_PATH = Path(__file__).with_name("RSI_005_PREREGISTRATION.json")
 # Frozen SHA-256 of the scientific preregistration file bytes. Filled when the
 # preregistration is frozen; self-check fails closed on any drift.
-PREREG_SHA256 = "b5095232cefd14c927d8db2bf22a45c68b1875e91396b995d57272429427cb91"
+PREREG_SHA256 = "4565af3dbc0c9efa6c7a3f7470a89f91a81bdb25c008b94dc6e41cc491faf5cf"
 
 # Frozen bindings (DECIDED - FROZEN BEFORE PRIMARY CONTACT).
 AIRLOCK_BASE_MAIN = "5e319f069c247138ff17186674829e99feba1d9c"
@@ -259,7 +260,21 @@ print("rsi-005 %s candidate written")
 
 class PreconditionFailure(Exception):
     """A preregistered precondition was not met: the propagation question
-    could not be put to the mechanism. Maps to INCONCLUSIVE, not a crash."""
+    could not be put to the mechanism. Maps to INCONCLUSIVE, not a crash.
+
+    Every raise site carries an EXPLICIT cause_code from the preregistered
+    CAUSE_CODES set. Classification is never inferred from message
+    substrings: the code is passed at the raise site, preserved through the
+    child phase -> orchestrator -> terminal result chain, and read directly
+    off the exception by inconclusive_result(). Scientific FAIL remains only
+    FAIL_RSI_005_REQUIRED_ANCESTRY_NOT_ENFORCED for an otherwise valid
+    experiment where lineage semantics fail."""
+
+    def __init__(self, message: str, cause_code: str):
+        if cause_code not in CAUSE_CODES:
+            raise ValueError(f"unknown RSI-005 cause code: {cause_code!r}")
+        super().__init__(message)
+        self.cause_code = cause_code
 
 def ref_bytes(ref: str, repo: Path) -> str:
     """Byte hash of the commit object an installed ref points to."""
@@ -321,7 +336,7 @@ def mint_lineage_record(
             ("parent_installed_policy_sha256", parent_installed_policy_sha256),
         ):
             if not isinstance(value, str) or not value:
-                raise PreconditionFailure(f"REQUIRED lineage missing {name}")
+                raise PreconditionFailure(f"REQUIRED lineage missing {name}", "LINEAGE_BINDING_FAILURE")
         payload["declaration"] = "REQUIRED"
         payload["parent_lesson_id"] = parent_lesson_id
         payload["parent_promotion_receipt_sha256"] = parent_promotion_receipt_sha256
@@ -329,7 +344,7 @@ def mint_lineage_record(
         payload["parent_installed_policy_sha256"] = parent_installed_policy_sha256
     record = sign(payload, key)
     if not verify_hmac_record(record, key):
-        raise PreconditionFailure("minted lineage record failed to verify")
+        raise PreconditionFailure("minted lineage record failed to verify", "LINEAGE_BINDING_FAILURE")
     return record
 
 def lineage_record_set_sha256(records: list[dict[str, Any]]) -> str:
@@ -386,7 +401,7 @@ def projector_inputs(bundles: dict[str, dict[str, Any]], repo: Path) -> tuple[li
             }
         )
         if b["lineage"] is None:
-            raise PreconditionFailure(f"{prefix}: lineage record missing from disk")
+            raise PreconditionFailure(f"{prefix}: lineage record missing from disk", "LINEAGE_BINDING_FAILURE")
         lineage_records.append(b["lineage"])
         installed_policies[lesson["lesson_id"]] = policy_bytes_at(
             repo, b["selection"]["selected_commit"]
@@ -578,9 +593,14 @@ RECEIPT_REQUIRED_TOP_KEYS = (
     "verdict",
     "cause_code",
     "airlock_base_sha",
+    "qualified_harness_sha256",
+    "qualified_harness_source_commit",
+    "scientific_runner_normalized_sha256",
+    "scientific_runner_file_sha256",
     "verified_memory_sha",
     "verified_memory_evidence_py_sha256",
     "preregistration_sha256",
+    "execution_head_sha",
     "generations",
     "required_edges",
     "pre_reopen_established",
@@ -631,6 +651,28 @@ def validate_receipt_bindings(receipt: dict[str, Any]) -> list[str]:
         problems.append("receipt verdict is not one of the three formal verdicts")
     if receipt.get("cause_code") not in CAUSE_CODES:
         problems.append("receipt cause_code not in the preregistered set")
+    # Complete scientific-package bindings (fix: the receipt must name
+    # exactly which harness, runner, preregistration, and Git HEAD produced
+    # it; static values are checked for equality, runtime values for shape).
+    if receipt.get("qualified_harness_sha256") != QUALIFIED_HARNESS_SHA256:
+        problems.append("receipt qualified_harness_sha256 does not match the qualified harness")
+    if receipt.get("qualified_harness_source_commit") != QUALIFIED_HARNESS_COMMIT:
+        problems.append("receipt qualified_harness_source_commit does not match the qualified harness source commit")
+    if receipt.get("scientific_runner_normalized_sha256") != normalized_runner_sha256():
+        problems.append("receipt scientific_runner_normalized_sha256 does not match the canonicalized runner hash")
+    if receipt.get("preregistration_sha256") != sha256_file(PREREG_PATH):
+        problems.append("receipt preregistration_sha256 does not match the frozen preregistration file")
+    for k in ("scientific_runner_file_sha256",):
+        v = receipt.get(k)
+        if not isinstance(v, str) or not re.fullmatch(r"[0-9a-f]{64}", v):
+            problems.append(f"receipt {k} is not a 64-char lowercase hex SHA-256")
+    head = receipt.get("execution_head_sha")
+    if head != "UNKNOWN" and (not isinstance(head, str) or not re.fullmatch(r"[0-9a-f]{40}", head)):
+        problems.append("receipt execution_head_sha is not a 40-char git SHA nor UNKNOWN")
+    if receipt.get("verified_memory_sha") != VERIFIED_MEMORY_COMMIT:
+        problems.append("receipt verified_memory_sha does not match the pinned Verified Memory commit")
+    if receipt.get("verified_memory_evidence_py_sha256") != EVIDENCE_PY_SHA256:
+        problems.append("receipt verified_memory_evidence_py_sha256 does not match the pinned evidence.py hash")
     for prefix in ("rootU", "gen1", "gen2", "gen3"):
         gen = receipt["generations"].get(prefix)
         if not isinstance(gen, dict):
@@ -654,10 +696,10 @@ def validate_receipt_bindings(receipt: dict[str, Any]) -> list[str]:
 def _accept_one(report: dict[str, Any], prefix: str) -> dict[str, Any]:
     if report.get("accepted_generations") != 1 or report.get("status") != "COMPLETED_LIMIT":
         raise PreconditionFailure(
-            f"{prefix} Nightshift did not select exactly one winner: {report.get('status')}"
-        )
+            f"{prefix} Nightshift did not select exactly one winner: {report.get('status')}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     if len(report.get("generations", [])) != 1:
-        raise PreconditionFailure(f"{prefix}: expected exactly one generation")
+        raise PreconditionFailure(f"{prefix}: expected exactly one generation", "CHECKPOINT_NOT_ESTABLISHED")
     return report
 
 def candidate_paths(repo: Path, base: str, selected: str) -> list[str]:
@@ -683,13 +725,13 @@ def actual_generation_base(
         expected = state["base_commit"]
     else:
         if parent_commit is None:
-            raise PreconditionFailure(f"{prefix}: no parent commit to bind the generation base")
+            raise PreconditionFailure(f"{prefix}: no parent commit to bind the generation base", "CHECKPOINT_NOT_ESTABLISHED")
         expected = parent_commit
     observed = generation.get("payload", {}).get("base_commit") or generation.get("base_commit")
     if observed != expected:
         raise PreconditionFailure(
-            f"{prefix}: signed generation base {observed!r} != expected base {expected!r}"
-        )
+            f"{prefix}: signed generation base {observed!r} != expected base {expected!r}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     return expected
 
 def _verify_selection_common(
@@ -710,7 +752,7 @@ def _verify_selection_common(
     generation = read_json(receipt_path)
     key = (repo / ".airlock" / "verification.key").read_bytes()
     if not verify_signature(generation, key):
-        raise PreconditionFailure(f"{prefix} Nightshift generation signature did not verify")
+        raise PreconditionFailure(f"{prefix} Nightshift generation signature did not verify", "CHECKPOINT_NOT_ESTABLISHED")
 
     candidate = derive_airlock_memory(
         lesson_id=lesson["lesson_id"],
@@ -720,7 +762,7 @@ def _verify_selection_common(
         key=key,
     )
     if candidate.status != "candidate" or candidate.survived != 0:
-        raise PreconditionFailure(f"{prefix} selection alone incorrectly earned inheritance")
+        raise PreconditionFailure(f"{prefix} selection alone incorrectly earned inheritance", "CHECKPOINT_NOT_ESTABLISHED")
 
     selected = candidate.selected_commit
     # The diff base is the generation's ACTUAL base from its signed record:
@@ -736,13 +778,13 @@ def _verify_selection_common(
     # an installed one (children). The common check below only guards the
     # evaluator boundary.
     if any(p.startswith("tests/") or p.startswith(".airlock/") for p in candidate_paths_list):
-        raise PreconditionFailure(f"{prefix} candidate escaped ordinary code: {candidate_paths_list}")
+        raise PreconditionFailure(f"{prefix} candidate escaped ordinary code: {candidate_paths_list}", "CHECKPOINT_NOT_ESTABLISHED")
 
     if sha256_file(hermes) != shim_before:
-        raise PreconditionFailure(f"Hermes shim changed during {prefix} candidate generation")
+        raise PreconditionFailure(f"Hermes shim changed during {prefix} candidate generation", "CHECKPOINT_NOT_ESTABLISHED")
     lineage = report.get("run_context", {}).get("harness_lineage", [])
     if not lineage or any(row.get("changed") for row in lineage):
-        raise PreconditionFailure(f"Hermes harness changed during {prefix}")
+        raise PreconditionFailure(f"Hermes harness changed during {prefix}", "CHECKPOINT_NOT_ESTABLISHED")
 
     return {
         "phase": f"select-{prefix}",
@@ -765,12 +807,12 @@ def _prepare_work_branch(repo: Path, prefix: str, base_commit: str, ref: str) ->
     sh("git", "reset", "-q", "--hard", base_commit, cwd=repo)
     sh("git", "checkout", "-q", "-B", WORK_BRANCHES[prefix], base_commit, cwd=repo)
     if sh("git", "status", "--porcelain", cwd=repo):
-        raise PreconditionFailure(f"{prefix} work branch is not clean at base")
+        raise PreconditionFailure(f"{prefix} work branch is not clean at base", "CHECKPOINT_NOT_ESTABLISHED")
     branch = {"rootU": RU_BRANCH, "gen1": R1_BRANCH, "gen2": R2_BRANCH, "gen3": R3_BRANCH}[prefix]
     sh("git", "branch", "-f", branch, base_commit, cwd=repo)
     before = sh("git", "rev-parse", ref, cwd=repo)
     if before != base_commit:
-        raise PreconditionFailure(f"{prefix} install ref was not created at its base")
+        raise PreconditionFailure(f"{prefix} install ref was not created at its base", "CHECKPOINT_NOT_ESTABLISHED")
     return before
 
 def _write_shim(hermes: Path, code: str) -> str:
@@ -799,10 +841,10 @@ def require_distinct_phase_pids(state_dir: Path) -> dict[str, int]:
     pids = read_json(path) if path.exists() else {}
     if set(pids) != set(FRESH_PROCESS_PHASES):
         raise PreconditionFailure(
-            f"phase-PID map incomplete: have {sorted(pids)}, need {sorted(FRESH_PROCESS_PHASES)}"
-        )
+            f"phase-PID map incomplete: have {sorted(pids)}, need {sorted(FRESH_PROCESS_PHASES)}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     if len(set(pids.values())) != len(FRESH_PROCESS_PHASES):
-        raise PreconditionFailure("phase processes are not all distinct")
+        raise PreconditionFailure("phase processes are not all distinct", "CHECKPOINT_NOT_ESTABLISHED")
     return pids
 
 def phase_select_rootU(state_path: Path) -> None:
@@ -833,8 +875,8 @@ def phase_select_rootU(state_path: Path) -> None:
     )
     if result["candidate_paths"] != ["src/policy.py", "src/value.py"]:
         raise PreconditionFailure(
-            f"rootU candidate must install its unrelated policy and apply it: {result['candidate_paths']}"
-        )
+            f"rootU candidate must install its unrelated policy and apply it: {result['candidate_paths']}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     result["install_ref"] = RU
     write_json(state_dir / "rootU_selection.json", result)
 
@@ -865,8 +907,8 @@ def phase_select_gen1(state_path: Path) -> None:
     )
     if result["candidate_paths"] != ["src/policy.py", "src/value.py"]:
         raise PreconditionFailure(
-            f"gen1 candidate must improve the generator policy and apply it: {result['candidate_paths']}"
-        )
+            f"gen1 candidate must improve the generator policy and apply it: {result['candidate_paths']}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     result["install_ref"] = R1
     write_json(state_dir / "gen1_selection.json", result)
 
@@ -879,7 +921,7 @@ def _bind_child_generator(
     parent_commit = parent_sel["selected_commit"]
     parent_ref = INSTALL_REFS[parent_prefix]
     if sh("git", "rev-parse", parent_ref, cwd=repo) != parent_commit:
-        raise PreconditionFailure(f"{parent_ref} moved before {prefix} selection")
+        raise PreconditionFailure(f"{parent_ref} moved before {prefix} selection", "INSTALLED_REF_MUTATION")
 
     pristine = state_dir / f"pristine-{parent_prefix}"
     if pristine.exists():
@@ -893,13 +935,13 @@ def _bind_child_generator(
     policy_pristine = sha256_file(pristine / "src" / "policy.py")
     policy_committed = hashlib.sha256(policy_bytes_at(repo, parent_commit)).hexdigest()
     if policy_pristine != policy_committed:
-        raise PreconditionFailure(f"pristine {parent_prefix} policy != committed policy bytes")
+        raise PreconditionFailure(f"pristine {parent_prefix} policy != committed policy bytes", "INSTALLED_REF_MUTATION")
     ns: dict[str, Any] = {}
     exec((pristine / "src" / "value.py").read_text(encoding="utf-8"), ns)
     if ns.get("VALUE") != expected_base_value:
         raise PreconditionFailure(
-            f"{prefix} base VALUE is {ns.get('VALUE')!r}, expected {expected_base_value}"
-        )
+            f"{prefix} base VALUE is {ns.get('VALUE')!r}, expected {expected_base_value}",
+            "CHECKPOINT_NOT_ESTABLISHED")
 
     ref = INSTALL_REFS[prefix]
     _prepare_work_branch(repo, prefix, parent_commit, ref)
@@ -947,11 +989,11 @@ def phase_select_gen2(state_path: Path) -> None:
     )
     if result["candidate_paths"] != ["src/value.py"]:
         raise PreconditionFailure(
-            f"gen2 candidate must run under the installed policy, not rewrite it: {result['candidate_paths']}"
-        )
+            f"gen2 candidate must run under the installed policy, not rewrite it: {result['candidate_paths']}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     policy_after = hashlib.sha256(policy_bytes_at(repo, binding["parent_commit"])).hexdigest()
     if policy_after != binding["installed_policy_sha256"]:
-        raise PreconditionFailure("installed gen1 policy bytes changed during gen2's run")
+        raise PreconditionFailure("installed gen1 policy bytes changed during gen2's run", "INSTALLED_REF_MUTATION")
     result["install_ref"] = R2
     result["generator_binding"] = binding
     write_json(state_dir / "gen2_selection.json", result)
@@ -986,11 +1028,11 @@ def phase_select_gen3(state_path: Path) -> None:
     )
     if result["candidate_paths"] != ["src/value.py"]:
         raise PreconditionFailure(
-            f"gen3 candidate must run under the installed policy, not rewrite it: {result['candidate_paths']}"
-        )
+            f"gen3 candidate must run under the installed policy, not rewrite it: {result['candidate_paths']}",
+            "CHECKPOINT_NOT_ESTABLISHED")
     policy_after = hashlib.sha256(policy_bytes_at(repo, binding["parent_commit"])).hexdigest()
     if policy_after != binding["installed_policy_sha256"]:
-        raise PreconditionFailure("installed gen2 policy bytes changed during gen3's run")
+        raise PreconditionFailure("installed gen2 policy bytes changed during gen3's run", "INSTALLED_REF_MUTATION")
     result["install_ref"] = R3
     result["generator_binding"] = binding
     write_json(state_dir / "gen3_selection.json", result)
@@ -1016,11 +1058,11 @@ def _install(*, prefix: str, state_path: Path, retain: bool = False) -> None:
         key=key,
     )
     if recovered.status != "candidate":
-        raise PreconditionFailure(f"{prefix} restart did not reconstruct candidate standing")
+        raise PreconditionFailure(f"{prefix} restart did not reconstruct candidate standing", "CHECKPOINT_NOT_ESTABLISHED")
     selected = recovered.selected_commit
     before = sh("git", "rev-parse", ref, cwd=repo)
     if before != sel["base_commit"]:
-        raise PreconditionFailure(f"{prefix} installation ref was not at its base on restart")
+        raise PreconditionFailure(f"{prefix} installation ref was not at its base on restart", "INSTALLED_REF_MUTATION")
 
     # Negative control: a validly signed receipt for the wrong commit must not earn inheritance.
     wrong_payload = {
@@ -1046,12 +1088,12 @@ def _install(*, prefix: str, state_path: Path, retain: bool = False) -> None:
     except EvidenceError:
         wrong_rejected = True
     if not wrong_rejected:
-        raise PreconditionFailure(f"{prefix} wrong-commit promotion unexpectedly earned inheritance")
+        raise PreconditionFailure(f"{prefix} wrong-commit promotion unexpectedly earned inheritance", "CHECKPOINT_NOT_ESTABLISHED")
 
     sh("git", "branch", "-f", branch, selected, cwd=repo)
     observed = sh("git", "rev-parse", ref, cwd=repo)
     if observed != selected:
-        raise PreconditionFailure(f"{prefix} receiver did not observe exact selected commit")
+        raise PreconditionFailure(f"{prefix} receiver did not observe exact selected commit", "CHECKPOINT_NOT_ESTABLISHED")
 
     support = state_dir / f"{prefix}_support.witness"
     support.write_text(f"RSI-005 {prefix} receiver support live\n", encoding="utf-8")
@@ -1103,7 +1145,7 @@ def _install(*, prefix: str, state_path: Path, retain: bool = False) -> None:
         key=key,
     )
     if inherited.status != "inherited" or inherited.survived != 1:
-        raise PreconditionFailure(f"{prefix} exact installation failed to earn inherited standing")
+        raise PreconditionFailure(f"{prefix} exact installation failed to earn inherited standing", "CHECKPOINT_NOT_ESTABLISHED")
 
     result = {
         "phase": f"install-{prefix}",
@@ -1191,7 +1233,7 @@ def phase_mint_lineage(state_path: Path) -> None:
         path = state_dir / f"{prefix}_lineage.json"
         write_json(path, record)
         if not verify_hmac_record(record, key):
-            raise PreconditionFailure(f"{prefix} lineage record failed to verify after minting")
+            raise PreconditionFailure(f"{prefix} lineage record failed to verify after minting", "LINEAGE_BINDING_FAILURE")
 
     minted_records = [read_json(state_dir / f"{p}_lineage.json") for p in ("rootU", "gen1", "gen2", "gen3")]
     write_json(
@@ -1206,15 +1248,19 @@ def phase_mint_lineage(state_path: Path) -> None:
     )
 
 def _receipt_hashes(state_dir: Path, bundles: dict[str, dict[str, Any]]) -> dict[str, dict[str, str | None]]:
+    """CANONICAL signed-record identities (generation / promotion /
+    standing / lineage). The lineage entry is signed_record_sha256 over
+    the PARSED signed lineage record, NOT the raw file bytes: whitespace-only
+    reformatting of the lineage file does not change this digest. The
+    literal file-byte identities live separately in raw_receipt_file_hashes()."""
     out: dict[str, dict[str, str | None]] = {}
     for prefix, b in bundles.items():
         sel = b["selection"]
         inst = b["installation"]
-        lineage_path = state_dir / f"{prefix}_lineage.json"
         out[prefix] = {
             "generation": sel["generation_record_sha256"],
             "promotion": inst["promotion_record_sha256"],
-            "lineage": sha256_file(lineage_path) if lineage_path.exists() else None,
+            "lineage": signed_record_sha256(b["lineage"]) if b["lineage"] else None,
             "standing": inst.get("standing_record_sha256"),
         }
     return out
@@ -1274,15 +1320,15 @@ def phase_checkpoint(state_path: Path) -> None:
     try:
         projection = project_bundles(bundles, repo, key)
     except EvidenceError as exc:
-        raise PreconditionFailure(f"pre-REOPEN lineage projection failed: {exc}") from exc
+        raise PreconditionFailure(f"pre-REOPEN lineage projection failed: {exc}", "LINEAGE_BINDING_FAILURE") from exc
 
     standings = {b["lesson"]["lesson_id"]: projection[b["lesson"]["lesson_id"]].status for b in bundles.values()}
     lesson_ids = {b["lesson"]["lesson_id"] for b in bundles.values()}
     if any(s != "inherited" for s in standings.values()):
-        raise PreconditionFailure(f"pre-REOPEN standings not all inherited: {standings}")
+        raise PreconditionFailure(f"pre-REOPEN standings not all inherited: {standings}", "CHECKPOINT_NOT_ESTABLISHED")
     established_ids = {m.lesson_id for m in established(list(projection.values()))}
     if established_ids != lesson_ids:
-        raise PreconditionFailure(f"pre-REOPEN established set wrong: {sorted(established_ids)}")
+        raise PreconditionFailure(f"pre-REOPEN established set wrong: {sorted(established_ids)}", "CHECKPOINT_NOT_ESTABLISHED")
 
     ref_hashes, policy_hashes = _installed_hashes(repo, bundles)
     # The lineage record set is frozen here: recompute its digest from the
@@ -1294,7 +1340,7 @@ def phase_checkpoint(state_path: Path) -> None:
         [read_json(state_dir / f"{p}_lineage.json") for p in ("rootU", "gen1", "gen2", "gen3")]
     )
     if checkpoint_lineage_hash != lineage_summary["lineage_record_set_sha256"]:
-        raise PreconditionFailure("lineage record set changed between minting and checkpoint")
+        raise PreconditionFailure("lineage record set changed between minting and checkpoint", "LINEAGE_BINDING_FAILURE")
     checkpoint = {
         "phase": "checkpoint",
         "process_pid": os.getpid(),
@@ -1326,13 +1372,13 @@ def phase_reopen(state_path: Path) -> None:
     try:
         projection = project_bundles(bundles, repo, key)
     except EvidenceError as exc:
-        raise PreconditionFailure(f"lineage binding failure before REOPEN: {exc}") from exc
+        raise PreconditionFailure(f"lineage binding failure before REOPEN: {exc}", "LINEAGE_BINDING_FAILURE") from exc
     standings = {b["lesson"]["lesson_id"]: projection[b["lesson"]["lesson_id"]].status for b in bundles.values()}
     if any(s != "inherited" for s in standings.values()):
-        raise PreconditionFailure(f"reopen precondition: standings not all inherited: {standings}")
+        raise PreconditionFailure(f"reopen precondition: standings not all inherited: {standings}", "CHECKPOINT_NOT_ESTABLISHED")
     ref_hashes, policy_hashes = _installed_hashes(repo, bundles)
     if ref_hashes != checkpoint["installed_ref_hashes"] or policy_hashes != checkpoint["installed_policy_hashes"]:
-        raise PreconditionFailure("installed state moved between checkpoint and REOPEN")
+        raise PreconditionFailure("installed state moved between checkpoint and REOPEN", "INSTALLED_REF_MUTATION")
 
     # Negative control: a forged REOPEN (wrong signer) must change nothing.
     forged_payload = {
@@ -1358,12 +1404,12 @@ def phase_reopen(state_path: Path) -> None:
     except EvidenceError:
         forged_rejected = True
     if not forged_rejected:
-        raise PreconditionFailure("forged REOPEN was unexpectedly accepted")
+        raise PreconditionFailure("forged REOPEN was unexpectedly accepted", "REOPEN_NOT_OBSERVED")
 
     # Controlled support loss for gen1's promotion evidence.
     support = Path(gen1["installation"]["support_witness"])
     if support.exists():
-        raise PreconditionFailure("REOPEN control requires gen1's support witness to be absent")
+        raise PreconditionFailure("REOPEN control requires gen1's support witness to be absent", "REOPEN_NOT_OBSERVED")
 
     standing_payload = {
         "schema": AIRLOCK_STANDING_SCHEMA,
@@ -1392,25 +1438,12 @@ def phase_reopen(state_path: Path) -> None:
         },
     )
 
-    # Restart boundary: the projection process terminates here. Reprojection
-    # runs in a fresh process from persisted evidence only. The orchestrator's
-    # phase token propagates through os.environ into _phase_env, so the
-    # reproject dispatch passes the internal-only gate.
-    script = Path(__file__).resolve()
-    cp = subprocess.run(
-        [sys.executable, str(script), EXECUTE_PRIMARY_FLAG, "--phase", "reproject",
-         "--state", str(state_path)],
-        text=True,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        env=h._phase_env(state),
-    )
-    if cp.returncode == 42:
-        raise PreconditionFailure(cp.stderr.strip().splitlines()[-1] if cp.stderr.strip() else "reproject")
-    if cp.returncode != 0:
-        raise RuntimeError(
-            f"RSI-005 reproject phase failed ({cp.returncode})\nstdout:\n{cp.stdout}\nstderr:\n{cp.stderr}"
-        )
+    # Restart boundary: the REOPEN process terminates here. It does NOT spawn
+    # reproject. The orchestrator dispatches run_phase(..., "reopen", ...)
+    # then run_phase(..., "reproject", ...) as two separate sequential fresh
+    # processes (frozen sequence steps 10-11). Reprojection reconstructs
+    # everything it needs from persisted disk evidence plus the internal
+    # phase-token authorization.
 
 def phase_reproject(state_path: Path) -> None:
     """Fresh process: reload every record from disk, reproject twice
@@ -1438,7 +1471,7 @@ def phase_reproject(state_path: Path) -> None:
     # reorders, or edits lineage records between projections.
     reproject_lineage_hash = lineage_record_set_sha256(lineage_records)
     if reproject_lineage_hash != checkpoint["lineage_record_set_sha256"]:
-        raise PreconditionFailure("lineage record set changed between checkpoint and reprojection")
+        raise PreconditionFailure("lineage record set changed between checkpoint and reprojection", "LINEAGE_BINDING_FAILURE")
 
     try:
         run_a = project_lineage_memories(
@@ -1448,7 +1481,7 @@ def phase_reproject(state_path: Path) -> None:
             generations, lineage_records, installed_policies, key
         )
     except EvidenceError as exc:
-        raise PreconditionFailure(f"lineage binding failure at reprojection: {exc}") from exc
+        raise PreconditionFailure(f"lineage binding failure at reprojection: {exc}", "LINEAGE_BINDING_FAILURE") from exc
     snap = lambda proj: {lid: proj[lid].to_dict() for lid in sorted(proj)}  # noqa: E731
     deterministic = json.dumps(snap(run_a), sort_keys=True) == json.dumps(snap(run_b), sort_keys=True)
 
@@ -1457,11 +1490,11 @@ def phase_reproject(state_path: Path) -> None:
     gen1_questioned = standings.get("gen1") == "questioned"
     if not gen1_questioned:
         raise PreconditionFailure(
-            f"valid REOPEN did not question gen1 (status={standings.get('gen1')}); propagation question is moot"
-        )
+            f"valid REOPEN did not question gen1 (status={standings.get('gen1')}); propagation question is moot",
+            "REOPEN_NOT_OBSERVED")
     for lid, mem in run_a.items():
         if lid in by_lesson and mem.to_dict()["installed_state_action"] != "NONE":
-            raise PreconditionFailure(f"{by_lesson[lid]} standing acquired rollback authority")
+            raise PreconditionFailure(f"{by_lesson[lid]} standing acquired rollback authority", "LINEAGE_BINDING_FAILURE")
 
     paths = witness_paths(run_a)
     try:
@@ -1473,7 +1506,7 @@ def phase_reproject(state_path: Path) -> None:
             installed_policies=installed_policies,
         )
     except EvidenceError as exc:
-        raise PreconditionFailure(f"gen4 probe lineage failure: {exc}") from exc
+        raise PreconditionFailure(f"gen4 probe lineage failure: {exc}", "LINEAGE_BINDING_FAILURE") from exc
 
     final_receipts = _receipt_hashes(state_dir, bundles)
     # gen1's REOPEN standing is new post-checkpoint evidence; it is bound
@@ -1514,10 +1547,20 @@ def phase_reproject(state_path: Path) -> None:
         "experiment": "RSI-005 lineage-aware inheritance",
         "verdict": verdict,
         "cause_code": cause_code,
+        # Complete scientific-package bindings: exactly which harness,
+        # runner, preregistration, Airlock base, Verified Memory, and Git
+        # HEAD produced this receipt. The normalized runner hash is the
+        # prereg-bound canonical identity; the file hash is the literal
+        # bytes that executed.
         "airlock_base_sha": AIRLOCK_BASE_MAIN,
+        "qualified_harness_sha256": QUALIFIED_HARNESS_SHA256,
+        "qualified_harness_source_commit": QUALIFIED_HARNESS_COMMIT,
+        "scientific_runner_normalized_sha256": normalized_runner_sha256(),
+        "scientific_runner_file_sha256": sha256_file(Path(__file__).resolve()),
+        "preregistration_sha256": sha256_file(PREREG_PATH),
         "verified_memory_sha": VERIFIED_MEMORY_COMMIT,
         "verified_memory_evidence_py_sha256": EVIDENCE_PY_SHA256,
-        "preregistration_sha256": sha256_file(PREREG_PATH),
+        "execution_head_sha": _execution_head_sha(),
         "generations": {
             prefix: {
                 "lesson_id": b["lesson"]["lesson_id"],
@@ -1595,13 +1638,32 @@ def phase_reproject(state_path: Path) -> None:
     }
     problems = validate_receipt_bindings(receipt)
     if problems:
-        raise PreconditionFailure(f"receipt failed binding validation: {problems}")
+        raise PreconditionFailure(f"receipt failed binding validation: {problems}", "RECEIPT_MUTATION")
     write_json(state_dir / "result.json", receipt)
 
 def primary_gate(argv: list[str]) -> bool:
     """The explicit execution gate. The primary sequence is encoded but never
     invoked unless this returns True. Default invocation stays closed."""
     return EXECUTE_PRIMARY_FLAG in argv
+
+def _phase_cause_from_stderr(stderr: str, phase: str) -> tuple[str, str]:
+    """Extract (message, cause_code) from a phase child's stderr. The child
+    prints CAUSE_CODE=<code> on its own stderr line; the code must be one of
+    the preregistered CAUSE_CODES. Fail closed (harness error, no verdict)
+    if the code is absent or invalid: cause classification is never guessed
+    from message substrings."""
+    cause = ""
+    for line in stderr.splitlines():
+        if line.startswith("CAUSE_CODE="):
+            cause = line[len("CAUSE_CODE="):].strip()
+    if cause not in CAUSE_CODES:
+        raise RuntimeError(
+            f"RSI-005 phase {phase} reported a precondition failure without a "
+            f"valid cause code (stderr: {stderr[-500:]!r})"
+        )
+    first = stderr.strip().splitlines()[0] if stderr.strip() else phase
+    return first, cause
+
 
 def run_phase(script: Path, phase: str, state_path: Path, env: dict[str, str]) -> None:
     cp = subprocess.run(
@@ -1613,33 +1675,74 @@ def run_phase(script: Path, phase: str, state_path: Path, env: dict[str, str]) -
         env=env,
     )
     if cp.returncode == 42:
-        # The phase reported a preregistered precondition failure; map it to
-        # INCONCLUSIVE rather than a harness crash.
-        raise PreconditionFailure(cp.stderr.strip().splitlines()[-1] if cp.stderr.strip() else phase)
+        # The phase reported a preregistered precondition failure with an
+        # explicit cause code; preserve it through to the orchestrator.
+        message, cause = _phase_cause_from_stderr(cp.stderr, phase)
+        raise PreconditionFailure(message, cause)
     if cp.returncode != 0:
         raise RuntimeError(
             f"RSI-005 phase {phase} failed ({cp.returncode})\nstdout:\n{cp.stdout}\nstderr:\n{cp.stderr}"
         )
 
-def _cause_for_precondition(reason: str) -> str:
-    low = reason.lower()
-    if "lineage" in low:
-        return "LINEAGE_BINDING_FAILURE"
-    if "reopen" in low:
-        return "REOPEN_NOT_OBSERVED"
-    return "CHECKPOINT_NOT_ESTABLISHED"
+def normalized_runner_sha256() -> str:
+    """The documented canonicalized runner hash: SHA-256 of this file's
+    bytes with the single PREREG_SHA256 assignment line replaced by 64
+    zeros before hashing. This breaks the mutual prereg<->runner binding so
+    both hold simultaneously: the preregistration binds this normalized
+    value as scientific_runner_sha256, while the literal file-byte hash
+    (sha256_file of this file) is bound separately as
+    scientific_runner_file_sha256. The two are deliberately distinct."""
+    src = Path(__file__).resolve().read_text(encoding="utf-8")
+    canonical = re.sub(
+        r'^PREREG_SHA256 = "[^"]*"$',
+        'PREREG_SHA256 = "' + "0" * 64 + '"',
+        src,
+        flags=re.M,
+    )
+    return hashlib.sha256(canonical.encode("utf-8")).hexdigest()
 
-def inconclusive_result(reason: str, state_dir: Path | None) -> dict:
+
+def _execution_head_sha() -> str:
+    """git rev-parse HEAD of the repository at execution time, or UNKNOWN."""
+    try:
+        return sh("git", "rev-parse", "HEAD",
+                  cwd=str(Path(__file__).resolve().parents[2])).strip()
+    except RuntimeError:
+        return "UNKNOWN"
+
+
+def _static_package_identities() -> dict[str, str]:
+    """Static identities of the exact scientific package that executed:
+    which harness, which runner, which preregistration, which Airlock base,
+    which Verified Memory, and which Git HEAD. Bound in both the successful
+    receipt and INCONCLUSIVE terminal evidence."""
+    return {
+        "airlock_base_sha": AIRLOCK_BASE_MAIN,
+        "qualified_harness_sha256": QUALIFIED_HARNESS_SHA256,
+        "qualified_harness_source_commit": QUALIFIED_HARNESS_COMMIT,
+        "scientific_runner_normalized_sha256": normalized_runner_sha256(),
+        "scientific_runner_file_sha256": sha256_file(Path(__file__).resolve()),
+        "preregistration_sha256": sha256_file(PREREG_PATH),
+        "verified_memory_sha": VERIFIED_MEMORY_COMMIT,
+        "verified_memory_evidence_py_sha256": EVIDENCE_PY_SHA256,
+        "execution_head_sha": _execution_head_sha(),
+    }
+
+
+def inconclusive_result(exc: PreconditionFailure, state_dir: Path | None) -> dict:
+    """INCONCLUSIVE terminal evidence. The cause code comes directly off
+    the exception (explicit, never substring-derived) and the same static
+    package identities bound in the successful receipt are preserved here,
+    so a first authorized run that ends INCONCLUSIVE still records exactly
+    which harness, runner, preregistration, Verified Memory, and Git HEAD
+    executed."""
     return {
         "schema": "airlock.rsi-005.result.v1",
         "experiment": "RSI-005 lineage-aware inheritance",
         "verdict": VERDICT_INCONCLUSIVE,
-        "cause_code": _cause_for_precondition(reason),
-        "reason": reason,
-        "preregistration_sha256": sha256_file(PREREG_PATH),
-        "airlock_base_sha": AIRLOCK_BASE_MAIN,
-        "verified_memory_sha": VERIFIED_MEMORY_COMMIT,
-        "verified_memory_evidence_py_sha256": EVIDENCE_PY_SHA256,
+        "cause_code": exc.cause_code,
+        "reason": str(exc),
+        **_static_package_identities(),
     }
 
 PHASES = (
@@ -1697,21 +1800,26 @@ def orchestrate(output: Path | None) -> dict:
         ):
             run_phase(script, phase, state_path, env)
 
-        # Controlled support loss for gen1's promotion evidence, then REOPEN.
+        # Controlled support loss for gen1's promotion evidence, then REOPEN in
+        # its own fresh process. The reopen process terminates after persisting
+        # the REOPEN evidence (frozen sequence step 10); reprojection is then
+        # dispatched as a separate sequential fresh process from persisted
+        # disk evidence (frozen sequence step 11).
         (state_dir / "gen1_support.witness").unlink()
         run_phase(script, "reopen", state_path, env)
+        run_phase(script, "reproject", state_path, env)
 
         result = read_json(state_dir / "result.json")
         # All 12 phases must have run in distinct fresh processes, including
         # mint-lineage; the complete PID map is bound in the receipt.
         phase_pids = require_distinct_phase_pids(state_dir)
         if result.get("phase_process_pids") != phase_pids:
-            raise PreconditionFailure("receipt phase-PID map does not match the recorded phase PIDs")
+            raise PreconditionFailure("receipt phase-PID map does not match the recorded phase PIDs", "RECEIPT_MUTATION")
         if output is not None:
             write_json(output, result)
         return result
     except PreconditionFailure as exc:
-        result = inconclusive_result(str(exc), state_dir)
+        result = inconclusive_result(exc, state_dir)
         if output is not None:
             write_json(output, result)
         return result
@@ -1785,8 +1893,11 @@ def main(argv: list[str] | None = None) -> int:
             }[args.phase](args.state)
         except PreconditionFailure as exc:
             # Surface precondition failures distinctly so the orchestrator can
-            # map them to INCONCLUSIVE rather than a harness crash.
+            # map them to INCONCLUSIVE rather than a harness crash. The
+            # explicit cause code travels on its own stderr line so the
+            # parent can preserve it without substring inference.
             print(f"RSI-005 precondition failure in {args.phase}: {exc}", file=sys.stderr)
+            print(f"CAUSE_CODE={exc.cause_code}", file=sys.stderr)
             return 42
         return 0
 
@@ -1799,6 +1910,54 @@ def main(argv: list[str] | None = None) -> int:
         return 1
     print(json.dumps(result, sort_keys=True))
     return 0
+
+def _verified_memory_installed_commit() -> str | None:
+    """Resolve the installed openline-verified-memory distribution to the
+    exact VCS commit it was installed from, via its direct_url.json
+    provenance (PEP 610). Returns None when provenance is unavailable."""
+    try:
+        from importlib.metadata import distribution
+        dist = distribution("openline-verified-memory")
+        raw = dist.read_text("direct_url.json")
+    except Exception:
+        return None
+    if not raw:
+        return None
+    try:
+        payload = json.loads(raw)
+    except ValueError:
+        return None
+    return (payload.get("vcs_info") or {}).get("commit_id")
+
+
+def _verified_memory_commit_problems() -> list[str]:
+    """Fail closed unless the installed openline-verified-memory package
+    resolves to the exact pinned commit AND its evidence.py bytes match the
+    pinned hash. Bytes alone are not enough: the authorized primary will
+    run locally, not only in CI, so provenance must be checked here too."""
+    try:
+        import openline_verified_memory as ovm
+    except ImportError as exc:
+        return [f"cannot import openline-verified-memory: {exc}"]
+    try:
+        evidence = Path(ovm.__file__).with_name("evidence.py")
+        digest = hashlib.sha256(evidence.read_bytes()).hexdigest()
+    except OSError as exc:
+        return [f"cannot read installed openline-verified-memory evidence.py: {exc}"]
+    problems: list[str] = []
+    if digest != EVIDENCE_PY_SHA256:
+        problems.append(
+            "installed openline-verified-memory evidence.py does not match the pinned hash "
+            f"{EVIDENCE_PY_SHA256[:12]}..."
+        )
+    commit = _verified_memory_installed_commit()
+    if commit != VERIFIED_MEMORY_COMMIT:
+        problems.append(
+            "installed openline-verified-memory does not resolve to the pinned commit "
+            f"{VERIFIED_MEMORY_COMMIT} (observed: {commit!r})"
+        )
+    return problems
+
 
 def self_check() -> list[str]:
     """Non-executing verification of every frozen binding for the RSI-005
@@ -1872,6 +2031,11 @@ def self_check() -> list[str]:
             "scientific runner writes the primary-contact marker; "
             "only h.nightshift_entry() may"
         )
+
+    # 6. Verified Memory provenance: the installed package must resolve to
+    # the exact pinned commit AND its evidence.py must match the pinned
+    # bytes. The authorized primary runs locally, not only in CI.
+    problems.extend(_verified_memory_commit_problems())
 
     return problems
 
