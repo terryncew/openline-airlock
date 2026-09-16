@@ -22,7 +22,7 @@ def test_manifest_validates_all_pins():
     manifest = json.loads(manifest_path.read_bytes())
     assert manifest["schema"] == "airlock.rsi-006-q6.execution-manifest.v1"
     # All ten governed files present.
-    assert len(manifest["code_files"]) == 10
+    assert len(manifest["code_files"]) == 12
     # The frozen Q3 receipt pin matches.
     assert manifest["q3_receipt"]["sha256"] == \
         "d89327dcceb1536d7f66c5d1257a15f9b0de3b9f4c19ef75549eadaa7515acaa"

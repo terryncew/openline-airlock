@@ -9,7 +9,12 @@ FILES = {
     "q6_recorder.py": 200,
     "q6_adapter.py": 200,
     "q6_runner.py": 80,
-    "q6_receipt.py": 150,
+    # Q6 binding layer: full receipt shape + 12-check verifier +
+    # production verifier.
+    "q6_receipt.py": 500,
+    # Q6 Stage-1 qualification wrapper: Q6 preflight, qualifier
+    # binding, arm, qualify orchestration, verifier factory, CLI.
+    "q6_stage1.py": 500,
 }
 
 
