@@ -13,6 +13,15 @@ import execution_ledger as ledger
 
 def _build_halted_config(work_dir, coord, spawn, obs_id):
     """Build a recorder config with halt_after_seal fixture flag."""
+    import os
+    # The recorder now verifies bindings against the durable prepared
+    # record pre-spawn (frozen §7): the fixture must create it, exactly
+    # as the coordinator's _q6_scientific_run does.
+    ledger.record_prepared(
+        work_dir=str(work_dir), txid=coord._tx.txid,
+        observation_id=obs_id, phase="discovery", attempt=1,
+        receipt_sha256=kit.RECEIPT_SHA, code_hashes=kit.CODE_HASHES,
+        pid=os.getpid())
     prep = spawn.q6_prep
     # Inject the halt flag via builder_context (fixture-only seam).
     prep = dict(prep)
@@ -24,8 +33,7 @@ def _build_halted_config(work_dir, coord, spawn, obs_id):
         marker_path=str(work_dir / "m.json"))
     cfg = json.loads(cfg_bytes)
     cfg["fixture"] = {"halt_after_seal": True}
-    halted = json.dumps(cfg, sort_keys=True, separators=(",", ":"),
-                        ensure_ascii=False).encode("utf-8")
+    halted = json.dumps(cfg, sort_keys=True).encode("utf-8")
     ledger.ledger_dir(str(work_dir)).mkdir(parents=True, exist_ok=True)
     cfg_path = kit.q6_adapter.write_recorder_config(
         str(work_dir), obs_id, halted)

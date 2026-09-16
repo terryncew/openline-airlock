@@ -1,7 +1,5 @@
-"""RSI-006-Q6 one-shot completion recorder: verify sealed bindings, run
-the child, cross ContactGate, invoke the frozen builder by dotted name,
-then persist outcome -> q6_launch -> q6_seal -> completion LAST
-(argv: q6_recorder.py <config> <config_sha256>)."""
+"""Q6 one-shot completion recorder: verify bindings, run child, seal
+outcome -> q6_launch -> q6_seal -> completion LAST."""
 
 import hashlib
 import importlib
@@ -33,19 +31,15 @@ REQUIRED_CONFIG_KEYS = (
     "baseline", "python", "junit_path", "gate_marker_path",
 )
 
-
 class RecorderRefusal(Exception):
     pass  # a sealed binding failed: refuse with zero child spawn
-
 
 def _sha256(b: bytes) -> str:
     return hashlib.sha256(b).hexdigest()
 
-
 def canonical_env_bytes(env: dict) -> bytes:
     return json.dumps(env, sort_keys=True, separators=(",", ":"),
                       ensure_ascii=False).encode("utf-8")
-
 
 def _ledger(work_dir, cfg, fn, **kw):
     return fn(work_dir=work_dir, txid=cfg["txid"],
@@ -64,20 +58,31 @@ def _atomic_write_json(path: Path, record: dict) -> None:
         os.fsync(f.fileno())
     os.replace(tmp, path)
     dfd = os.open(str(path.parent), os.O_DIRECTORY)
-    try:
-        os.fsync(dfd)
-    finally:
-        os.close(dfd)
+    try: os.fsync(dfd)
+    finally: os.close(dfd)
 
 
 def _resolve_dotted(dotted: str):
     mod_name, _, attr = dotted.rpartition(".")
     if not mod_name or not attr:
         raise RecorderRefusal(f"not a dotted name: {dotted!r}")
-    try:
-        return getattr(importlib.import_module(mod_name), attr)
+    try: return getattr(importlib.import_module(mod_name), attr)
     except (ImportError, AttributeError) as e:
         raise RecorderRefusal(f"cannot resolve {dotted!r}: {e}")
+
+
+def _verify_prepared(cfg):
+    ldir = ledger.ledger_dir(cfg["work_dir"])
+    name = f"{cfg['observation_id']}.prepared.json"
+    try: prepared = json.loads((ldir / name).read_bytes())
+    except (OSError, ValueError) as e:
+        raise RecorderRefusal(f"prepared unreadable: {e}")
+    if prepared.get("schema") != ledger.PREPARED_SCHEMA:
+        raise RecorderRefusal("prepared schema mismatch")
+    for k in ("txid", "observation_id", "phase", "attempt",
+              "receipt_sha256", "code_hashes"):
+        if prepared.get(k) != cfg[k]:
+            raise RecorderRefusal(f"prepared mismatch: {k}")
 
 
 def _load_config(config_path: str, expected_sha: str):
@@ -87,10 +92,8 @@ def _load_config(config_path: str, expected_sha: str):
         raise RecorderRefusal(f"cannot read recorder config: {e}")
     if _sha256(raw) != expected_sha:
         raise RecorderRefusal("config digest != argv digest")
-    try:
-        cfg = json.loads(raw.decode("utf-8"))
-    except ValueError as e:
-        raise RecorderRefusal(f"config is not JSON: {e}")
+    try: cfg = json.loads(raw.decode("utf-8"))
+    except ValueError as e: raise RecorderRefusal(f"config is not JSON: {e}")
     if not isinstance(cfg, dict) or cfg.get("schema") != CONFIG_SCHEMA:
         raise RecorderRefusal("config schema mismatch")
     if [k for k in REQUIRED_CONFIG_KEYS if k not in cfg]:
@@ -99,13 +102,13 @@ def _load_config(config_path: str, expected_sha: str):
     env.update(cfg["env_overrides"])
     if _sha256(canonical_env_bytes(env)) != cfg["prepared_env_sha256"]:
         raise RecorderRefusal("prepared environment digest mismatch")
+    _verify_prepared(cfg)
     return cfg, _sha256(raw), env
 
 
 def _seal_and_finish(work_dir, obs_id, cfg, outcome_bytes, launch,
                      exec_nonce, child_pid, disposition, contact_created,
                      config_sha):
-    """Q6 ordered durability: outcome -> launch -> seal -> completion LAST."""
     outcome_digest = ledger.write_outcome(
         work_dir=work_dir, observation_id=obs_id, outcome_bytes=outcome_bytes)
     bind = {"txid": cfg["txid"], "observation_id": obs_id,
@@ -117,10 +120,9 @@ def _seal_and_finish(work_dir, obs_id, cfg, outcome_bytes, launch,
         "schema": LAUNCH_SCHEMA, **bind, "launch": launch,
         "outcome_digest": outcome_digest, "config_digest": config_sha})
     seal = {"schema": SEAL_SCHEMA, **bind, "child_pid": child_pid,
-            "outcome_sha256": outcome_digest,
+            "outcome_sha256": outcome_digest, "disposition": disposition,
             "launch_sha256": _sha256(launch_path.read_bytes()),
-            "config_sha256": config_sha, "disposition": disposition,
-            "contact_created": contact_created}
+            "config_sha256": config_sha, "contact_created": contact_created}
     _atomic_write_json(
         ledger.ledger_dir(work_dir) / f"{obs_id}.q6_seal.json", seal)
     if cfg.get("fixture", {}).get("halt_after_seal"):  # F2 fixture halt
@@ -147,9 +149,9 @@ def main(argv) -> int:
                 cfg["child_argv"], cwd=cfg["run_dir"], env=env,
                 stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         except OSError as e:
-            outcome_bytes, launch = _resolve_dotted(
-                cfg["spawn_failure_builder"])(
-                    start_ts=start_ts, end_ts=time.time(), error=e, **bkw)
+            mk = _resolve_dotted(cfg["spawn_failure_builder"])
+            outcome_bytes, launch = mk(start_ts=start_ts,
+                end_ts=time.time(), error=e, **bkw)
             _ledger(work_dir, cfg, ledger.record_spawn_failed,
                     attempt=cfg["attempt"],
                     error=f"{type(e).__name__}: {e}")
@@ -177,15 +179,13 @@ def main(argv) -> int:
             "duration_s": time.monotonic() - t0, "started_utc": start_ts,
             "ended_utc": time.time(), "started_monotonic": t0,
             "ended_monotonic": time.monotonic(),
-            "contact_created": bool(gate_created),
-        }
+            "contact_created": bool(gate_created)}
         outcome_bytes, launch = _resolve_dotted(cfg["builder"])(
             baseline=cfg["baseline"], junit_path=Path(cfg["junit_path"]),
             evidence=evidence, **bkw)
         _seal_and_finish(work_dir, obs_id, cfg, outcome_bytes, launch,
-                         exec_nonce, proc.pid,
-                         "timeout" if timed_out else "normal",
-                         bool(gate_created), config_sha)
+            exec_nonce, proc.pid, "timeout" if timed_out else "normal",
+            bool(gate_created), config_sha)
         return 0
     except RecorderRefusal as e:
         print(f"q6_recorder: refusing: {e}", file=sys.stderr)
