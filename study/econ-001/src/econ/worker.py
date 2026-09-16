@@ -25,6 +25,7 @@ import os
 import socket
 import sys
 import time
+import urllib.error
 import urllib.request
 import uuid
 from dataclasses import dataclass, field
@@ -56,6 +57,54 @@ class OperatorStop(Exception):
     so the call was never issued. Propagates to run_study, which halts
     the loop cleanly before any further paid invocation.
     """
+
+
+class CredentialServiceError(Exception):
+    """The local credential service failed before dispatch.
+
+    Raised by RealProvider.post when the authd surrogate cannot be
+    obtained. No request bytes have been constructed or sent at this
+    point: the provider could not have been contacted.
+    """
+
+
+class InfrastructureHalt(Exception):
+    """Demonstrably local, pre-dispatch infrastructure failure.
+
+    Raised by invoke() AFTER the failed call is recorded as unresolved.
+    Callers must let it propagate: run_study ends the study immediately
+    with no further provider contact. Everything received so far
+    (ledger entries, raw/ responses) is preserved.
+    """
+
+
+import errno as _errno
+
+_INFRA_ERRNOS = frozenset({
+    _errno.ECONNREFUSED,   # connect() refused: zero bytes transmitted
+    _errno.ENETUNREACH,    # no route: nothing left the machine
+    _errno.EHOSTUNREACH,   # host unreachable: nothing left the machine
+    _errno.ENETDOWN,       # interface down: nothing left the machine
+})
+
+
+def _is_infra_failure(exc: Exception) -> bool:
+    """True when the failure demonstrably happened before dispatch.
+
+    Covers: credential-service failures, urllib errors wrapping a
+    refused/unreachable connect, and DNS failure. Deliberately NOT
+    timeouts (ambiguous: the request may have been transmitted) and NOT
+    HTTP error statuses (the provider was reached).
+    """
+    if isinstance(exc, CredentialServiceError):
+        return True
+    if isinstance(exc, urllib.error.URLError):
+        reason = exc.reason
+        if isinstance(reason, socket.gaierror):
+            return True
+        if isinstance(reason, OSError) and reason.errno in _INFRA_ERRNOS:
+            return True
+    return False
 
 
 @dataclass
@@ -95,8 +144,14 @@ class RealProvider(Provider):
             headers={"Content-Type": "application/json", **headers},
             method="POST",
         )
-        dc.add_surrogate_to_request(req, self.credential_name,
-                                    allowed_hosts=("api.openai.com",))
+        try:
+            dc.add_surrogate_to_request(req, self.credential_name,
+                                        allowed_hosts=("api.openai.com",))
+        except Exception as e:
+            # The credential service (authd) failed before any request
+            # bytes existed. The provider could not have been contacted.
+            raise CredentialServiceError(
+                f"credential service failed before dispatch: {e}") from e
         try:
             with urllib.request.urlopen(req, timeout=timeout) as resp:
                 return resp.status, dc.read_json_response(resp)
@@ -245,10 +300,28 @@ def invoke(*, instructions: str, input_text: str, envelope: dict,
         res.status = "unresolved"
         res.error = f"timeout without usage; reservation ${R:.4f} retained"
         return res
+    except CredentialServiceError as e:
+        # Credential service failed before dispatch: no request bytes
+        # existed, so the provider could not have been contacted. Record
+        # the unresolved entry, then halt the study immediately -- further
+        # invocations cannot collect data.
+        ledger.unresolved(rsv_id, inv, R, reason=f"credential_service: {e}")
+        res.status = "unresolved"
+        res.error = (f"credential service failed before dispatch; "
+                     f"reservation ${R:.4f} retained")
+        raise InfrastructureHalt(
+            f"{res.error}; halting study, no further invocations") from e
     except Exception as e:
         ledger.unresolved(rsv_id, inv, R, reason=f"transport_no_usage: {e}")
         res.status = "unresolved"
         res.error = f"transport failure without usage; reservation ${R:.4f} retained"
+        if _is_infra_failure(e):
+            # Demonstrably pre-dispatch (connect refused/unreachable, DNS
+            # failure): zero bytes could have reached the provider. Recorded
+            # above; halt now instead of burning further reservations.
+            raise InfrastructureHalt(
+                f"infrastructure failure before dispatch ({e}); halting "
+                f"study, no further invocations") from e
         return res
 
     # Raw response persisted BEFORE any parsing or settlement, so a later

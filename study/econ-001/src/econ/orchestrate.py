@@ -230,6 +230,17 @@ def run_study(*, eval_tasks: list, calib_tasks: list, config_path: str,
         ledger.note("study_stopped_operator", reason=str(e),
                     completed_reps=[r["rep"] for r in study["reps"]])
         print(f"study stopped by operator: {e}", flush=True)
+    except worker.InfrastructureHalt as e:
+        # Infrastructure halt: a demonstrably local, pre-dispatch failure
+        # (credential service down, egress connect refused/unreachable).
+        # The failed call is already recorded as unresolved. Halt
+        # immediately with no further provider contact; settled work is
+        # preserved in the ledger and raw/ -- nothing further will be spent.
+        study["status"] = "halted_infrastructure"
+        study["stop_reason"] = str(e)
+        ledger.note("study_halted_infrastructure", reason=str(e),
+                    completed_reps=[r["rep"] for r in study["reps"]])
+        print(f"study halted on infrastructure failure: {e}", flush=True)
 
     study["ledger_summary"] = ledger.summary()
     study["exposure"] = {

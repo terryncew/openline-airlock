@@ -203,6 +203,35 @@ Exact semantics, proven by the offline fixtures in `tests/test_path.py`.
   in-flight $0.11 as unresolved. The control exists so an operator never
   faces that choice again.
 
+### Infrastructure halt (credential-service / pre-dispatch failure)
+- Added 2026-09-16 after ECON-001-R2: a VM-local egress outage at 11:24:43
+  PDT produced 301 consecutive pre-dispatch failures, and the frozen
+  transport rule (record-unresolved-and-continue) converted them into 301
+  retained reservations before anyone noticed. Continuing to issue calls
+  that cannot reach the provider collects no data and only burns
+  reservations, so a demonstrably local failure now halts the study.
+- What counts as infrastructure failure (deliberately narrow):
+  `CredentialServiceError` (the authd surrogate fetch failed before any
+  request bytes existed), or a `urllib` error wrapping a refused /
+  unreachable connect (`ECONNREFUSED`, `ENETUNREACH`, `EHOSTUNREACH`,
+  `ENETDOWN`) or DNS failure. In all of these, zero bytes could have
+  reached the provider — the failure is demonstrably pre-dispatch.
+- What does NOT halt: timeouts (ambiguous — the request may have been
+  transmitted), HTTP error statuses (the provider was reached), malformed
+  model output (charged rejection, never a crash). Those keep the frozen
+  record-unresolved-and-continue behavior.
+- Mechanics: `invoke()` records the failed call as `unresolved` FIRST
+  (accounting is never skipped), then raises `worker.InfrastructureHalt`,
+  which propagates through acquisition and measurement untouched and is
+  caught at the top of `run_study()`. The study records
+  `status: "halted_infrastructure"` + `stop_reason` in `study.json`,
+  appends a `study_halted_infrastructure` ledger note, writes all rep
+  files completed so far, and exits cleanly. Ledger entries and `raw/`
+  responses already received are preserved byte-identical.
+- Proven offline by `tests/test_infra_halt.py`: a simulated outage
+  mid-study produces zero subsequent provider dispatches, preserves
+  already-received responses, and does not trigger on non-infra failures.
+
 ### Restart behavior
 - The ledger is append-only and replays on load: budget, settled,
   unresolved, and open reserves carry across process restarts.
@@ -228,7 +257,8 @@ Exact semantics, proven by the offline fixtures in `tests/test_path.py`.
   this status is recorded in the run's own README at launch time, not
   reconstructed later.
 - Launch statuses are explicit: `completed`, `aborted` (fail-closed
-  before completion), `interrupted` (operator-stopped), `stopped_operator`.
+  before completion), `interrupted` (operator-stopped), `stopped_operator`,
+  `halted_infrastructure` (credential-service / pre-dispatch failure).
   Both launches of 2026-09-16 are preserved independently with their
   code versions, ledger bytes, and available outputs; neither is pooled
   with the other as one uninterrupted run.
