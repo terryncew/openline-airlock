@@ -73,13 +73,20 @@ def main(argv):
         spawn_failure_builder=object())
 
     if mode == "successor":
-        # Ordinary recovery path: inherited _apply journals the adoption.
+        # Ordinary recovery ordering (mirrors run_all): reconcile the
+        # ContactGate winner into the resumed Q4 transaction BEFORE any
+        # observation evidence is applied, so provenance never reads
+        # observation-before-authorization.
+        reconciled = coord.reconcile_contact()
         applied = coord._apply(result)
         Path(out_file).write_text(json.dumps({
             "worker_result": result.get("result"),
             "applied_status": applied.get("status"),
             "digest": applied.get("digest"),
             "txid": tx.txid,
+            "contact_reconciled": reconciled is not None,
+            "contact_child_pid": (reconciled["event"]["child_pid"]
+                                  if reconciled else None),
         }, sort_keys=True), encoding="utf-8")
     return 0
 

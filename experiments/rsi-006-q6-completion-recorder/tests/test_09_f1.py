@@ -6,8 +6,9 @@ parent test observes prepared/started/contact, SIGKILLs the
 coordinator PID, verifies the recorder and child survive, releases
 the child, waits for the sealed completion, then starts a fresh
 successor process that goes through the ordinary recovery path
-(_classify -> recoverable -> _q6_verify -> inherited _apply ->
-adopt_orphan_observation).
+(_classify -> recoverable -> reconcile_contact -> inherited _apply ->
+adopt_orphan_observation), proving the original ContactGate event is
+reconciled into the resumed Q4 transaction before observation_adopted.
 
 Physical execution count is proven by an fsync'd marker file written
 by the child itself (one line per execution), not by ledger filename
@@ -202,21 +203,45 @@ def _run_f1(work_dir, columns, lines):
         f"F1: successor did not classify recoverable: {result}"
     assert result["applied_status"] == "adopted", \
         f"F1: successor did not adopt: {result}"
+    assert result["contact_reconciled"] is True, \
+        f"F1: successor did not reconcile contact: {result}"
+    assert result["contact_child_pid"] == child_pid, \
+        "F1: reconciled contact child PID != original child PID"
 
     # --- 9. Exact evidence. ---
     txid_after = result["txid"]
     assert txid_after == txid_before, "F1: txid changed across kill"
 
-    # Journal has the adoption event.
+    # Journal: exactly one contact event for the original
+    # observation/child, ordered BEFORE exactly one observation_adopted.
     journal_dir = work_dir / "journal"
     events = []
     for jf in sorted(journal_dir.glob("[0-9]*.json")):
         events.append(kit.read_json(jf))
+    contacts = [e for e in events
+                if e.get("type") == "contact"
+                and e.get("payload", {}).get("mutant_id") == obs_id]
+    assert len(contacts) == 1, \
+        f"F1: expected 1 contact event, got {len(contacts)}"
+    assert contacts[0]["payload"]["child_pid"] == child_pid, \
+        "F1: contact event child PID != original child PID"
     adopted = [e for e in events
                if e.get("type") == "observation_adopted"
                and e.get("payload", {}).get("mutant_id") == obs_id]
     assert len(adopted) == 1, \
         f"F1: expected 1 observation_adopted, got {len(adopted)}"
+    # Ordering: contact reconciled into the resumed transaction BEFORE
+    # the adoption. Journal filenames are zero-padded sequence numbers.
+    contact_idx = events.index(contacts[0])
+    adopted_idx = events.index(adopted[0])
+    assert contact_idx < adopted_idx, \
+        "F1: contact event not ordered before observation_adopted"
+    # Same attempt, adopted digest equals the original outcome digest.
+    assert adopted[0]["payload"]["digest"] == outcome_digest, \
+        "F1: adopted digest != original outcome digest"
+    prepared = kit.read_json(ldir / f"{obs_id}.prepared.json")
+    assert seal["attempt"] == prepared["attempt"], \
+        "F1: seal attempt != prepared attempt"
 
     # Exactly one physical scientific child execution (fsync'd marker).
     marker_lines = marker_file.read_text(
