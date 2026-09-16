@@ -3,7 +3,7 @@
 - experiment: `COMPOUND-001`
 - terminal stage: precontact budget-enforcement feasibility
 - frozen outcome: `NO_GO_BUDGET_ENFORCEMENT`
-- determination: reviewer (Terrynce White), independently verified
+- determination: preregistered precontact budget-enforcement gate; independently reviewed
 - date: 2026-09-16
 
 ## Standing
@@ -46,7 +46,8 @@ Inspected from the pinned commit `29112bef` tarball
    `max_iterations: int = sys.maxsize,  # Default: unlimited tool-calling iterations (shared with subagents)`
 2. `hermes_cli/oneshot.py:492` — the one-shot path constructs
    `AIAgent(...)` directly and passes no `max_iterations` and no
-   `max_tokens`; the call inherits the unbounded default above.
+   `max_tokens`; the call inherits the default above, which is effectively
+   unlimited for this experiment's budget.
 3. `hermes_cli/_parser.py` — the top-level CLI surface for one-shot is
    `-z`/`--oneshot PROMPT`, `--usage-file PATH` (post-hoc), plus
    toolsets/resume/in-dir/worktree flags. There is no
@@ -63,7 +64,7 @@ Airlock worker path (see `.airlock/search-004/worker.py` and
 
 `hermes -z <prompt> --usage-file <path>`
 
-## Why finite R_i cannot be enforced at that interface
+## Why no budget-admissible R_i can be established at that interface
 
 The frozen contract requires, before EVERY paid invocation, a
 conservative maximum possible charge `R_i` derived from an ENFORCED
@@ -82,9 +83,18 @@ At the pinned interface:
 - `--usage-file` reports spend after the fact and cannot reserve or
   cap anything before contact.
 
-Therefore no finite conservative `R_i` can be proven and enforced for a
-paid invocation through this path. The correct precontact result is
-`NO_GO_BUDGET_ENFORCEMENT`.
+The existing pinned `hermes -z` interface exposes no configurable
+per-invocation iteration/token/resource ceiling from which COMPOUND-001
+can establish and enforce a conservative budget-admissible `R_i`.
+`AIAgent` defaults `max_iterations` to `sys.maxsize`; while that value
+is mathematically finite, its worst-case exposure is not compatible with
+the experiment's hard spending limits ($5 calibration / $50
+whole-study), and the one-shot CLI provides no permitted control for
+lowering that exposure. `--usage-file` is post-hoc accounting rather
+than a pre-invocation cap. Therefore the first paid invocation cannot
+satisfy the preregistered reservation rule without introducing a new
+provider/resource-governor boundary, which the contract forbids. The
+correct precontact result is `NO_GO_BUDGET_ENFORCEMENT`.
 
 ## Why no rescue path was introduced
 
