@@ -1,10 +1,14 @@
-"""ECON-001 study run: calibration + 3 repetitions on the eval pool (paid, <=$50).
+"""ECON-001 study run: calibration + 3 repetitions on the eval pool (paid).
 
-Frozen protocol (commit 51b4e0d). Corpus: eval pool (162 tasks, never
-executed before this run), calib pool (3 tasks, one per family).
-Ledger: runs/study-001/ledger.jsonl, $50 ceiling, fail closed on overrun.
-Checkpointed per-rep (rep JSON written after each rep) against transport
-flakiness. Run with: <venv>/python scripts/study_run.py
+Frozen protocol. Run identity via environment (frozen per run before
+launch); defaults reproduce the original study-001 invocation:
+  ECON_RUN_NAME  run directory under runs/ (default: study-001)
+  ECON_CORPUS    corpus JSON path (default: corpus/corpus.json)
+  ECON_BUDGET    ledger ceiling USD (default: 50.00)
+Ledger: <RUN_DIR>/ledger.jsonl, fail closed on overrun.
+Checkpointed per-rep against transport flakiness.
+Run with: <venv>/python scripts/study_run.py
+Stop control: create <RUN_DIR>/STOP to halt before the next paid call.
 """
 import json
 import os
@@ -15,10 +19,16 @@ from econ import corpus, ledger as ledger_mod
 from econ import orchestrate, report, worker
 
 STUDY_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-RUN_DIR = os.path.join(STUDY_DIR, "runs", "study-001")
+# Run identity from the environment so a frozen script can launch distinct
+# runs without code changes. Defaults preserve the original study-001 run.
+RUN_NAME = os.environ.get("ECON_RUN_NAME", "study-001")
+RUN_DIR = os.path.join(STUDY_DIR, "runs", RUN_NAME)
+CORPUS_PATH = os.environ.get(
+    "ECON_CORPUS", os.path.join(STUDY_DIR, "corpus", "corpus.json"))
+LEDGER_BUDGET = float(os.environ.get("ECON_BUDGET", "50.00"))
 os.makedirs(RUN_DIR, exist_ok=True)
 
-pools = corpus.load_corpus(os.path.join(STUDY_DIR, "corpus", "corpus.json"))
+pools = corpus.load_corpus(CORPUS_PATH)
 eval_tasks = pools["eval"]
 calib_tasks = pools["calib"]
 assert len(eval_tasks) == 162, f"eval pool: {len(eval_tasks)}"
@@ -26,7 +36,7 @@ assert len(calib_tasks) == 3, f"calib pool: {len(calib_tasks)}"
 fams = sorted(t.family for t in calib_tasks)
 assert fams == ["config", "interface", "logic"], f"calib families: {fams}"
 
-lg = ledger_mod.Ledger(50.00, os.path.join(RUN_DIR, "ledger.jsonl"))
+lg = ledger_mod.Ledger(LEDGER_BUDGET, os.path.join(RUN_DIR, "ledger.jsonl"))
 provider = worker.RealProvider()
 
 # Stop-before-next-call control: creating RUN_DIR/STOP halts the study
