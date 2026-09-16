@@ -1,0 +1,43 @@
+name: RSI-006-Q6 completion-recorder gate
+
+# Non-scientific gate. Installs pytest and runs the RSI-006-Q6 fixture
+# falsifier suite, and nothing else: no Stage 1, no real Q3 workload,
+# no scientific contact, no qualification execution. The F1 falsifier
+# SIGKILLs a dedicated fixture coordinator subprocess (plain PID-local
+# kill, same-process-group) and proves recorder/child survival plus
+# zero-second-execution adoption by a successor; all children are
+# trivial fixture scripts under the Q6 tests tree. Triggers only when
+# the Q6 experiment directory or this workflow changes.
+
+on:
+  push:
+    paths:
+      - "experiments/rsi-006-q6-completion-recorder/**"
+      - ".github/workflows/rsi-006-q6-gate.yml"
+  pull_request:
+    paths:
+      - "experiments/rsi-006-q6-completion-recorder/**"
+      - ".github/workflows/rsi-006-q6-gate.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  rsi-006-q6-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install pytest
+        run: python -m pip install pytest
+
+      - name: Q6 completion-recorder fixture falsifiers
+        run: |
+          python -m pytest experiments/rsi-006-q6-completion-recorder/tests/ -q -p no:cacheprovider
