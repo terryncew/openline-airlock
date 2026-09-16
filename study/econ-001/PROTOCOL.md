@@ -176,3 +176,66 @@ Total dev spend: $0.00 + $0.20 + $0.61 + $0.93 = $1.74 of the $5 budget.
 - Code frozen: commit 51b4e0d (study/econ-001 branch)
 - Closed records preserved: COMPOUND-001 freeze (f7b1822), RSI-006,
   PR #170 branch (131a4440) — untouched.
+
+## 14. Restart, stop, and amendment behavior (path revision, dev branch)
+
+Exact semantics, proven by the offline fixtures in `tests/test_path.py`.
+
+### Operator stop (stop-before-next-call control)
+- The study checks for a stop file (`RUN_DIR/STOP`) at the top of every
+  `worker.invoke()`, BEFORE the ledger reservation and before any
+  provider contact. This is the single choke point: every paid
+  invocation passes through `invoke()`.
+- If the stop file exists, the call is NOT issued: no reservation, no
+  HTTP request, status `"stopped"`. `attempt()` / acquisition convert
+  this to `worker.OperatorStop`, which `run_study()` catches at the top
+  level, records `status: "stopped_operator"` + `stop_reason` in
+  `study.json`, appends a `study_stopped_operator` ledger note, and
+  exits cleanly (exit 0, not a crash).
+- A stop placed while a call is in flight takes effect on the NEXT
+  invoke: the in-flight call settles normally (its spend was already
+  committed), then the loop halts. There is no way to un-spend an
+  in-flight call; the control guarantees zero FURTHER paid invocations,
+  demonstrably (the offline proof asserts the provider request count
+  does not increase after STOP appears).
+- What the 2026-09-16 pause showed: the frozen code had NO such control,
+  so the only safe action was SIGSTOP/SIGKILL and retaining the
+  in-flight $0.11 as unresolved. The control exists so an operator never
+  faces that choice again.
+
+### Restart behavior
+- The ledger is append-only and replays on load: budget, settled,
+  unresolved, and open reserves carry across process restarts.
+- Task allocation is deterministic (sorted task_id, fixed rep slices,
+  fixed corpus): a restarted run re-contacts the same tasks. Outcomes
+  are NOT transferred between runs; only the ledger's money state.
+- Rep records are written only at rep completion. An interrupted rep
+  does NOT resume mid-rep; a new run restarts that rep from its first
+  invocation (re-spending its reservations). Checkpointing is per-rep,
+  not per-invocation.
+- At startup, `run_study()` lists every open reserve (issued, never
+  settled/unresolved) via `ledger.open_reserves()`, appends a
+  `prior_open_reserve` note per entry, and prints a console warning.
+  Open reserves stay encumbered until the operator resolves each one;
+  they are never silently dropped or re-spent.
+
+### Amendment behavior
+- Study-branch code is immutable after first paid contact. Repairs are
+  made on a separate development branch and proven offline (fake
+  provider, zero spend) before any operator decision about a new run.
+- A post-amendment execution is a NEW run with a new run ID and
+  exploratory status. It is never the original confirmatory run, and
+  this status is recorded in the run's own README at launch time, not
+  reconstructed later.
+- Launch statuses are explicit: `completed`, `aborted` (fail-closed
+  before completion), `interrupted` (operator-stopped), `stopped_operator`.
+  Both launches of 2026-09-16 are preserved independently with their
+  code versions, ledger bytes, and available outputs; neither is pooled
+  with the other as one uninterrupted run.
+
+### Raw evidence
+- Every provider response (status + full payload, which carries the
+  usage object) is written to `raw/<invocation_id>.json` BEFORE parsing,
+  extraction, or settlement. A crash in parsing can no longer destroy
+  the record of what the provider returned. Attempt records carry
+  `raw_path` linking each attempt to its raw response.

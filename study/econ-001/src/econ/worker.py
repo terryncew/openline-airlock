@@ -9,10 +9,19 @@
   timeouts) -> unresolved exposure: the reservation is RETAINED, never
   treated as a free failure.
 - Actual > reservation -> cost overrun abort (fail closed).
+- Raw provider responses (status + full payload, which carries usage) are
+  persisted to raw_dir BEFORE any parsing, so a later crash can never
+  destroy the evidence of what the provider returned.
+- Operator stop: if stop_file exists when invoke() is entered, the call
+  is NOT issued (no reservation, no provider contact); status "stopped".
+  Callers propagate via OperatorStop so the study halts before the next
+  paid invocation. A stop placed mid-flight takes effect on the next
+  invoke(): the in-flight call settles normally, then the loop halts.
 """
 from __future__ import annotations
 
 import json
+import os
 import socket
 import sys
 import time
@@ -40,11 +49,20 @@ class OverrunAbort(Exception):
     pass
 
 
+class OperatorStop(Exception):
+    """Raised by callers when the worker reports status "stopped".
+
+    Means: the operator stop file was present before a paid invocation,
+    so the call was never issued. Propagates to run_study, which halts
+    the loop cleanly before any further paid invocation.
+    """
+
+
 @dataclass
 class InvocationResult:
     invocation_id: str
     envelope: str
-    status: str  # ok | refused_precontact | failed | unresolved | overrun_abort
+    status: str  # ok | refused_precontact | failed | unresolved | overrun_abort | stopped
     reservation_usd: float
     actual_usd: float | None
     usage: dict | None
@@ -52,6 +70,7 @@ class InvocationResult:
     request_id: str | None
     error: str | None = None
     local_input_tokens: int = 0
+    raw_path: str | None = None  # raw provider response persisted pre-parse
 
 
 class Provider:
@@ -132,15 +151,52 @@ def extract_text(response: dict) -> str | None:
     return None
 
 
+def _persist_raw(raw_dir: str, invocation_id: str, envelope: str,
+                 status_code, request_body: dict, payload) -> str:
+    """Write the raw provider response before any parsing.
+
+    Returns the path written. Never raises: persistence failure is
+    recorded in the returned marker, never allowed to break accounting.
+    """
+    os.makedirs(raw_dir, exist_ok=True)
+    path = os.path.join(raw_dir, f"{invocation_id}.json")
+    doc = {
+        "invocation_id": invocation_id,
+        "envelope": envelope,
+        "t": time.time(),
+        "http_status": status_code,
+        "request": request_body,
+        "response": payload,
+    }
+    try:
+        with open(path, "w") as f:
+            json.dump(doc, f, indent=1, sort_keys=True, default=str)
+        return path
+    except Exception as e:  # disk full etc: do not break the money path
+        return f"<raw-persist-failed: {e}>"
+
+
 def invoke(*, instructions: str, input_text: str, envelope: dict,
            ledger, provider: Provider, invocation_id: str | None = None,
            timeout_s: float = 300.0,
            request_params: dict | None = None,
-           clock=None) -> InvocationResult:
+           clock=None, stop_file: str | None = None,
+           raw_dir: str | None = None) -> InvocationResult:
     inv = invocation_id or ("inv_" + uuid.uuid4().hex[:12])
     env_name = envelope["name"]
     R = float(envelope["reservation_usd"])
     now = (clock or time.time)()
+
+    # Operator stop: checked BEFORE any reservation or provider contact.
+    # This is the stop-before-next-call control: placing stop_file halts
+    # the study loop with zero further paid invocations, demonstrably.
+    if stop_file and os.path.exists(stop_file):
+        ledger.note("stopped_before_contact", invocation_id=inv,
+                    envelope=env_name, stop_file=stop_file, t=now)
+        return InvocationResult(inv, env_name, "stopped", R, None, None,
+                                None, None,
+                                error=f"operator stop file present: {stop_file}")
+
 
     local_in = (tokens.count(instructions) + tokens.count(input_text)
                 + PROVIDER_FRAMING_TOKENS)
@@ -194,6 +250,14 @@ def invoke(*, instructions: str, input_text: str, envelope: dict,
         res.status = "unresolved"
         res.error = f"transport failure without usage; reservation ${R:.4f} retained"
         return res
+
+    # Raw response persisted BEFORE any parsing or settlement, so a later
+    # crash (extract, delta, evaluate) can never destroy what the provider
+    # actually returned. This closes the launch-1 gap where the malformed
+    # proposal's text was lost.
+    raw_path = (_persist_raw(raw_dir, inv, env_name, status, body, payload)
+                if raw_dir else None)
+    res.raw_path = raw_path
 
     if status != 200 or not isinstance(payload, dict) or payload.get("object") == "error":
         ledger.unresolved(rsv_id, inv, R,

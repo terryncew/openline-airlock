@@ -29,11 +29,20 @@ assert fams == ["config", "interface", "logic"], f"calib families: {fams}"
 lg = ledger_mod.Ledger(50.00, os.path.join(RUN_DIR, "ledger.jsonl"))
 provider = worker.RealProvider()
 
+# Stop-before-next-call control: creating RUN_DIR/STOP halts the study
+# before the next paid invocation is issued (no new reservation, no new
+# provider contact). The in-flight call, if any, settles normally first.
+STOP_FILE = os.path.join(RUN_DIR, "STOP")
+RAW_DIR = os.path.join(RUN_DIR, "raw")
+
 print(f"starting study: 162 eval + 3 calib tasks, $50 ledger", flush=True)
+print(f"stop control: touch {STOP_FILE} to halt before the next paid call",
+      flush=True)
 study = orchestrate.run_study(
     eval_tasks=eval_tasks, calib_tasks=calib_tasks,
     config_path=os.path.join(STUDY_DIR, "CONFIG.json"),
-    ledger=lg, provider=provider, outdir=RUN_DIR, timeout_s=300.0)
+    ledger=lg, provider=provider, outdir=RUN_DIR, timeout_s=300.0,
+    stop_file=STOP_FILE, raw_dir=RAW_DIR)
 
 rep = report.build_report(study)
 with open(os.path.join(RUN_DIR, "report.json"), "w") as f:

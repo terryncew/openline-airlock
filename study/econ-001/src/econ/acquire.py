@@ -27,7 +27,9 @@ def _feedback(task, att: dict) -> str:
 def run_acquisition(*, name: str, parent_method: str,
                     discovery_tasks: list, promotion_tasks: list,
                     ledger, provider, envelopes,
-                    timeout_s: float = 300.0) -> dict:
+                    timeout_s: float = 300.0,
+                    stop_file: str | None = None,
+                    raw_dir: str | None = None) -> dict:
     assert len(discovery_tasks) == 3 and len(promotion_tasks) == 6
     rec: dict = {"name": name, "decision": "reject", "reason": ""}
     aid = "acq_" + uuid.uuid4().hex[:8]
@@ -39,7 +41,8 @@ def run_acquisition(*, name: str, parent_method: str,
         a = attempt_mod.attempt(
             t, parent_method, ledger=ledger, provider=provider,
             envelopes=envelopes,
-            invocation_id=f"{aid}_disc{i}", timeout_s=timeout_s)
+            invocation_id=f"{aid}_disc{i}", timeout_s=timeout_s,
+            stop_file=stop_file, raw_dir=raw_dir)
         disc.append(a)
     rec["discovery"] = disc
     if any(a["status"] in ("overrun_abort",) for a in disc):
@@ -53,7 +56,8 @@ def run_acquisition(*, name: str, parent_method: str,
         pres = worker.invoke(
             instructions=instructions, input_text=input_text,
             envelope=envelopes["proposal"], ledger=ledger, provider=provider,
-            invocation_id=f"{aid}_proposal", timeout_s=timeout_s)
+            invocation_id=f"{aid}_proposal", timeout_s=timeout_s,
+            stop_file=stop_file, raw_dir=raw_dir)
     except worker.OverrunAbort as e:
         rec["reason"] = f"proposal_overrun: {e}"
         raise
@@ -62,7 +66,12 @@ def run_acquisition(*, name: str, parent_method: str,
         "reservation_usd": pres.reservation_usd,
         "actual_usd": pres.actual_usd,
         "request_id": pres.request_id,
+        "raw_path": pres.raw_path,
     }
+    if pres.status == "stopped":
+        # Operator stop: no proposal issued. Halt before next paid call.
+        rec["reason"] = "proposal_stopped_operator"
+        raise worker.OperatorStop(f"operator stop before {aid}_proposal")
     if pres.status != "ok" or not pres.text:
         rec["reason"] = f"proposal_{pres.status}"
         return rec
@@ -89,12 +98,14 @@ def run_acquisition(*, name: str, parent_method: str,
         promo_p.append(attempt_mod.attempt(
             t, parent_method, ledger=ledger, provider=provider,
             envelopes=envelopes,
-            invocation_id=f"{aid}_promoP{i}", timeout_s=timeout_s))
+            invocation_id=f"{aid}_promoP{i}", timeout_s=timeout_s,
+            stop_file=stop_file, raw_dir=raw_dir))
     for i, t in enumerate(cand_tasks):
         promo_c.append(attempt_mod.attempt(
             t, candidate, ledger=ledger, provider=provider,
             envelopes=envelopes,
-            invocation_id=f"{aid}_promoC{i}", timeout_s=timeout_s))
+            invocation_id=f"{aid}_promoC{i}", timeout_s=timeout_s,
+            stop_file=stop_file, raw_dir=raw_dir))
     rec["promotion_parent"] = promo_p
     rec["promotion_candidate"] = promo_c
 

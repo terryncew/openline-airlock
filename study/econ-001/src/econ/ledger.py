@@ -61,6 +61,19 @@ class Ledger:
     def headroom(self) -> float:
         return self.budget - self.encumbered
 
+    def open_reserves(self) -> list:
+        """Reserves with no matching settle/unresolved: in-flight or dead.
+
+        Call at startup. Each entry is a previously issued invocation whose
+        provider outcome is unknown; they stay encumbered until the
+        operator resolves them. Never silently dropped.
+        """
+        closed = {e.get("reservation_id") for e in self.entries
+                  if e.get("kind") in ("settle", "unresolved")}
+        return [e for e in self.entries
+                if e.get("kind") == "reserve"
+                and e.get("reservation_id") not in closed]
+
     def reserve(self, amount: float, invocation_id: str, envelope: str) -> dict:
         if self.headroom() < amount - 1e-9:
             raise InsufficientBudget(

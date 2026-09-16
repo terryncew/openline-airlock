@@ -44,7 +44,7 @@ def spend_of(a: dict) -> float:
 
 
 def _run_calibration(calib_tasks, envelopes, ledger, provider, outdir,
-                     timeout_s=300.0) -> dict:
+                     timeout_s=300.0, stop_file=None, raw_dir=None) -> dict:
     rec = {"invocations": []}
     # 1. Telemetry preflight: usage must be present; local count must track
     #    the provider's count within 2%.
@@ -52,7 +52,10 @@ def _run_calibration(calib_tasks, envelopes, ledger, provider, outdir,
     res = worker.invoke(
         instructions=instructions, input_text=input_text,
         envelope=envelopes["preflight"], ledger=ledger, provider=provider,
-        invocation_id="calib_preflight", timeout_s=timeout_s)
+        invocation_id="calib_preflight", timeout_s=timeout_s,
+        stop_file=stop_file, raw_dir=raw_dir)
+    if res.status == "stopped":
+        raise worker.OperatorStop("operator stop at calibration preflight")
     if res.status != "ok" or not res.usage:
         raise RuntimeError(f"calibration preflight failed: {res.status} {res.error}")
     pin = res.usage["input_tokens"]
@@ -72,7 +75,7 @@ def _run_calibration(calib_tasks, envelopes, ledger, provider, outdir,
         a = attempt_mod.attempt(
             t, prompts.BASE_METHOD, ledger=ledger, provider=provider,
             envelopes=envelopes, invocation_id=f"calib_solve{i}",
-            timeout_s=timeout_s)
+            timeout_s=timeout_s, stop_file=stop_file, raw_dir=raw_dir)
         rec["invocations"].append(a["invocation_id"])
         if a["status"] == "overrun_abort":
             raise worker.OverrunAbort("calibration overrun")
@@ -93,7 +96,7 @@ def _acq_invocation_ids(acq: dict | None) -> list[str]:
 
 
 def _run_rep(rep_idx: int, rep_tasks: list, envelopes, ledger, provider,
-             outdir, timeout_s=300.0) -> dict:
+             outdir, timeout_s=300.0, stop_file=None, raw_dir=None) -> dict:
     rid = f"rep{rep_idx + 1}"
     rec = {"rep": rid, "status": "completed", "abort_reason": None,
            "invocations": [], "attempts": []}
@@ -118,7 +121,7 @@ def _run_rep(rep_idx: int, rep_tasks: list, envelopes, ledger, provider,
             name=f"{rid}_G1", parent_method=prompts.BASE_METHOD,
             discovery_tasks=g1_tasks[0:3], promotion_tasks=g1_tasks[3:9],
             ledger=ledger, provider=provider, envelopes=envelopes,
-            timeout_s=timeout_s)
+            timeout_s=timeout_s, stop_file=stop_file, raw_dir=raw_dir)
         rec["G1_acquisition"] = g1
         rec["invocations"].extend(_acq_invocation_ids(g1))
         m_b = g1.get("method") if g1["decision"] == "accept" else prompts.BASE_METHOD
@@ -129,7 +132,7 @@ def _run_rep(rep_idx: int, rep_tasks: list, envelopes, ledger, provider,
             name=f"{rid}_G2", parent_method=m_b,
             discovery_tasks=g2_tasks[0:3], promotion_tasks=g2_tasks[3:9],
             ledger=ledger, provider=provider, envelopes=envelopes,
-            timeout_s=timeout_s)
+            timeout_s=timeout_s, stop_file=stop_file, raw_dir=raw_dir)
         rec["G2_acquisition"] = g2
         rec["invocations"].extend(_acq_invocation_ids(g2))
         m_c = g2.get("method") if g2["decision"] == "accept" else m_b
@@ -144,7 +147,8 @@ def _run_rep(rep_idx: int, rep_tasks: list, envelopes, ledger, provider,
                         t, methods[arm], ledger=ledger, provider=provider,
                         envelopes=envelopes,
                         invocation_id=f"{rid}_g{gi+1}_{arm}_{t.task_id}",
-                        timeout_s=timeout_s)
+                        timeout_s=timeout_s, stop_file=stop_file,
+                        raw_dir=raw_dir)
                     a["arm"] = arm
                     a["generation"] = gi + 1
                     note_attempt(a)
@@ -169,37 +173,74 @@ def _acq_spend(acq: dict | None) -> float:
 
 def run_study(*, eval_tasks: list, calib_tasks: list, config_path: str,
               ledger, provider, outdir: str,
-              timeout_s: float = 300.0) -> dict:
+              timeout_s: float = 300.0,
+              stop_file: str | None = None,
+              raw_dir: str | None = None) -> dict:
     os.makedirs(outdir, exist_ok=True)
     envelopes = load_envelopes(config_path)
     study_id = "econ001_" + uuid.uuid4().hex[:8]
-    study = {"study": "ECON-001", "study_id": study_id, "reps": []}
+    study = {"study": "ECON-001", "study_id": study_id, "reps": [],
+             "status": "completed", "stop_reason": None}
 
-    calib = _run_calibration(calib_tasks, envelopes, ledger, provider,
-                             outdir, timeout_s)
-    study["calibration"] = calib
-    with open(os.path.join(outdir, "calibration.json"), "w") as f:
-        json.dump(calib, f, indent=1, sort_keys=True)
+    # Startup accounting: surface any reserves left open by a previous
+    # interrupted run. They remain encumbered; the operator must resolve
+    # them (settle/unresolved) -- they are never silently dropped.
+    prior_open = ledger.open_reserves()
+    if prior_open:
+        for e in prior_open:
+            ledger.note("prior_open_reserve",
+                        invocation_id=e["invocation_id"],
+                        reservation_id=e["reservation_id"],
+                        amount=e["amount"],
+                        note=("open at study startup; left by an interrupted "
+                              "run; retained as exposure"))
+        print(f"WARNING: {len(prior_open)} open reserve(s) from a prior run, "
+              f"retained as exposure: "
+              f"{[e['invocation_id'] for e in prior_open]}", flush=True)
 
-    ordered = sorted(eval_tasks, key=lambda t: t.task_id)
-    assert len(ordered) >= 162, f"need 162 eval tasks, have {len(ordered)}"
-    for r in range(3):
-        try:
-            rep = _run_rep(r, ordered[r * 54:(r + 1) * 54], envelopes,
-                           ledger, provider, outdir, timeout_s)
-        except worker.OverrunAbort as e:
-            study["study_aborted"] = f"cost overrun at rep{r + 1}: {e}"
-            ledger.note("study_aborted", reason=str(e))
-            break
-        study["reps"].append(rep)
-        with open(os.path.join(outdir, f"{rep['rep']}.json"), "w") as f:
-            json.dump(rep, f, indent=1, sort_keys=True)
-        ledger.note("rep_finished", rep=rep["rep"], status=rep["status"],
-                    spend_usd=round(rep["spend_usd"], 6))
+    try:
+        calib = _run_calibration(calib_tasks, envelopes, ledger, provider,
+                                 outdir, timeout_s, stop_file, raw_dir)
+        study["calibration"] = calib
+        with open(os.path.join(outdir, "calibration.json"), "w") as f:
+            json.dump(calib, f, indent=1, sort_keys=True)
+
+        ordered = sorted(eval_tasks, key=lambda t: t.task_id)
+        assert len(ordered) >= 162, f"need 162 eval tasks, have {len(ordered)}"
+        for r in range(3):
+            try:
+                rep = _run_rep(r, ordered[r * 54:(r + 1) * 54], envelopes,
+                               ledger, provider, outdir, timeout_s,
+                               stop_file, raw_dir)
+            except worker.OverrunAbort as e:
+                study["study_aborted"] = f"cost overrun at rep{r + 1}: {e}"
+                ledger.note("study_aborted", reason=str(e))
+                break
+            study["reps"].append(rep)
+            with open(os.path.join(outdir, f"{rep['rep']}.json"), "w") as f:
+                json.dump(rep, f, indent=1, sort_keys=True)
+            ledger.note("rep_finished", rep=rep["rep"], status=rep["status"],
+                        spend_usd=round(rep["spend_usd"], 6))
+    except worker.OperatorStop as e:
+        # Operator stop: the last invoke() was NOT issued (no reservation,
+        # no provider contact). Halt cleanly; settled work is preserved in
+        # the ledger and raw/ -- nothing further will be spent.
+        study["status"] = "stopped_operator"
+        study["stop_reason"] = str(e)
+        ledger.note("study_stopped_operator", reason=str(e),
+                    completed_reps=[r["rep"] for r in study["reps"]])
+        print(f"study stopped by operator: {e}", flush=True)
 
     study["ledger_summary"] = ledger.summary()
+    study["exposure"] = {
+        "settled_usd": ledger.summary()["settled"],
+        "unresolved_retained_usd": ledger.summary()["unresolved_retained"],
+        "in_flight_open_usd": ledger.summary()["reserved_open"],
+        "encumbered_usd": ledger.summary()["encumbered"],
+    }
     n_inv = (len(study["calibration"]["invocations"])
-             + sum(len(r["invocations"]) for r in study["reps"]))
+             if "calibration" in study else 0)
+    n_inv += sum(len(r["invocations"]) for r in study["reps"])
     study["invocation_count"] = n_inv
     with open(os.path.join(outdir, "study.json"), "w") as f:
         json.dump({k: v for k, v in study.items() if k != "reps"},
