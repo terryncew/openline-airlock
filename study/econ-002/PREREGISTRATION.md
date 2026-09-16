@@ -143,8 +143,10 @@ observed null saving at n=12 was 21.57%.
   envelopes: solving and proposal).
 - Worst-case call inventory (frozen code, mechanically verified):
   Stage 1: 4 × 24 = 96; Stage 2: 2 × 28 = 56; **total maximum 152
-  paid calls**.
-- Worst-case reservation: 152 × $0.11 = **$16.72 ≤ $20.00**.
+  paid scientific calls**; plus exactly 1 non-scientific preflight call
+  (§13) = **153 total maximum paid calls**.
+- Worst-case reservation: 152 × $0.11 = $16.72 scientific; preflight
+  1 × $0.11 = $0.11; combined **$16.83 ≤ $20.00**.
 - Verified by `scripts/succ_run.py` offline mode against frozen
   CONFIG.json before the freeze. If the enforced worst-case bound
   exceeded $20, the study would STOP before contact; it does not.
@@ -217,3 +219,54 @@ claim. No statement that smaller improvements do not exist.
 - Proof of no paid scientific contact: `runs/econ002_c72e6357/`
   does not exist; no ledger, no raw responses, no reservations under
   this study ID. The runner's default mode cannot construct a provider.
+
+## 13. Amendment A1 — remote verifiability + provider preflight (pre-contact)
+
+Added before any paid contact. Nothing in §§1–12 is changed except the
+budget/call-inventory figures in §8, which are superseded by the
+recomputation below.
+
+**Remote verifiability.** The frozen study must be pushed to GitHub
+before paid contact. Paid contact is not authorized from a local-only
+freeze. Remote: branch `study/econ-002`, head
+`f4f5276a9ea3f76621ac2cb8472d2d517e8093ba`, tree verified byte-for-byte
+against the local freeze for all ECON-002 artifacts.
+
+**Non-scientific provider preflight.** Before first scientific contact,
+the runner issues exactly one provider request whose only purpose is to
+verify the current paid execution path. It checks: exactly one request
+is issued (counted; no retry, fallback, fanout, or second request);
+provider usage metadata is present; actual usage prices under the frozen
+pricing table (`worker.settle_cost`); the $0.11 reservation covers the
+observed call (also enforced inside `invoke` via OverrunAbort);
+pre-dispatch failure (`InfrastructureHalt`) remains distinguishable
+from dispatched-but-unsettled exposure (`unresolved`, reservation
+retained). This preflight is NOT a scientific task: it uses no
+ECON-002 promotion/discovery task, does not touch the method, and is
+never used to infer model quality, tune thresholds/prompts/corpus/
+candidate order/task allocation, or establish long-run infrastructure
+reliability.
+
+Frozen preflight specification:
+- instructions: `Reply with exactly this word and nothing else: ok`
+- input: `ping`
+- caps: max_input_tokens 512, max_output_tokens 16
+- reservation: $0.11 (envelope `preflight`)
+- timeout: 60 s; one-call-only semantics enforced by construction
+- failure handling: timeout → `unresolved` (dispatched, reservation
+  retained) → STOP; HTTP non-200 / missing usage → `unresolved` → STOP;
+  transport failure before dispatch or credential-service failure →
+  `InfrastructureHalt` → STOP; operator STOP file → zero requests → STOP
+- accounting: separate ledger `runs/<study>/preflight_ledger.jsonl`
+  (envelope `preflight`); outcome recorded in `study.json` under
+  `preflight`, never in the scientific results; the scientific ledger is
+  created only after the preflight passes
+
+If the preflight fails, the study stops before scientific contact and
+`study.json` records the preflight failure with an empty results array.
+
+**Revised physical budget (mechanical, from frozen code).**
+- Maximum scientific calls: 152 × $0.11 = $16.72
+- Preflight calls: 1 × $0.11 = $0.11
+- Total maximum paid calls: 153
+- Worst-case total retained reservation: **$16.83 ≤ $20.00 physical ceiling**

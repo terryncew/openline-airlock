@@ -34,6 +34,56 @@ PROMPT = "\n\n".join([OBJ, CRIT, NUM, FMT])
 FIELDS = ("task_id", "family", "template", "statement", "target_code",
           "reference_code", "hidden_tests", "support_files")
 
+# --- Non-scientific provider preflight (frozen). One tiny fixed prompt,
+# --- smallest practical caps, separate accounting. Verifies the paid path;
+# --- never a scientific task, never the method, never used for inference.
+PRE_INSTRUCTIONS = "Reply with exactly this word and nothing else: ok"
+PRE_INPUT = "ping"
+PRE_TIMEOUT_S = 60.0
+PRE_ENV = {"name": "preflight", "max_input_tokens": 512,
+           "max_output_tokens": 16, "reservation_usd": 0.11}
+
+class CountingProvider(worker.Provider):  # proves one-call-only semantics
+    def __init__(self, inner):
+        self.inner, self.posts = inner, 0
+    def post(self, body, headers, timeout):
+        self.posts += 1
+        return self.inner.post(body, headers, timeout)
+
+def run_preflight(rd, stop, provider=None):
+    """Exactly one provider request. Returns a record; ok=False stops the
+    study before any scientific contact. Failure modes: InfrastructureHalt
+    = pre-dispatch (zero bytes, distinguishable); res.status != ok =
+    dispatched but unsettled (reservation retained) or refused."""
+    led = ledger_mod.Ledger(BUDGET, rd + "/preflight_ledger.jsonl")
+    prov = CountingProvider(provider or worker.RealProvider())
+    rec = {"invocation_id": f"{SID}_preflight", "envelope": "preflight",
+           "scientific": False, "prompt": PRE_INSTRUCTIONS,
+           "input": PRE_INPUT, "timeout_s": PRE_TIMEOUT_S}
+    try:
+        res = worker.invoke(instructions=PRE_INSTRUCTIONS, input_text=PRE_INPUT,
+            envelope=PRE_ENV, ledger=led, provider=prov,
+            invocation_id=rec["invocation_id"], timeout_s=PRE_TIMEOUT_S,
+            stop_file=stop, raw_dir=rd + "/raw")
+    except (worker.OperatorStop, worker.InfrastructureHalt) as e:
+        rec.update(ok=False, provider_posts=prov.posts,
+                   failure_class="pre_dispatch_or_operator_stop",
+                   reason=f"{type(e).__name__}: {str(e)[:200]}")
+        return rec
+    priced = None
+    if res.status == "ok" and res.usage:
+        try:
+            priced = worker.settle_cost(res.usage)  # frozen pricing table
+        except Exception:
+            priced = None
+    ok = (res.status == "ok" and prov.posts == 1 and priced is not None
+          and priced <= PRE_ENV["reservation_usd"])
+    rec.update(ok=ok, provider_posts=prov.posts, status=res.status,
+               usage=res.usage, settled_usd=priced,
+               failure_class=None if ok else "dispatched_unsettled_or_refused",
+               reason=None if ok else (res.error or "preflight_checks_failed"))
+    return rec
+
 def frozen():
     c = lambda p: json.load(open(STUDY2 + p))
     tasks = {t["task_id"]: corpus_mod.Task(**{k: t[k] for k in FIELDS})
@@ -101,19 +151,29 @@ def offline():  # everything freezable, verified with zero provider contact
     cfg = json.load(open(os.path.dirname(STUDY2) + "/econ-001/CONFIG.json"))
     rmax = max(cfg["envelopes"]["solving"]["reservation_usd"],
                cfg["envelopes"]["proposal"]["reservation_usd"])
-    calls = 4 * 2 * N + NSTAGE2 * (3 + 1 + 2 * N)
+    assert PRE_ENV["reservation_usd"] <= rmax
+    calls = 1 + 4 * 2 * N + NSTAGE2 * (3 + 1 + 2 * N)  # 1 preflight + science
     assert (worst := calls * rmax) <= BUDGET, "budget bound exceeded"
-    print(f"offline OK: 78 tasks, 4 candidates bound, {calls} max calls, "
+    print(f"offline OK: 78 tasks, 4 candidates bound, {calls} max calls "
+          f"(1 preflight + 152 scientific), "
           f"worst-case reservation ${worst:.2f} <= ${BUDGET:.2f}. No provider contact.")
 
 def paid():
     tasks, cands, alloc = frozen()
     rd = STUDY2 + f"/runs/{SID}"
     os.makedirs(rd + "/raw", exist_ok=True)
+    stop = rd + "/STOP"
+    pre = run_preflight(rd, stop)  # non-scientific; failure stops everything
+    if not pre["ok"]:
+        json.dump(dict(study_id=SID, preflight=pre, results=[], accepted=None),
+                  open(rd + "/study.json", "w"), indent=1)
+        print(json.dumps(dict(preflight=pre, stopped_before_science=True),
+                         indent=1))
+        return
     cx = dict(tasks=tasks, provider=worker.RealProvider(), envs=
         orchestrate.load_envelopes(os.path.dirname(STUDY2) + "/econ-001/CONFIG.json"),
         ledger=ledger_mod.Ledger(BUDGET, rd + "/ledger.jsonl"),
-        stop=rd + "/STOP", raw=rd + "/raw")
+        stop=stop, raw=rd + "/raw")
     results, accepted = [], None
     try:
         for name in ORDER:  # frozen order; never reordered on results
@@ -135,9 +195,10 @@ def paid():
                     accepted = ["model-proposed", key]; break
     except (worker.OperatorStop, worker.InfrastructureHalt) as e:
         results.append(dict(terminal=type(e).__name__, detail=str(e)[:200]))
-    json.dump(dict(study_id=SID, results=results, accepted=accepted,
+    json.dump(dict(study_id=SID, preflight=pre, results=results, accepted=accepted,
                    ledger=cx["ledger"].summary()), open(rd + "/study.json", "w"), indent=1)
-    print(json.dumps(dict(accepted=accepted, results=results), indent=1))
+    print(json.dumps(dict(preflight={k: v for k, v in pre.items() if k != "usage"},
+                          accepted=accepted, results=results), indent=1))
 
 if __name__ == "__main__":
     (paid if "--authorize-paid-contact" in sys.argv else offline)()

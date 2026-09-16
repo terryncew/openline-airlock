@@ -86,3 +86,64 @@ def test_frozen_candidate_hashes_match_file():
         assert hashlib.sha256(r.encode()).hexdigest() == \
             cands["candidates"][n]["rendered_sha256"]
         assert tokens.count(r) == cands["candidates"][n]["rendered_tokens"]
+
+
+# --- preflight tests (FakeProvider: zero real contact) ---
+
+def _fake_ok(tmp):
+    from econ import worker as _w
+    payload = {"object": "response", "id": "resp_pre",
+               "usage": {"input_tokens": 30, "output_tokens": 5},
+               "output": [{"type": "message", "content": [
+                   {"type": "output_text", "text": "ok"}]}]}
+    prov = _w.FakeProvider([("ok", payload)])
+    return S.run_preflight(tmp, os.path.join(tmp, "STOP"),
+                           provider=S.CountingProvider(prov))
+
+
+def test_preflight_success_path(tmp_path):
+    rec = _fake_ok(str(tmp_path))
+    assert rec["ok"] is True
+    assert rec["provider_posts"] == 1
+    assert rec["scientific"] is False
+    assert rec["status"] == "ok" and rec["settled_usd"] is not None
+    assert rec["settled_usd"] <= S.PRE_ENV["reservation_usd"]
+    # separate accounting: preflight ledger exists, scientific ledger absent
+    assert os.path.exists(os.path.join(str(tmp_path), "preflight_ledger.jsonl"))
+    assert not os.path.exists(os.path.join(str(tmp_path), "ledger.jsonl"))
+
+
+def test_preflight_timeout_is_dispatched_unsettled(tmp_path):
+    from econ import worker as _w
+    prov = S.CountingProvider(_w.FakeProvider([("timeout",)]))
+    rec = S.run_preflight(str(tmp_path), os.path.join(str(tmp_path), "STOP"),
+                          provider=prov)
+    assert rec["ok"] is False
+    assert rec["failure_class"] == "dispatched_unsettled_or_refused"
+    assert rec["provider_posts"] == 1  # one shot, no retry
+
+
+def test_preflight_missing_usage_fails(tmp_path):
+    from econ import worker as _w
+    payload = {"object": "response", "id": "resp_x", "output": []}
+    prov = S.CountingProvider(_w.FakeProvider([("ok", payload)]))
+    rec = S.run_preflight(str(tmp_path), os.path.join(str(tmp_path), "STOP"),
+                          provider=prov)
+    assert rec["ok"] is False
+
+
+def test_preflight_frozen_spec():
+    assert S.PRE_INSTRUCTIONS == "Reply with exactly this word and nothing else: ok"
+    assert S.PRE_INPUT == "ping"
+    assert S.PRE_ENV["max_output_tokens"] == 16
+    assert S.PRE_ENV["reservation_usd"] == 0.11
+    assert S.PRE_TIMEOUT_S == 60.0
+
+
+def test_preflight_stop_file_blocks_contact(tmp_path):
+    from econ import worker as _w
+    d = str(tmp_path)
+    open(os.path.join(d, "STOP"), "w").write("stop")
+    prov = S.CountingProvider(_w.FakeProvider([("timeout",)]))
+    rec = S.run_preflight(d, os.path.join(d, "STOP"), provider=prov)
+    assert rec["ok"] is False and prov.posts == 0  # zero requests issued
