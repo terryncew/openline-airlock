@@ -106,3 +106,21 @@ output (vc == vp and cc < cp). Discrimination operates on the cost side;
 output preservation (V_B >= V_A) is assessed as a one-sided condition.
 Study proceeds on the v3 corpus; this decision is recorded here and in
 PROTOCOL.md rather than re-arming the generator.
+
+## Freeze amendment 1 (2026-09-16) — malformed-delta crash
+
+First study launch aborted 8 invocations in: the G1 proposal's ```delta
+block contained a REPLACE_STEP line with no step number; apply_delta
+crashed with ValueError (int("")), uncaught by run_acquisition, killing
+the whole study. Per the protocol a model that fails to produce a usable
+delta is a REJECTION (cf. delta_extraction_failed), never a study-ender.
+Fix: apply_delta validates directive lines explicitly and raises ValueError
+with a clear message; run_acquisition catches it -> "delta_malformed"
+rejection. Also resolved a latent format ambiguity: the spec documents
+`REPLACE_STEP <n>:` but the code only parsed `REPLACE_STEP: <n>`; both
+forms (and `REMOVE_STEP[:]` variants) are now accepted.
+This is a robustness fix, not a methodology change: acceptance rules,
+rejection categories, and accounting are untouched.
+Aborted attempt spend (~$0.15, 8 invocations) stays in the ledger, which
+replays on re-launch; no rep completed, so no partial rep state exists.
+Crash log preserved at runs/study-001/console.crash1.log.

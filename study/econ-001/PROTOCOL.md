@@ -173,6 +173,6 @@ Total dev spend: $0.00 + $0.20 + $0.61 + $0.93 = $1.74 of the $5 budget.
 - CONFIG.json frozen 2026-09-16 (verified config)
 - Corpus frozen: v3 hashes dev `fb8894c6…`, eval `0c0010b8…`,
   calib `555684ce…` (full in `corpus/corpus.json`)
-- Code frozen: commit ____ (TODO)
+- Code frozen: commit 51b4e0d (study/econ-001 branch)
 - Closed records preserved: COMPOUND-001 freeze (f7b1822), RSI-006,
   PR #170 branch (131a4440) — untouched.

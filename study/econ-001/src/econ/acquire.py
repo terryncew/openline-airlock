@@ -75,6 +75,11 @@ def run_acquisition(*, name: str, parent_method: str,
     except tokens.CapExceeded as e:
         rec["reason"] = f"rendered_method_over_cap: {e}"
         return rec
+    except ValueError as e:
+        # Malformed directive: the model failed to produce a usable delta.
+        # Same category as delta_extraction_failed -- reject, never crash.
+        rec["reason"] = f"delta_malformed: {e}"
+        return rec
     rec["candidate_method_tokens"] = tokens.count(candidate)
 
     # 3. Promotion: 3 parent + 3 candidate on disjoint tasks.

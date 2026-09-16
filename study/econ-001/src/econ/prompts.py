@@ -78,10 +78,16 @@ def build_preflight_prompt() -> tuple[str, str]:
     return "You are a connectivity check.", PREFLIGHT_INPUT
 
 
+def _digits(s: str) -> str:
+    return "".join(ch for ch in s if ch.isdigit())
+
+
 def apply_delta(method_text: str, delta_text: str) -> str:
     """Apply a delta to the parent method; return the COMPLETE rendered
     method. Raises tokens.CapExceeded if the rendered result exceeds
-    1,500 tokens (no truncation -- the proposal is then rejected)."""
+    1,500 tokens (no truncation -- the proposal is then rejected).
+    Raises ValueError if a directive line is malformed (the proposal
+    is then rejected, not crashed)."""
     lines = [l for l in method_text.splitlines()]
     # Split into step blocks: lines starting with "<n>." begin a step.
     steps: list[list[str]] = []
@@ -103,18 +109,39 @@ def apply_delta(method_text: str, delta_text: str) -> str:
             continue
         up = ln.upper()
         if up.startswith("REPLACE_STEP"):
-            _, rest = ln.split(":", 1)
-            head, new = rest.strip().split(" ", 1) if " " in rest.strip() else (rest.strip(), "")
-            # head like "3" possibly with trailing junk; take leading int
-            num = int("".join(ch for ch in head if ch.isdigit()))
+            body = ln[len("REPLACE_STEP"):].strip()
+            if ":" not in body:
+                raise ValueError(f"malformed REPLACE_STEP (no colon): {ln!r}")
+            before, after = body.split(":", 1)
+            d = _digits(before)
+            if d:
+                num, new = int(d), after.strip()
+            else:
+                # tolerate "REPLACE_STEP: <n> <text>"
+                toks = after.strip().split(" ", 1)
+                d2 = _digits(toks[0]) if toks and toks[0] else ""
+                if not d2:
+                    raise ValueError(
+                        f"malformed REPLACE_STEP (no step number): {ln!r}")
+                num = int(d2)
+                new = toks[1].strip() if len(toks) > 1 else ""
             if 1 <= num <= len(steps):
-                steps[num - 1] = [f"{num}. {new.strip()}"]
+                steps[num - 1] = [f"{num}. {new}"]
         elif up.startswith("ADD_STEP"):
-            _, new = ln.split(":", 1)
-            steps.append([f"{len(steps)+1}. {new.strip()}"])
+            body = ln[len("ADD_STEP"):].strip()
+            if not body.startswith(":"):
+                raise ValueError(f"malformed ADD_STEP (need ': <text>'): {ln!r}")
+            steps.append([f"{len(steps)+1}. {body[1:].strip()}"])
         elif up.startswith("REMOVE_STEP"):
-            _, rest = ln.split(":", 1)
-            num = int("".join(ch for ch in rest if ch.isdigit()))
+            body = ln[len("REMOVE_STEP"):].strip()
+            if body.startswith(":"):
+                body = body[1:].strip()
+            first = body.split(" ", 1)[0] if body else ""
+            d = _digits(first)
+            if not d:
+                raise ValueError(
+                    f"malformed REMOVE_STEP (no step number): {ln!r}")
+            num = int(d)
             if 1 <= num <= len(steps):
                 del steps[num - 1]
     # Renumber.
