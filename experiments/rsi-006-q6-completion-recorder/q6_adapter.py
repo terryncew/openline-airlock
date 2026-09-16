@@ -1,12 +1,10 @@
 """Q6Coordinator(q5_adapter.Coordinator): overrides ONLY _worker_run.
 
-Generic path delegates exactly to frozen Q5. Scientific path (spawn
-carries q6_prep) keeps inherited classify/_apply/completion/reconcile/
-run_all/journal/Q4 and adds the Q6 chain: fresh -> sealed recorder
-config + one-shot recorder, verify, ordinary completed; recoverable ->
-verify the sealed chain, attach the exact nested Q3 launch, ordinary
-recoverable for inherited adopt. Bad evidence fails closed.
-"""
+Generic path delegates to frozen Q5. Scientific path keeps inherited
+classify/_apply/completion/reconcile/run_all/journal/Q4 and adds the Q6
+chain: fresh -> sealed recorder config + one-shot recorder, verify,
+ordinary completed; recoverable -> verify sealed chain, attach nested
+Q3 launch for inherited adopt. Bad evidence fails closed."""
 
 import hashlib
 import json
@@ -30,9 +28,8 @@ from q6_recorder import (CONFIG_SCHEMA, LAUNCH_SCHEMA, SEAL_SCHEMA,
 
 RECORDER = str(Q6_DIR / "q6_recorder.py")
 DISPOSITIONS = ("normal", "timeout", "spawn-failure")
-# Q6-frozen mechanism bindings, absent from the frozen _prep: the
-# production Q3 timeout (the Q5 runner asserts RUN_TIMEOUT_S == 120)
-# and the frozen Q3 builder dotted names.
+# Q6-frozen bindings absent from frozen _prep (production Q3 timeout
+# and frozen Q3 builder names).
 Q6_TIMEOUT_S = 120.0
 Q6_BUILDER = "run_rsi_006_q5.build_q3_completion"
 Q6_SPAWN_FAILURE_BUILDER = "run_rsi_006_q5.build_q3_spawn_failure"
@@ -45,7 +42,7 @@ def _sha256(b: bytes) -> str:
 def build_recorder_config(*, work_dir, tx, receipt_sha256, code_hashes,
                           observation_id, phase, attempt, prep,
                           marker_path) -> tuple[bytes, str]:
-    env = dict(prep["env"])  # exact Q5 prep env; digest only, never stored
+    env = dict(prep["env"])  # exact Q5 prep env; digest only
     config = {
         "schema": CONFIG_SCHEMA, "txid": tx.txid,
         "observation_id": observation_id, "phase": phase, "attempt": attempt,
@@ -83,8 +80,6 @@ def write_recorder_config(work_dir, observation_id, config_bytes) -> Path:
 
 
 class Q6Coordinator(q5_adapter.Coordinator):
-    """Q6 coordinator: only _worker_run is overridden."""
-
     def _worker_run(self, *, observation_id, phase, spawn, argv,
                     barrier=None, _crash_hook=None, completion_builder=None,
                     spawn_failure_builder=None):
@@ -102,15 +97,22 @@ class Q6Coordinator(q5_adapter.Coordinator):
         receipt, codes = self._receipt_sha256, self._code_hashes
         status, payload = self._classify(
             observation_id, phase, scientific=True)
+        if status == "recoverable":
+            # Attempt from the durable prepared record; adopt evidence
+            # passes through for inherited _apply, Q6 launch attached.
+            attempt = payload["evidence"]["ledger_prepared"]["attempt"]
+            base = {"observation_id": observation_id, "phase": phase,
+                    "attempt": attempt, "scientific": True}
+            outcome_bytes, launch, _ = self._q6_verify(observation_id, phase)
+            adopt_evidence = dict(payload["evidence"])
+            adopt_evidence["launch"] = launch
+            return {**base, "result": "recoverable",
+                    "evidence": adopt_evidence,
+                    "outcome_bytes": outcome_bytes, "launch": launch}
         base = {"observation_id": observation_id, "phase": phase,
                 "attempt": payload["attempt"], "scientific": True}
         if status == "committed":
             return {**base, "result": "skipped_committed", "digest": payload}
-        if status == "recoverable":
-            outcome_bytes, launch, _ = self._q6_verify(observation_id, phase)
-            return {**base, "result": "recoverable",
-                    "evidence": {**payload, "launch": launch},
-                    "outcome_bytes": outcome_bytes, "launch": launch}
         attempt = payload["attempt"]
         ledger.record_prepared(
             work_dir=work_dir, txid=tx.txid, observation_id=observation_id,
@@ -132,7 +134,6 @@ class Q6Coordinator(q5_adapter.Coordinator):
                 "exec_nonce": seal["exec_nonce"]}
 
     def _q6_verify(self, observation_id, phase):
-        """Verify the full Q6 evidence chain; fail closed on any gap."""
         expect = {"txid": self._tx.txid, "observation_id": observation_id,
                   "phase": phase, "receipt_sha256": self._receipt_sha256,
                   "code_hashes": self._code_hashes}
@@ -145,7 +146,7 @@ class Q6Coordinator(q5_adapter.Coordinator):
             except (OSError, ValueError) as e:
                 raise UncertainExecution(f"q6: bad {what}: {e}")
             if not isinstance(rec, dict) or (
-                    schema is not None and rec.get("schema") != schema):
+                    schema and rec.get("schema") != schema):
                 raise UncertainExecution(f"q6: {what} malformed")
             for k, v in expect.items():
                 if rec.get(k) != v:

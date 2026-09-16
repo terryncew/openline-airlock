@@ -8,7 +8,7 @@ import q6_testkit as kit  # noqa: F401
 
 
 @pytest.fixture
-def completed(work_dir):
+def completed(work_dir, explicit_env):
     """Run one fixture observation to a sealed completion."""
     coord = kit.make_coordinator(work_dir)
     spawn = kit.FixtureSpawn("obs-verify-1", run_dir=work_dir)
@@ -17,7 +17,7 @@ def completed(work_dir):
     return coord, spawn, result
 
 
-def test_verify_accepts_sealed_chain(completed):
+def test_verify_accepts_sealed_chain(completed, explicit_env):
     coord, spawn, result = completed
     outcome_bytes, launch, seal = coord._q6_verify(
         "obs-verify-1", "discovery")

@@ -151,7 +151,8 @@ def main(argv) -> int:
                 cfg["spawn_failure_builder"])(
                     start_ts=start_ts, end_ts=time.time(), error=e, **bkw)
             _ledger(work_dir, cfg, ledger.record_spawn_failed,
-                    attempt=cfg["attempt"], exec_nonce=exec_nonce)
+                    attempt=cfg["attempt"],
+                    error=f"{type(e).__name__}: {e}")
             _seal_and_finish(work_dir, obs_id, cfg, outcome_bytes, launch,
                              None, None, "spawn-failure", False, config_sha)
             return 0
@@ -172,8 +173,7 @@ def main(argv) -> int:
         evidence = {
             "exec_nonce": exec_nonce, "child_pid": proc.pid,
             "argv": list(cfg["child_argv"]), "exit_status": proc.returncode,
-            "timeout": timed_out, "stdout": out.decode("utf-8", "replace"),
-            "stderr": err.decode("utf-8", "replace"),
+            "timeout": timed_out, "stdout": out, "stderr": err,
             "duration_s": time.monotonic() - t0, "started_utc": start_ts,
             "ended_utc": time.time(), "started_monotonic": t0,
             "ended_monotonic": time.monotonic(),

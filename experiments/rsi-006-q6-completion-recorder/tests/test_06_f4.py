@@ -8,7 +8,7 @@ import q6_testkit as kit  # noqa: F401
 
 
 @pytest.fixture
-def sealed(work_dir):
+def sealed(work_dir, explicit_env):
     coord = kit.make_coordinator(str(work_dir))
     spawn = kit.FixtureSpawn("obs-f4-1", run_dir=str(work_dir))
     result = kit.run_fixture(coord, spawn)

@@ -9,7 +9,7 @@ import q6_testkit as kit  # noqa: F401
 import q6_recorder as qr
 
 
-def test_f5_q6_commits_without_adoption(work_dir):
+def test_f5_q6_commits_without_adoption(work_dir, explicit_env):
     """An uninterrupted Q6 run commits via the normal path and never
     takes the adopt/recover branch (result is 'completed', not a
     recoverable shape)."""
@@ -23,7 +23,7 @@ def test_f5_q6_commits_without_adoption(work_dir):
     assert outcome["repo"] == "fixture-repo"
 
 
-def test_f5_canonical_bytes_stable(work_dir):
+def test_f5_canonical_bytes_stable(work_dir, explicit_env):
     """Two identical fixture runs produce deterministic outcome
     canonicalization for the same fixture inputs."""
     outcomes = []
@@ -42,7 +42,7 @@ def test_f5_canonical_bytes_stable(work_dir):
     assert o1["fixture"] == o2["fixture"]
 
 
-def test_f5_seal_schema_and_evidence_shape(work_dir):
+def test_f5_seal_schema_and_evidence_shape(work_dir, explicit_env):
     coord = kit.make_coordinator(str(work_dir))
     spawn = kit.FixtureSpawn("obs-f5-9", run_dir=str(work_dir))
     result = kit.run_fixture(coord, spawn)

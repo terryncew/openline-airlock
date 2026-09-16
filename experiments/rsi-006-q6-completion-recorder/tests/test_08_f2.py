@@ -32,7 +32,7 @@ def _build_halted_config(work_dir, coord, spawn, obs_id):
     return cfg_path, __import__("hashlib").sha256(halted).hexdigest()
 
 
-def test_f2_recorder_dies_before_seal_no_completion(work_dir):
+def test_f2_recorder_dies_before_seal_no_completion(work_dir, explicit_env):
     """Recorder halts after seal write but before Q5 completion: the
     outcome/launch/seal exist but completion does not. A successor must
     NOT adopt — it must fail closed with UncertainExecution."""
@@ -59,7 +59,7 @@ def test_f2_recorder_dies_before_seal_no_completion(work_dir):
         coord2._q6_verify("obs-f2-1", "discovery")
 
 
-def test_f2_seal_without_q5_completion_fails_closed(work_dir):
+def test_f2_seal_without_q5_completion_fails_closed(work_dir, explicit_env):
     """A forged seal (no Q5 completion record) fails verification."""
     coord = kit.make_coordinator(str(work_dir))
     spawn = kit.FixtureSpawn("obs-f2-2", run_dir=str(work_dir))

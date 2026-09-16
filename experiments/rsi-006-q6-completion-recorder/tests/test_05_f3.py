@@ -12,7 +12,7 @@ import q6_recorder as qr
 
 
 @pytest.fixture
-def sealed(work_dir):
+def sealed(work_dir, explicit_env):
     """A sealed fixture observation; returns (coord, work_dir, obs_id)."""
     coord = kit.make_coordinator(str(work_dir))
     spawn = kit.FixtureSpawn("obs-f3-1", run_dir=str(work_dir))
@@ -105,7 +105,7 @@ def test_f3_sidecar_tamper(sealed):
         coord._q6_verify(oid, "discovery")
 
 
-def test_f3_config_argv_tamper_refuses_before_spawn(work_dir):
+def test_f3_config_argv_tamper_refuses_before_spawn(work_dir, explicit_env):
     """Changed child argv in the config: recorder refuses, zero spawn."""
     import execution_ledger as ledger
     coord = kit.make_coordinator(str(work_dir))
