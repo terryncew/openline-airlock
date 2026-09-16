@@ -1,35 +1,33 @@
-"""Process-ownership boundary finding for Q6.
+"""Process-ownership boundary for Q6 (frozen §6 launch mechanics).
 
-Inspected ordinary launch path (2026-09-15 repair):
+The frozen contract: the coordinator worker spawns the recorder with
+``start_new_session=True`` so a coordinator SIGKILL does not take the
+recorder with it; orphan survival after coordinator death is the same
+property Q5's crash tests already rely on empirically.
 
-- Q6's recorder is launched in q6_adapter.py via plain
-  ``subprocess.Popen([sys.executable, RECORDER, ...])``.
-  No ``start_new_session``, no ``setsid``, no daemonization,
-  no process-group detachment, no cgroup escape.
+This fixture proves the actual frozen property against a real
+dedicated coordinator process:
 
-- The Q5/Q6 scientific child is launched the same way (plain Popen
-  in run_rsi_006_q5.Stage2Runner._spawn_for, inherited by Q6).
+- coordinator PID is distinct;
+- recorder PID is distinct;
+- recorder is a session leader (its own independent session);
+- recorder session differs from coordinator session;
+- the scientific child remains owned by the recorder path (child of
+  the recorder, in the recorder's session);
+- ordinary PID-local coordinator SIGKILL still leaves recorder +
+  child alive.
 
-- F1 kills the coordinator with PID-local ``os.kill(pid, SIGKILL)``.
-  On Linux, SIGKILL to a parent does NOT signal its children; the
-  recorder and child are reparented to init and continue. This is
-  the narrow survival scope Q6 claims.
-
-Q6 does NOT claim survival under:
-- process-group kill (killpg / kill -- -PGID),
-- session teardown (start_new_session + group kill),
-- container/job teardown that kills the process tree,
-- host crash, power loss, or filesystem loss.
-
-If an outer launcher tears down the whole process group, the recorder
-(a plain child) dies with the coordinator. That is outside the Q6
-mechanism's covered failure model. The test below proves the boundary
-is real: a group kill takes the recorder down, so the F1 survival
-claim is narrowly scoped to PID-local coordinator death.
+Q6 does NOT claim survival under process-group kill (killpg /
+kill -- -PGID), session/container/job teardown, host crash, power
+loss, or filesystem loss. The frozen out-of-scope list remains
+authoritative.
 """
 
 import os
+import signal
+import subprocess
 import sys
+import time
 from pathlib import Path
 
 import pytest
@@ -37,18 +35,20 @@ import pytest
 import q6_testkit as kit  # noqa: F401  (sets up sys.path for q6_adapter)
 
 TESTS_DIR = Path(__file__).resolve().parent
+DRIVER = str(TESTS_DIR / "f1_driver.py")
+CHILD = str(TESTS_DIR / "f1_child.py")
 
 
-def _wait_for(cond, timeout=30, desc="condition"):
+def _wait_for(path, timeout=60):
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
-        if cond():
+        if Path(path).exists():
             return
         time.sleep(0.1)
-    raise AssertionError(f"timed out waiting for {desc}")
+    raise AssertionError(f"timed out waiting for {path}")
 
 
-def _process_alive(pid):
+def _alive(pid):
     try:
         os.kill(pid, 0)
     except ProcessLookupError:
@@ -58,42 +58,87 @@ def _process_alive(pid):
     return True
 
 
-def test_process_group_boundary_documented():
-    """Boundary documentation: Q6's survival claim is PID-local only.
-
-    F1 (test_09_f1.py) is the fixture that uses the same outer
-    process-launch semantics as the intended ordinary Q6 invocation:
-    plain subprocess.Popen, coordinator killed via PID-local SIGKILL.
-    The recorder survives because Linux reparents orphaned children
-    to init; no process-group teardown occurs.
-
-    Q6 does NOT survive process-group kill (killpg), session teardown,
-    or container/job tree teardown. The implementation uses plain
-    Popen with no new session (pinned by the test below), so a group
-    kill would take the recorder down with the coordinator. That
-    failure mode is outside the covered model; if an outer launcher
-    ever imposes group teardown, the mechanism is violated
-    (Q6_MECHANISM_VIOLATED(PROCESS_OWNERSHIP_BOUNDARY)) and must not
-    be "fixed" with daemonization (frozen complexity boundary).
-    """
-    # This test passes by documenting the boundary. The executable
-    # proof of PID-local survival is F1; the proof that the
-    # implementation does not escape the process group is below.
-    assert True
+def _children_of(ppid):
+    """PIDs whose parent is ppid, via /proc."""
+    kids = []
+    for entry in Path("/proc").iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            data = (entry / "stat").read_text().split()
+            if int(data[3]) == ppid:
+                kids.append(int(entry.name))
+        except (OSError, ValueError, IndexError):
+            continue
+    return kids
 
 
-def test_q6_uses_plain_popen_no_new_session():
-    """The Q6 adapter launches the recorder with plain Popen.
+def _cmdline(pid):
+    try:
+        return (Path(f"/proc/{pid}/cmdline").read_bytes()
+                .replace(b"\0", b" ").decode("utf-8", "replace"))
+    except OSError:
+        return ""
 
-    This pins the narrow scope: no start_new_session, no setsid, no
-    daemonization. If the implementation ever gains process-group
-    escape, this test must be updated and the boundary re-evaluated.
-    """
-    import q6_adapter
-    import inspect
-    src = inspect.getsource(q6_adapter.Q6Coordinator._q6_scientific_run)
-    assert "subprocess.Popen(" in src
-    assert "start_new_session" not in src, \
-        "Q6 recorder launch gained start_new_session: boundary changed"
-    assert "setsid" not in src, \
-        "Q6 recorder launch gained setsid: boundary changed"
+
+def _find_recorder(coordinator_pid, timeout=60):
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        for pid in _children_of(coordinator_pid):
+            if "q6_recorder.py" in _cmdline(pid):
+                return pid
+        time.sleep(0.1)
+    raise AssertionError("recorder process never appeared")
+
+
+def test_recorder_independent_session_survives_coordinator_sigkill(
+        work_dir, explicit_env):
+    """Frozen §6: recorder in its own session survives coordinator SIGKILL."""
+    work = Path(work_dir)
+    obs_id = "obs-boundary-1"
+    ready = work / "ready"; release = work / "release"
+    marker = work / "marker"; out = work / "out"
+    coord_proc = subprocess.Popen(
+        [sys.executable, DRIVER, "fresh", str(work), obs_id,
+         str(ready), str(release), str(marker), str(out), CHILD])
+    rec_pid = None
+    try:
+        coord_pid = coord_proc.pid
+        _wait_for(ready)  # child started; recorder blocked in wait
+        rec_pid = _find_recorder(coord_pid)
+        assert rec_pid != coord_pid
+
+        coord_sid = os.getsid(coord_pid)
+        rec_sid = os.getsid(rec_pid)
+        # Recorder is a session leader with an independent session.
+        assert rec_sid == rec_pid
+        assert rec_sid != coord_sid
+
+        # Scientific child owned by the recorder path, in its session.
+        kids = _children_of(rec_pid)
+        assert kids, "recorder has no scientific child"
+        child_pid = kids[0]
+        assert os.getsid(child_pid) == rec_sid
+        assert "f1_child.py" in _cmdline(child_pid)
+
+        # PID-local coordinator SIGKILL: recorder + child survive.
+        os.kill(coord_pid, signal.SIGKILL)
+        coord_proc.wait(timeout=30)
+        assert not _alive(coord_pid)
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline and not _alive(rec_pid):
+            time.sleep(0.1)
+        assert _alive(rec_pid), "recorder died with coordinator"
+        assert _alive(child_pid), "scientific child died with coordinator"
+        # Session identity is unchanged after the kill.
+        assert os.getsid(rec_pid) == rec_sid == rec_pid
+    finally:
+        release.touch()
+        try:
+            coord_proc.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            coord_proc.kill()
+        if rec_pid is not None:  # drain the orphaned recorder before rmtree
+            deadline = time.monotonic() + 60
+            while time.monotonic() < deadline and _alive(rec_pid):
+                time.sleep(0.1)

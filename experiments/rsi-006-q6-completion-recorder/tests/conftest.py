@@ -18,7 +18,12 @@ SCRATCH = Path(__file__).resolve().parent / "_scratch"
 
 @pytest.fixture
 def work_dir(tmp_path_factory):
-    """A durable work dir under the Q6 tests tree (survives reboot)."""
+    """A durable work dir under the Q6 tests tree (never /tmp).
+
+    Earned scope: same-host filesystem outside /tmp, surviving
+    coordinator-process death during the test. No reboot, host-crash,
+    or power-loss claim is established by these fixtures.
+    """
     d = SCRATCH / "wq6"
     d.mkdir(parents=True, exist_ok=True)
     # Unique per test via the factory's basename.

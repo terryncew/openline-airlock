@@ -1,10 +1,7 @@
-"""Q6Coordinator(q5_adapter.Coordinator): overrides ONLY _worker_run.
-
-Generic path delegates to frozen Q5. Scientific path keeps inherited
-classify/_apply/completion/reconcile/run_all/journal/Q4 and adds the Q6
-chain: fresh -> sealed recorder config + one-shot recorder, verify,
-ordinary completed; recoverable -> verify sealed chain, attach nested
-Q3 launch for inherited adopt. Bad evidence fails closed."""
+"""Q6Coordinator: overrides ONLY _worker_run.
+Fresh -> sealed config + one-shot recorder; recoverable -> verify
+sealed chain, attach nested Q3 launch for inherited adopt.
+Everything else inherited unchanged. Bad evidence fails closed."""
 
 import hashlib
 import json
@@ -28,8 +25,7 @@ from q6_recorder import (CONFIG_SCHEMA, LAUNCH_SCHEMA, SEAL_SCHEMA,
 
 RECORDER = str(Q6_DIR / "q6_recorder.py")
 DISPOSITIONS = ("normal", "timeout", "spawn-failure")
-# Q6-frozen bindings absent from frozen _prep (production Q3 timeout
-# and frozen Q3 builder names).
+# Q6-frozen bindings absent from frozen _prep.
 Q6_TIMEOUT_S = 120.0
 Q6_BUILDER = "run_rsi_006_q5.build_q3_completion"
 Q6_SPAWN_FAILURE_BUILDER = "run_rsi_006_q5.build_q3_spawn_failure"
@@ -61,21 +57,23 @@ def build_recorder_config(*, work_dir, tx, receipt_sha256, code_hashes,
         "gate_marker_path": str(marker_path),
         "fixture": dict(prep.get("q6_fixture", {})),
     }
-    raw = json.dumps(config, sort_keys=True, separators=(",", ":"),
-                     ensure_ascii=False).encode("utf-8")
+    raw = json.dumps(config, sort_keys=True).encode("utf-8")
     return raw, _sha256(raw)
 
 
 def write_recorder_config(work_dir, observation_id, config_bytes) -> Path:
     path = ledger.ledger_dir(work_dir) / f"{observation_id}.q6_config.json"
-    if path.exists():
+    try:
+        fd = os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o644)
+    except FileExistsError:
         raise UncertainExecution("q6: recorder config already exists")
-    tmp = path.with_name(path.name + ".tmp")
-    with open(tmp, "wb") as f:
+    with os.fdopen(fd, "wb") as f:
         f.write(config_bytes)
         f.flush()
         os.fsync(f.fileno())
-    os.replace(tmp, path)
+    dfd = os.open(str(path.parent), os.O_DIRECTORY)
+    try: os.fsync(dfd)
+    finally: os.close(dfd)
     return path
 
 
@@ -98,8 +96,7 @@ class Q6Coordinator(q5_adapter.Coordinator):
         status, payload = self._classify(
             observation_id, phase, scientific=True)
         if status == "recoverable":
-            # Attempt from the durable prepared record; adopt evidence
-            # passes through for inherited _apply, Q6 launch attached.
+            # Attempt from durable prepared; adopt evidence for _apply.
             attempt = payload["evidence"]["ledger_prepared"]["attempt"]
             base = {"observation_id": observation_id, "phase": phase,
                     "attempt": attempt, "scientific": True}
@@ -109,11 +106,13 @@ class Q6Coordinator(q5_adapter.Coordinator):
             return {**base, "result": "recoverable",
                     "evidence": adopt_evidence,
                     "outcome_bytes": outcome_bytes, "launch": launch}
-        base = {"observation_id": observation_id, "phase": phase,
-                "attempt": payload["attempt"], "scientific": True}
         if status == "committed":
-            return {**base, "result": "skipped_committed", "digest": payload}
+            # Frozen Q5: committed payload is the digest string, not a dict.
+            return {"observation_id": observation_id, "phase": phase,
+                    "result": "skipped_committed", "digest": payload}
         attempt = payload["attempt"]
+        base = {"observation_id": observation_id, "phase": phase,
+                "attempt": attempt, "scientific": True}
         ledger.record_prepared(
             work_dir=work_dir, txid=tx.txid, observation_id=observation_id,
             phase=phase, attempt=attempt, receipt_sha256=receipt,
@@ -125,7 +124,8 @@ class Q6Coordinator(q5_adapter.Coordinator):
         config_path = write_recorder_config(
             work_dir, observation_id, config_bytes)
         proc = subprocess.Popen(
-            [sys.executable, RECORDER, str(config_path), config_sha])
+            [sys.executable, RECORDER, str(config_path), config_sha],
+            start_new_session=True)
         if proc.wait() != 0: raise UncertainExecution("q6: recorder failed")
         outcome_bytes, launch, seal = self._q6_verify(observation_id, phase)
         return {**base, "result": "completed", "outcome_bytes": outcome_bytes,

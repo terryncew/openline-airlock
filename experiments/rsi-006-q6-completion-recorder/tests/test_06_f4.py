@@ -63,3 +63,43 @@ def test_f4_no_second_child_spawn(sealed):
     started = glob.glob(str(kit.ledger_file(wd, oid, "started"))[:-5] + "*")
     # Only one started file for this observation.
     assert len([p for p in started if p.endswith(".json")]) == 1
+
+
+def test_f4_committed_path_via_ordinary_worker(work_dir, explicit_env):
+    """Genuinely committed observation, second ordinary _worker_run:
+    skipped_committed with zero second recorder/child launch."""
+    import hashlib
+    coord = kit.make_coordinator(str(work_dir))
+    spawn = kit.FixtureSpawn("obs-f4-commit", run_dir=str(work_dir))
+    first = kit.run_fixture(coord, spawn)
+    assert first["result"] == "completed"
+    applied = coord._apply(first)
+    assert applied["status"] == "committed"
+
+    def _hashes():
+        return {
+            name: hashlib.sha256(
+                kit.ledger_file(
+                    str(work_dir), "obs-f4-commit", name).read_bytes()
+            ).hexdigest()
+            for name in ("q6_seal", "q6_config", "outcome", "complete")
+        }
+
+    before = _hashes()
+    started_before = kit.ledger_file(
+        str(work_dir), "obs-f4-commit", "started").read_bytes()
+
+    # Second ordinary worker run for the same observation.
+    spawn2 = kit.FixtureSpawn("obs-f4-commit", run_dir=str(work_dir))
+    second = kit.run_fixture(coord, spawn2)
+    assert second["result"] == "skipped_committed"
+    assert second["digest"] == applied["digest"]
+
+    # Zero second physical execution: the started record is untouched
+    # (exactly one child PID + exec_nonce ever recorded).
+    assert kit.ledger_file(
+        str(work_dir), "obs-f4-commit", "started").read_bytes() == \
+        started_before
+    # Zero second recorder launch: seal/config/outcome/completion bytes
+    # are byte-identical (a relaunch would rewrite or refuse).
+    assert _hashes() == before
