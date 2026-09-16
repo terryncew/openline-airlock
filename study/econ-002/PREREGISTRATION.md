@@ -191,23 +191,29 @@ fails; the baseline is globally cost-minimal. No recursive-improvement
 claim. No compounding claim. No cross-model claim. No cross-distribution
 claim. No statement that smaller improvements do not exist.
 
-## 11. Implementation bound
+## 11. Implementation bound (amended by A2; descriptive facts updated)
 
+Original bound language (from the work order, frozen at A0): "Target
+approximately <=100 new runtime/controller LOC." This was an
+approximate implementation target intended to keep the runner small and
+prevent a new subsystem — not a hard scientific stop condition. The
+word "approximately" is in the frozen language.
+
+Amended facts:
 - Reuses frozen econ-001 primitives only: `attempt()`, `evaluate()`
   (via `attempt`), ledger, worker, `apply_delta()`, corpus builder,
   envelope loader, discovery feedback format.
-- New code: `scripts/succ_run.py` — 99 statements (~126 code lines
-  including the frozen prompt-string constants), offline tests
-  `tests/test_succ_offline.py`. No patching of the frozen ECON-001
-  scientific runner in place; the new study imports the frozen code
-  read-only.
-- Offline test results (2026-09-16, zero provider contact): 10/10 pass
-  — gate accept/reject boundaries, success shortfall, regression,
-  parent-not-saturated, unresolved-cost fallback, D1/D2 numbering-quirk
-  verification, verbatim objective in the Stage-2 prompt, frozen-hash
-  immutability, offline mode creates no run directory.
-- Existing econ-001 offline suite unaffected (no file in
-  `study/econ-001/` was touched).
+- New code: `scripts/succ_run.py` — 133 statements. The increase over
+  the original ~100-statement target comes from the separately-accounted
+  provider preflight added in Amendment A1. The runner remains one
+  small script reusing frozen ECON primitives, with no new subsystem,
+  no new provider integration, and no new gate architecture.
+- Offline test results (2026-09-16, zero provider contact): 15/15
+  ECON-002 tests pass — the 10 original gate/rendering/freeze tests
+  plus 5 preflight tests (success path, timeout, missing usage, frozen
+  spec, stop-file blocks contact).
+- Existing econ-001 offline suites remain green and untouched:
+  19/19, 15/15, 25/25 (no file in `study/econ-001/` was modified).
 
 ## 12. Freeze record
 
@@ -222,9 +228,9 @@ claim. No statement that smaller improvements do not exist.
 
 ## 13. Amendment A1 — remote verifiability + provider preflight (pre-contact)
 
-Added before any paid contact. Nothing in §§1–12 is changed except the
-budget/call-inventory figures in §8, which are superseded by the
-recomputation below.
+Added before any paid contact. Nothing in the scientific design in
+§§1–12 changed. §8 budget/call figures and §11 descriptive
+implementation/test counts are superseded by Amendment A1/A2.
 
 **Remote verifiability.** The frozen study must be pushed to GitHub
 before paid contact. Paid contact is not authorized from a local-only
