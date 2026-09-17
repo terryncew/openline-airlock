@@ -1,0 +1,120 @@
+{
+ "envelope": "solving",
+ "http_status": 200,
+ "invocation_id": "pb3-o-T-0124",
+ "request": {
+  "input": "TASK pb3-inte-0049\n\nFix the event bus so every function matches its docstring. There may be several defects, including subtle ones.\n\nThe file target.py currently contains:\n```python\n\"\"\"Tiny event bus.\n\nsubscribe(event, handler): register handler; returns an id.\nemit(event, *args): call every handler registered for event, in order.\n  A handler that raises does not prevent the remaining handlers.\nunsubscribe(sub_id): remove that registration; unknown ids are ignored.\nonce(event, handler): handler fires on the next emit only.\nmap_emit(event, *args): like emit, but return the list of handler results.\nclear(event): remove all registrations for event.\nhandler_count(event): number of live registrations for event.\n\"\"\"\n\ndef _new_bus():\n    return {\"handlers\": {}, \"seq\": 0}\n\n_bus = _new_bus()\n\ndef reset():\n    global _bus\n    _bus = _new_bus()\n\ndef subscribe(event, handler):\n    _bus[\"seq\"] += 1\n    sid = _bus[\"seq\"]\n    _bus[\"handlers\"].setdefault(event, []).append((sid, handler))\n    return sid\n\ndef emit(event, *args):\n    for sid, handler in list(_bus[\"handlers\"].get(event, [])):\n        try:\n            handler(*args)\n        except Exception:\n            continue\n\ndef map_emit(event, *args):\n    return [handler(*args) for sid, handler in list(reversed(_bus[\"handlers\"].get(event, [])))]\n\ndef clear(event):\n    _bus[\"handlers\"][event] = []\n\ndef unsubscribe(sub_id):\n    for event, regs in _bus[\"handlers\"].items():\n        for i, (sid, handler) in enumerate(regs):\n            if handler == sub_id:\n                del regs[i]\n                return True\n    return False\n\ndef once(event, handler):\n    holder = {}\n    def wrapper(*args):\n        handler(*args)\n    holder[\"sid\"] = subscribe(event, wrapper)\n\ndef handler_count(event):\n    return len(_bus[\"handlers\"].get(event, []))\n\n```\n\nOutput contract: reply with exactly one ```python fenced block containing the COMPLETE corrected file. No other text.",
+  "instructions": "1. Follow this procedure exactly.\n\n2. READ. Read the task statement, the target file, and the visible tests\n   once. Do not invent requirements beyond the statement.\n3. REPRODUCE. Before changing anything, write down the smallest input\n   that exposes the defect, using the visible tests as examples.\n4. DIAGNOSE. Name the single root cause: one wrong expression, one\n   missing case, one wrong boundary. If you cannot name it, say so and\n   make the most conservative change consistent with the statement.\n5. FIX. Change the target file minimally so the root cause is gone.\n   Do not refactor, rename, or add features. Keep every public name\n   and signature the target file already has.\n6. CHECK. Walk the visible tests against your fixed file by hand.\n   Cover the edge case from step 2 explicitly.\n7. OUTPUT. Emit ONLY the complete corrected target file inside one\n   fenced block marked ```python. No commentary before or after.\n   The file must be runnable as-is.\n\nOutput contract: exactly one fenced block (```python ... ```) containing\nthe complete corrected target file. Nothing outside the block is read.\n",
+  "max_output_tokens": 3000,
+  "model": "gpt-5.6-sol",
+  "reasoning": {
+   "effort": "medium"
+  },
+  "store": false,
+  "stream": false,
+  "tool_choice": "none",
+  "tools": []
+ },
+ "response": {
+  "background": false,
+  "billing": {
+   "payer": "developer"
+  },
+  "completed_at": 1789608175,
+  "created_at": 1789608163,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "id": "resp_06ce03d7327d5799016aab40e353f487d1915d2b4637bc4921",
+  "incomplete_details": null,
+  "instructions": "1. Follow this procedure exactly.\n\n2. READ. Read the task statement, the target file, and the visible tests\n   once. Do not invent requirements beyond the statement.\n3. REPRODUCE. Before changing anything, write down the smallest input\n   that exposes the defect, using the visible tests as examples.\n4. DIAGNOSE. Name the single root cause: one wrong expression, one\n   missing case, one wrong boundary. If you cannot name it, say so and\n   make the most conservative change consistent with the statement.\n5. FIX. Change the target file minimally so the root cause is gone.\n   Do not refactor, rename, or add features. Keep every public name\n   and signature the target file already has.\n6. CHECK. Walk the visible tests against your fixed file by hand.\n   Cover the edge case from step 2 explicitly.\n7. OUTPUT. Emit ONLY the complete corrected target file inside one\n   fenced block marked ```python. No commentary before or after.\n   The file must be runnable as-is.\n\nOutput contract: exactly one fenced block (```python ... ```) containing\nthe complete corrected target file. Nothing outside the block is read.\n",
+  "max_output_tokens": 3000,
+  "max_tool_calls": null,
+  "metadata": {},
+  "model": "gpt-5.6-sol",
+  "moderation": null,
+  "object": "response",
+  "output": [
+   {
+    "content": [],
+    "encrypted_content": "gAAAAABqq0Dwd7Pd0WdHLrvK_qYpRAGypKY8Qck6mDGhm4mvNFRet2DsJ13g6VOkPp9Hj3yBSdLrT673XYHqbSiRBeOWNvlj_C-nLqdYoj9X9zyzEjis7gU50WnOeIsjUcYHfLoihOMGLbg71RVszGbfZPARuFFOPWEN8R8xPXukhEa40L8pIYE7weSi2pBtHjSFul8Gqz5yk67xobB_bZE10gtz66H4k3bQDAtFbA8q5vE1lLoGnRNZ4pZz71MQUl-iEL1HPuRYck1xB3W9qJP7MA-EgfV2o1QitwHCVPDFNYnyrmmkf_8xRZeehgn86ymJ-HQfRvDUSl5aG8brbhA4b8UJKwfQl_YFGa3BuvV-Ffjan2CUg-t0flFX6kysDqf-yp0VUwVb66_xnFFr9CkfwPevRmIgyT_NmfTVdyAzpigZAXx8BgVuWBa7mK7n0gU3Urj0RselPietVpQNChkENclRyKkpxS5Y3_zCKA7sZgOQGRZHj0Zd1T2pDj1DTH7xzz7kiRfbkUvHhm26DKvhmDiuq4RmrHnirxDkP5bYPei5-Dy2HmKeXVpfp_Rv4n-nFf8bl-A_ma7eOeTVRXQVWcbkm8TbcGx_gnGKCU2SGPbeGxs7YuBIaRX2G62oY2eLG-1O6TdeqjP6-qNzrMqxHatn2VFTmDhzCkJhMNGexJuqsHZRA_g_7Es9Ujq6r80K_7D_4kogX5Lkd5ButAuc1UCdOLjGuPkkTRjJGSgoxgO6K4W9sR8pomrnATX9YGHLCi79PKAClu2ig0J0NFRlDrCKnV_9zl6mowqXfw90VflaCNIcDn835cJn2C4Y_32t3UI71QuR8w2NNOF0eylITwFN3WPDib-UblRMU4DVE8jt-7pyoqygqY9GyBfFwylGP0ap6zJYW1fHGJrkem4IKJJCcbcHxS6ZrMKRvU2RxUpodtzsgTXRhrGe9QuuP4g6T557VZJk5l4Cb_yqU8uEcRTI545gMpPOijsdMItKO2QbQEQHmibC5TvegMcHEp-OC6ezrl0aM1Rw0oMWogdFYoydavfdfZhER9LlvNANSr0hE1443dpLOI9WHSyE23umBEgDDQm1UUlg8sw0TOnRBGbMggFB9iXP1qptNEeE9I7ZkNF40lwFSRgxLBIynAaxaZEaO3V4QDbzeciIEp7j2cZCcEy54kXaUDHmrMOkiQSWFJXVQUxO10vNPcEpBO-BJ7sdRIZ7qNI9tt1_JbngDsFjEoy-0jCmkObqtSAeD3QAy34nxZ54xxCm8mqM3_WznGBWRucvRriWXX-xubNR9HYtVBW8_dO4ZdW9stW82QD0bM_wJ1-gW2RxdWVJXmFvZC-C5SwmSuOM5UFxN5mv7zLJ8xtSvVW2sgHn-OOlb-Fy95q640hosC6UrSTRxNWCfDIYn1Sibx35JdOCRb4SUUJflz4kqPLEN-pA6BwjSIHQvksT9GO0w_HyVHbS592vvR-pqsX_cY3U4knMNiR3uXCoT7Z8cQWAl4qpV4ZCcXjW_J1vx4rjmeW_UuPdG5oLIdXukK4b9mFILfY5UoKU2_R3CTCVAMOCapPxn97M8l9i3uNWHh-n03RwJ2mITELCyRhdi3Xi1A1eMH5YYS5VmR9eg_U2GfGAq46AtmwvfwDI2Xn1nKl4fQcAzzdeNPm21lBYkfPuu7OS1h0GOaWDJf_W7pBn0e-yDGqqd10G6yZvyB01OwtaFInb4MRzLSFMCEvFLbVnlv4856FQqH97p7Bwk4P0d4gJzeng3aJkTzOYAqH2lJr42n1fF83sir8B30i1vSgCVuAFvmb0aVSBy9hOVenZoKhHWy16ajFwGx97wwnknH9OMMm-0oynHWwSX3Ry8oOD4N3LUBCo8JQzL28jhhCbq9odYliUQuwDVPrtM4aVozdEeXAPgUgtDSGhDXjQSe229O6PwOG66k8tJLXyEWrfBGFptpU8qxfwekrCR36VRkagHBkMFGC7v8Iok_kVex3-RfJgwLuC-fgfPoB1rUxVIbfDdHCX4MJ1vPnwUBBD8Uj1Q1jIgfkZZJWfpbia8LIm3EQ1Hc64ua-VUuHiSqcRRd1_Vx_XB2Ko-JH5yz6WTmotA_cjxq5o0EG-qe_n8fLRaquysXTu9n4JhoTwMhvV3VEZ3JSefzMgXMAoO0xOeELWiN_5Tn1s9hvgXAdXMJ7bNrb1tYMQr4PYHYZvPF1YR9gpyxKyQS3CIIXYf42vk8ngVWaHAALMVoBdFpye377hGk_P69-zvRZuNTqldqfUCKxjYif0r-M14yv7PZAyW2VKrF5EP5z38koUqjjYLJJCOn3edOYpfy7O6PVIUiVMcwTNg6CmjsTNL_rMxCFL0b-DCC95LRjy9KWV1-Y-HfFhJg4nOO2qnP7Km0D921uVU8zLgGEFlLGH8Q4sqhUR5hCDHv5q0ZA_n_LVuR2789MljbrP_6IqnJTon7mQwY-_WOo3qaoaz9LsGEz19zjqgDFSZ4tZHGAA7qVri2nxO3540QdKDW0_QAPmK1F1H5E7VDPyBNAO4TW5cHmdt0GOG08egD-YoYmJ4Voqn05tPSD1Kn2y7F1wUR2TbdrzT3xTrtIoJ0_rb8k0h5wa-AsByCBvyOXR3_NQ8rYIfswS6TaLUVWtNv3DYGdQPtUfNamg-4sVxZxrByJV1TRmJirukvX_IXdMk31pheX9uShf-j1nfXh_5PZwH4LXWxhyC3b46qjmLt9MUkqI_yFEjLATMQnVY5Db6DoPjQ6tkQqSRb_vWyGoeWMZOOuSvk5pdCK7oVX770VQLq6wjU1y-xLYF6ri3DhIqlN675ihCk-GKwL1GgZQNxE4XxgpAjfGdOPKBpv3FwiLH-Zt7zorkR3exsNA6vUCU56ChHCiVZEE-7FqSdEkc9UQG3Scgt3PialISZBLNlUG6cV88zii9wO1Hc_4jYU1U3mTWNX0wjbZf0MU30id7i0UzqSZeGY48lQGfxqk0mXVJfNUH_5ZIkspPeE8d2PxGlqct3CtZyAlYb2vES421OYw9k46FlYktMOT7YajjNjgGlnkTrLYWDTz-mWBRVoILFSuV-viq93SDiMsvl1XoiWcSwzg6H0JgXkAT9NeXKYZvx-62u3VbevJ3aQsBXOoR6nS5rn6oqh6kcod4R7VATSdjwAvwW4UCrSfe9VEZPvlLmfRZVDB6wS2mrvqJ-1w1rHAnLULlLz9hcouXmLmGXY9aX4wdZsZxEm0aPs7zBTqh8JP3JdxVuCGpqdKI7pIXxLfxmtpVVXRRzeb13g3uJkn-f5rpIn-J-PgNkJB3PHJabTihjCafmUVyS1PaT8_7fx_p4Vs1jaj84uNydgX48kIchXrsu0TBoxKVj69S9Ctah4AiUMmKtat3eJt9HjrK9QG-PRRwskYR6udS01S2xN43sESVSkXtoLT9VHv7-LuOMnKVHSwlj-UJxVlOtQa5OaKxJeiA9OU35_uIoCQC2w2hi9ZoHWuilthOV58Zc2qd4EFnR07IhoJK7Y-w3hqArLut4sUeACd8G2OdlloyITuhntR69gk08kNWm9sWtMbNzxutmrJoh28XzfvFwXfHqyBysvuzakHK0VrTxbjsouikLZHEbYS7efIY1dAY3bPgLrb3Bg04UHm05o_fu5U78KHfiH_eKeoT-_xcfYQd9ZKnTw9Vf5iOK36QVUasm8dKZICNgTW054zN0CDlSeK-0In0WnVOE-8krOMx5jjQYVdLArAoDm9PiejjgqrvJ65YkeH6FS9AqW438pep5v4zu7P2FCaoI4sBa3VkhA2RPyv3m0Uw-dNTcpLuy9q5F1MWI0v6bzPDdWVHxrogenWQ1LHfdqvCkq2lLcUdZ4FYFOZdm2aHj0VIMt9mZoKIII6MqnfX9IRaTRFgG7DFT4r165klRZOYSbijKdKf0HHrPHTzJZaoUph8I33jpWq-OUVpJft8JuOu_TQD9ptwO0xNnBDozVbfWQe7KkWrnQsWLAx-bddja_vak1DX6CSIeYNzzuQmRjxEoeb10C9JXiLJz_IWbWdX2ENOLrrfpSj8KEZqclTuK3vTa9bGFiUsavmSt_pnZgjDEn1-rjNCezpO-rHR6c2s6wBM_brvbsuljj3MIQNP7nno0tzyZqVcsg_DE4Iv3ypDWIQlBn1inenYGJtiIUpT1xAhxQyiy7RkbeMsWNpJ2AdYmA7sUXFwhWdllTYz19H5gTbdouoPr5_bdeTSnGVUEAxpMXhvEVIi3lnopKFJir0T4XtoEwpqW3ifjhK1JOU1UKBWxDRkv8gS3MzribSlpVC3ATRGtBA7vx3MQl-RQqh3CfLHbN9_6Pbjxcm4T4jPwYhcLEb7vKHCkahQCpWxanMondM",
+    "id": "rs_06ce03d7327d5799016aab40e3f47087d1a53813dcbd489edf",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "```python\n\"\"\"Tiny event bus.\n\nsubscribe(event, handler): register handler; returns an id.\nemit(event, *args): call every handler registered for event, in order.\n  A handler that raises does not prevent the remaining handlers.\nunsubscribe(sub_id): remove that registration; unknown ids are ignored.\nonce(event, handler): handler fires on the next emit only.\nmap_emit(event, *args): like emit, but return the list of handler results.\nclear(event): remove all registrations for event.\nhandler_count(event): number of live registrations for event.\n\"\"\"\n\ndef _new_bus():\n    return {\"handlers\": {}, \"seq\": 0}\n\n_bus = _new_bus()\n\ndef reset():\n    global _bus\n    _bus = _new_bus()\n\ndef subscribe(event, handler):\n    _bus[\"seq\"] += 1\n    sid = _bus[\"seq\"]\n    _bus[\"handlers\"].setdefault(event, []).append((sid, handler))\n    return sid\n\ndef emit(event, *args):\n    for sid, handler in list(_bus[\"handlers\"].get(event, [])):\n        try:\n            handler(*args)\n        except Exception:\n            continue\n\ndef map_emit(event, *args):\n    results = []\n    for sid, handler in list(_bus[\"handlers\"].get(event, [])):\n        try:\n            results.append(handler(*args))\n        except Exception:\n            continue\n    return results\n\ndef clear(event):\n    _bus[\"handlers\"][event] = []\n\ndef unsubscribe(sub_id):\n    for event, regs in _bus[\"handlers\"].items():\n        for i, (sid, handler) in enumerate(regs):\n            if sid == sub_id:\n                del regs[i]\n                return True\n    return False\n\ndef once(event, handler):\n    holder = {}\n    def wrapper(*args):\n        unsubscribe(holder[\"sid\"])\n        return handler(*args)\n    holder[\"sid\"] = subscribe(event, wrapper)\n\ndef handler_count(event):\n    return len(_bus[\"handlers\"].get(event, []))\n```",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_06ce03d7327d5799016aab40ecc73087d19a90c85caf9fab3a",
+    "phase": "final_answer",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": "24h",
+  "reasoning": {
+   "context": "all_turns",
+   "effort": "medium",
+   "mode": "standard",
+   "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "status": "completed",
+  "store": false,
+  "temperature": 1.0,
+  "text": {
+   "format": {
+    "type": "text"
+   },
+   "verbosity": "medium"
+  },
+  "tool_choice": "none",
+  "tool_usage": {
+   "image_gen": {
+    "input_tokens": 0,
+    "input_tokens_details": {
+     "image_tokens": 0,
+     "text_tokens": 0
+    },
+    "output_tokens": 0,
+    "output_tokens_details": {
+     "image_tokens": 0,
+     "text_tokens": 0
+    },
+    "total_tokens": 0
+   },
+   "web_search": {
+    "num_requests": 0
+   }
+  },
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 0.98,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 703,
+   "input_tokens_details": {
+    "cache_write_tokens": 0,
+    "cached_tokens": 0
+   },
+   "output_tokens": 844,
+   "output_tokens_details": {
+    "reasoning_tokens": 428
+   },
+   "total_tokens": 1547
+  },
+  "user": null
+ },
+ "t": 1789608175.224863
+}
