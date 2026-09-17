@@ -1,0 +1,94 @@
+{
+  "config_frozen": "2026-09-16",
+  "envelopes": {
+    "preflight": {
+      "max_input_tokens": 128,
+      "max_output_tokens": 100,
+      "reservation_usd": 0.01
+    },
+    "proposal": {
+      "delta_cap_tokens": 1500,
+      "discovery_feedback_cap_each": 1500,
+      "input_budget": {
+        "discovery_feedback": 4500,
+        "framing": 30,
+        "method_text": 1500,
+        "slack": 670,
+        "template": 300
+      },
+      "max_input_tokens": 7000,
+      "max_output_tokens": 2000,
+      "note": "Extracted method delta must be <=1500 counted tokens (the M_method cap the solving envelope assumes) or the proposal is rejected with no replacement.",
+      "reservation_usd": 0.11
+    },
+    "solving": {
+      "input_budget": {
+        "framing": 30,
+        "method_text": 1500,
+        "slack": 170,
+        "task_packet": 3000,
+        "template": 300
+      },
+      "max_input_tokens": 5000,
+      "max_output_tokens": 3000,
+      "reservation_usd": 0.11
+    }
+  },
+  "pricing_usd_per_1m": {
+    "cache_write": 5.0,
+    "cached_input": 0.4,
+    "input": 4.0,
+    "long_context_note": "Long-context tier (2x input / 1.5x output) is unreachable by construction: maximum envelope input is 7,000 tokens. Threshold value not needed.",
+    "output": 20.0,
+    "promo_note": "Promotional pricing confirmed available at least through 2026-11-21",
+    "source": "https://developers.openai.com/api/docs/pricing"
+  },
+  "provider": {
+    "endpoint": "POST https://api.openai.com/v1/responses",
+    "model": "gpt-5.6-sol",
+    "note": "Earlier tables are superseded by this file. Model confirmed present in the account's /v1/models list."
+  },
+  "request_parameters": {
+    "client": {
+      "max_retries": 0,
+      "timeout_seconds": 300
+    },
+    "client_request_id_header": "X-Client-Request-Id set per invocation (UUID) for timeout forensics",
+    "instructions": "per-envelope system text; no previous_response_id (stateless); no prompt_cache_key (no cache assumptions in reservations)",
+    "max_output_tokens": "per-envelope (see envelopes); caps visible output tokens AND reasoning tokens together per API reference",
+    "reasoning": {
+      "effort": "medium"
+    },
+    "reasoning_note": "medium is the documented provider default for GPT-5.6; pinned explicitly rather than omitted",
+    "service_tier": "default (no data-residency endpoint; no 10% uplift)",
+    "store": false,
+    "stream": false,
+    "temperature": "omitted (provider default)",
+    "temperature_note": "Non-default temperature rejected with HTTP 400 by gpt-5.6-sol; verified empirically 2026-09-16. Corrected from the earlier 0.2 entry, which was never valid for this model. Identical (omitted) across all arms.",
+    "tool_choice": "none",
+    "tools": []
+  },
+  "settlement_formula_usd": "((input_tokens - cached_tokens - cache_write_tokens) * 4.00 + cached_tokens * 0.40 + cache_write_tokens * 5.00 + output_tokens * 20.00) / 1e6, where output_tokens includes reasoning_tokens per API reference",
+  "spend_policy": {
+    "auto_reload": "OFF, unchanged",
+    "billing_visibility": "Billing endpoints (credit_grants/subscription/usage) require a session key; the API secret key returns 403. Last confirmed balance $104.98 on 2026-09-14 (screenshot). Enforcement is local: reservations gate every call; the ledger in runs/ is the spend record.",
+    "development_budget_usd": 5.0,
+    "no_topups": true,
+    "study_budget_usd": 50.0,
+    "study_ceiling_388_invocations_usd": 42.58
+  },
+  "study": "ECON-001",
+  "tokenizer": {
+    "encoding": "o200k_base",
+    "encoding_source": "encoding_for_model('gpt-5.6-sol')",
+    "library": "tiktoken 0.14.0",
+    "note": "The provider's own tokenizer library resolves this model to o200k_base. All structural caps are counted with it. Provider usage.input_tokens is settlement truth; any local/provider mismatch beyond 2% on calibration aborts the study."
+  },
+  "verified_against": [
+    "https://developers.openai.com/api/docs/pricing (2026-09-16)",
+    "https://developers.openai.com/api/reference/resources/responses/methods/create (2026-09-16)",
+    "GET https://api.openai.com/v1/models (2026-09-16; gpt-5.6-sol present)",
+    "tiktoken 0.14.0 encoding_for_model('gpt-5.6-sol') -> o200k_base (2026-09-16)",
+    "empirical: POST /v1/responses with gpt-5.6-sol, temperature omitted -> 200; temperature 0.2 -> HTTP 400 (2026-09-16)"
+  ]
+}
