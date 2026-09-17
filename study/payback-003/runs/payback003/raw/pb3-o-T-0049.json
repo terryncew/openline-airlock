@@ -1,0 +1,127 @@
+{
+ "envelope": "solving",
+ "http_status": 200,
+ "invocation_id": "pb3-o-T-0049",
+ "request": {
+  "input": "TASK pb3-inte-0116\n\nFix the event bus so every function matches its docstring. There may be several defects, including subtle ones.\n\nThe file target.py currently contains:\n```python\n\"\"\"Tiny event bus.\n\nsubscribe(event, handler): register handler; returns an id.\nemit(event, *args): call every handler registered for event, in order.\n  A handler that raises does not prevent the remaining handlers.\nunsubscribe(sub_id): remove that registration; unknown ids are ignored.\nonce(event, handler): handler fires on the next emit only.\nmap_emit(event, *args): like emit, but return the list of handler results.\nclear(event): remove all registrations for event.\nhandler_count(event): number of live registrations for event.\n\"\"\"\n\ndef _new_bus():\n    return {\"handlers\": {}, \"seq\": 0}\n\n_bus = _new_bus()\n_ONCE_HOLDER = {}\n\ndef reset():\n    global _bus\n    _bus = _new_bus()\n\ndef subscribe(event, handler):\n    _bus[\"seq\"] += 1\n    sid = _bus[\"seq\"]\n    _bus[\"handlers\"].setdefault(event, []).append((sid, handler))\n    return sid\n\ndef emit(event, *args):\n    for sid, handler in list(_bus[\"handlers\"].get(event, []))[1:]:\n        try:\n            handler(*args)\n        except Exception:\n            continue\n\ndef map_emit(event, *args):\n    return [handler(*args) for sid, handler in list(_bus[\"handlers\"].get(event, []))]\n\ndef clear(event):\n    _bus[\"handlers\"][event] = []\n\ndef unsubscribe(sub_id):\n    for event, regs in _bus[\"handlers\"].items():\n        for i, (sid, handler) in enumerate(regs):\n            if handler == sub_id:\n                del regs[i]\n                return True\n    return False\n\ndef once(event, handler):\n    def wrapper(*args):\n        unsubscribe(_ONCE_HOLDER[\"sid\"])\n        handler(*args)\n    _ONCE_HOLDER[\"sid\"] = subscribe(event, wrapper)\n\ndef handler_count(event):\n    return len(_bus[\"handlers\"].get(event, []))\n\n```\n\nOutput contract: reply with exactly one ```python fenced block containing the COMPLETE corrected file. No other text.",
+  "instructions": "1. Follow this procedure exactly.\n\n2. READ. Read the task statement, the target file, and the visible tests\n   once. Do not invent requirements beyond the statement.\n3. REPRODUCE. Before changing anything, write down the smallest input\n   that exposes the defect, using the visible tests as examples.\n4. DIAGNOSE. Name the single root cause: one wrong expression, one\n   missing case, one wrong boundary. If you cannot name it, say so and\n   make the most conservative change consistent with the statement.\n5. FIX. Change the target file minimally so the root cause is gone.\n   Do not refactor, rename, or add features. Keep every public name\n   and signature the target file already has.\n6. CHECK. Walk the visible tests against your fixed file by hand.\n   Cover the edge case from step 2 explicitly.\n7. OUTPUT. Emit ONLY the complete corrected target file inside one\n   fenced block marked ```python. No commentary before or after.\n   The file must be runnable as-is.\n\nOutput contract: exactly one fenced block (```python ... ```) containing\nthe complete corrected target file. Nothing outside the block is read.\n",
+  "max_output_tokens": 3000,
+  "model": "gpt-5.6-sol",
+  "reasoning": {
+   "effort": "medium"
+  },
+  "store": false,
+  "stream": false,
+  "tool_choice": "none",
+  "tools": []
+ },
+ "response": {
+  "background": false,
+  "billing": {
+   "payer": "developer"
+  },
+  "completed_at": 1789606898,
+  "created_at": 1789606872,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "id": "resp_0af7609f1804745d016aab3bd8945887d2a75ee0ebe73d4a45",
+  "incomplete_details": null,
+  "instructions": "1. Follow this procedure exactly.\n\n2. READ. Read the task statement, the target file, and the visible tests\n   once. Do not invent requirements beyond the statement.\n3. REPRODUCE. Before changing anything, write down the smallest input\n   that exposes the defect, using the visible tests as examples.\n4. DIAGNOSE. Name the single root cause: one wrong expression, one\n   missing case, one wrong boundary. If you cannot name it, say so and\n   make the most conservative change consistent with the statement.\n5. FIX. Change the target file minimally so the root cause is gone.\n   Do not refactor, rename, or add features. Keep every public name\n   and signature the target file already has.\n6. CHECK. Walk the visible tests against your fixed file by hand.\n   Cover the edge case from step 2 explicitly.\n7. OUTPUT. Emit ONLY the complete corrected target file inside one\n   fenced block marked ```python. No commentary before or after.\n   The file must be runnable as-is.\n\nOutput contract: exactly one fenced block (```python ... ```) containing\nthe complete corrected target file. Nothing outside the block is read.\n",
+  "max_output_tokens": 3000,
+  "max_tool_calls": null,
+  "metadata": {},
+  "model": "gpt-5.6-sol",
+  "moderation": null,
+  "object": "response",
+  "output": [
+   {
+    "content": [],
+    "encrypted_content": "gAAAAABqqzvyO3dmgrJ3ciIF8_enfcYv_61g2WDjxOkS38aUOQjG16IyAwJR0ubPcBZCg8Kuj4skPoMTwvAfzyvEZ9tlfjXtkyP6x1l0Gu7-ryARCOz9Fz-Kw9fAdgFyqGH6llIgqcsWkjGUaG1cpUsv4SckcWyA8BwV8PPLTuSwQsKtX7GHvx8Ky-D7eShaZ_QUdGzB-O-VTimorZ_LhR7IkHv_SpQ-s5reZVtW16MKjhB6XyUivCn9aHriqz39ScUjotLnU9pA5J8x43bHbhSy1aCN9ORCuKvE7ZFRpXVT4Nml6QvMnXBL48O8K6oEBGTfdeKQCfVcQPjZ8eByWMz1AKsMiV50lasBrFPLfrZZzKhFbAf68tw_vNnpQaLLnp3QxT0bhP3K0WK4tl-FNzHVjsXqqGXZQhIj65FXeLXWXg418eOWaDj0O9WvHjL2vqTsg6BXKgYGQ_ZY45a6PzNJr7pekm7L-3lcA_S538egoEB2zMeAaDHcvvMMevV2sv-lxi-KTf_0gAD3_3LtkHCzjr0ktkWw3iIUzA3m45rwu9sTOc45DYihQwfqBMSJsPpPB2Ot1x9QRC-voPhixfPV0a6uCuw1DjQoBWy2n7EDuy2DGZpf6gzPlizoW-ekX_9Jm-BuBNiCidQg3LMu6CQ9pRYWwZavJBnFdZRkv3aHj4T6W2U4KY1dDtmaTks9JPzNDhArBWN8lgxHEyKvSNp_mmi7pJoCc1YLX9GXWt4EqvlFMzVdEoXwqVs4ZM-RtUbHamyAUhgUy4QOm-g1IAYJZlDsSNzRBOj0z-qAKGt_QrJLObYdgR_IOX766JoRFwPIq9YMtyTSsPYh1M76WkmAbawf37YvvyTg1UYna3wmhLeiV__gdhJnOzpHCWtCNgKmfKJPo4P7Ga9obBuChaR5z8L066XMTIUIsBjdDzGw_O5OlAy6cjTRsflAzGqxXBQztCM2j73LrSASLB5Shm7tUxY23105jVzKkjf7JsG7OR2BWMmQFJ-OY_94F6zDjcbl1dIj_Gx6LrB4VuidSLVD1x9fdUZ_P0ioQmFrmKQfz58LEJt9DHZ5ZWhkZzG5cgpzYX3aviEtVgYXZ2DXxj2nISuShnAGrO2HHRW1xKziZiKbb3U3kmik75UMtnC8Ol3noSptS9SWYN8x6irY4FM6jAqfGY55nXlU_FkIneR5MEpxtSLHQcjfMV15pR8Boq3VIW4JpE6hgFpdR8O10RtBqhdd2JNaA3yNXWTT_kSOzpaokGcnpFg7EtocESYGzikpnUcLvRtCWMEzkmAQDB6PWQBUkPze7IKggaUphFSCCcFH0EaHBQGFJLTykeUNHZil6dbGgNfPzPVlys1bGLNd09t90W8nrj4BYnUO0lm--1dH1yD8yA_vHtNLqUIjFSxU04evoKXhLs_5UIQXq5xPF60M-pwOvCdHXUpoQtrBVoRbI054tcd7jdJSeFNzud2IuUzGdDYaMnvluZCYo--8hnmZ3S_rrbLoUokvhlCDA8TupXKaStlncA-XSNSHbSN8lm8XnsdJa6CE20lWg57Vfy6XpQ4xFhNAea8Wh963zDDMfKhMY_e12x2JvUd98uOcNrk3BguzVMlmfoJyuMzP_NzCHY-jWmRzCyqAS1yBSeUX-nFUTFgXBX_xKXhSL57YmQaq7IKVTdELLLYOwh6cVGqSfg0x0s4MdPJnpk2trEkpE1oAigg0gSKbpQ5Lexhivyj-_N0Oa-AtchE68cIom6z5yUKxQBuXz8k743s09Mkm0e7E5WWW4AeTiqd_hGyiXAuPZW7G9sERNXQx0VZPgoRs66suVh89Z8GlHINXDi_mtPeQtrM-Q2-ZFQzqOfysRseFeOu_MhLG37PZW6kvwRzZPH5lCtH4AxEFrQdteu2wuex6PoWHtmuNOAOuYKFWUCw-h2i35sg6iv_tE4BzOqkiUTl5Q4vvD1vAeTV3iEvHqEnFcFnrM_YLHOcW3LzLEEg5YCJEhFl6Q3oWdlLReDPxsuXtoMYfHJbm6hhFJD7JtgqIFN6eM84ybhBUdr7XipNgP4RDOuFboQ8JN_zNlnBHfNLuq_OY3r2mVfNNIiWXIiw0yZTwxEkVYrkx2rMQ8QWgbN0eYa_v9J09PLORc-lZVoiBtZhhEqgAQ3RMDHKhqREXlHzKYOlyzRsP3HShQhku5pTgT0tgQx7dKlsC5BHyX-9i2LlCkDRuG5OoDk3lMGiXhuYEvoU9B7BJcDiWFXRYyh58DICGD7Vr_XXsdcfVYFTJFrSpTJP0hTIUtcixdlqtKLgDRTNVWBRtoiAPSOYMiG0M8uljQwGq59ejakDwbU24glXXTwHXzD1bbjIuQUK3ETVsNpoyOjygU34llFTYStgAhoNZjtSagyjcrM7hjop_L6TjS2TmoTYr9GR3blOwcgUPjzH-iwU67NzVtmfB34Ct_7PgUg-IoExRS7d1btkcJNEkS-UlaGhV4YSgnZVJdl0SfTBNDThtFUGDUB4zaIxkTGB82U27w_z_vODSaSTXXZUVFeG-pgJIanaZURXan48kEBWvhSG6Fge6QOU2OqImFxqLytiD6RTsVZtfoPAWSmIWSH5jplHgpqGOkPrqv9045ZIuBW_v9OpYvdacNptlmExgjwef5L-IczYD2d_ia5AZ9bBdPYcywOMeQPu3euFPI6EHCxqyOwh2L7l-j37Ic2Zs8knXkiWFvc4I-4nnbn8WRc3TXh5k59G0EdWUgGc7DX3XCj4cfG7_qIGP5Gra_OQ2nYZf9EJP7mcdMZF7aIqCyRnVlYuQ10V9GdABmBPdOocwtobJ5rjA0vjXV9dDsEOjsiez5JqTKoZBtX0JmVQ-hO0wGYnpDmBc79wCgVnylYt6c5Km0i3aVKfTXFMCiKU5esLbnVcx5qajkXCdkjgrwjPsaq8SBHRzQauDEMszXtSs4I4o6L-TfVAzV9_5JYk3vp_tVgi44QHlbOqookSrX5ep_NUyo4oG64Vny8DQWHt1cm3L-_pTnv2dfyDCRPQdqHPdr573Ph7x9gvzwhR_HbpodMPu03HZ8s2R-D7vz4g6UHcX0-XccFM4yy6tBCxKWmEKZJJzrKV314M19FHOiWDnEcsg2cLPIhOijced2KPx0h_p9nHpspo93wSCKq7Z2AFS-XVL-cXoa1LmTJ6dULaLZ_0t3yCjNHm34fHdNADtuUxJzuhzp0RHqw06EipaI-j0vaBOafO0svwpVdm9ApgWqTKg1HmtX7e2LeTUt2tHSw7TTGRy6p2d5SWBevx7bNrGBORPBVTpKedbZszQsRK57Yy6RtTGzZI7SYlga49m5iuN5GFUDR5YvuQFxgcZhKn-yT_x03EallNDgB2dqhi5iMvLaK7DD1U3C-tJi0F8wOVHZEdSIuisEbvzcs7vL-MMKbuKf2JWpIccscAy1yxIhWA_TIZCCOenDand_Hu3IJNtlv2hriSZoqKe8FLmz6OTUwdrx5pqMTJzDr6gGLWW9ZToQwkvbExC-nrGRE0kZDlCdZZDgZgOAOKp77ePy3wbuv_QyAUcuoU_OeWw9eaZ3BplBSaaYO_WY_v5ChQO15piaUcISb89xPepCNQHQ7rVNkKZiGNTy235PZUgBJh9-riLD4h1--yEtpZriM4UrRfj1w1uPWtgVwIJcnj9spwhRtwSyP7zSswwVgMgfl2vb_yg3umW39Zpl4jcrmgWdVlBJ5meSuc5Lc2flvE1btm8Eqw9Hd48MrlYdkts914vPTNwZOYIJkfZbsZ-WjZsLDwet0kgkeyHm6vHcCrz9whW_wBfqTfo0zV01cwhOegUStVCXRtYcGyHVbgPaefGHnS7OhswZr6hFZfJxPDV6EWZ_JVQtp2SGJizs55JhpprcmppyqIsPb9exkTNwrCymHsa6iiP5J1-XdmrC1DhD3cpTdxG4t7ztNDfzZGhBrglI5LX_f9CiqK-ESS19PgQElrx0LDzOpuF-eQsuP-HR1B5jDwJwcstgjASH4r81_ubzWUKY7jbjDtTEjEEZiDyCkp6L28ma1ojBFc96rqkdE0sJUr-Hjrvuw5tmgB_CkMHxqM0JoaVMQx86n8wR93Uhw4Qplx44l_gLJicx4BdayCQkHzH-IuGj0omLuitXwDNkEJ68PAaWeF_q7lpZ42tL0k7Ffw8ZT8hkNEwaGESHJ1lw-JuTZhu8d3fg0RqTyjUF4uEM39Vse3RTJoCDTBnN0L0VhgPYH8kMbdX1msOgwF_4ZVkQpjk-Q67XjqzaLK1JMx7p2s_bm3x7Hii32yeTmW6aNuBkciLG2GjH-vDG3QFOmjNvB49YEhiUwDHGheBs9x8LqcaXEU52IpA4vM6kH_qbZqZ1rSANA2SoOs_L6JoLjl8STaCqdGiZ_jFCGzIk_mNVfKZVUAjzHF7lhDO_K1t3FKCsi0ZDD0mZKAIaw1aooN-mYdN0aTQGpOyHmGtdYTtTkaXq2G3LWpWrHMSdGT9oNZmTwCnx6OhKnEeI_U1TsT2z1ZthdCYjDWOtPM0H6gqJzYN0iY1htGS9xT-fT1yQ83cCDBkbzb-iLycQJxTVpbST7c_SkS0Of1Ox3BjwBQ68MEv3y0zbZiP6th-5OSXcC-AnZH2Oq0WjCg7dfT_Zjun95sojcMsrlZE0a-NwML7nzdynYl7owdp1zb6fmysTBEqU56o1RqS8wUhfOM7iFf3ZTeNg268ZBgGwzH_BdnJgM1z4LUxvQgsSneTcNShQgwySrXd4sJ_kmuakWOjS6dBGHqZKtEIzJgJYzyZWthvQcifJXpXngqZojXyx50COPjTHNUGJk5BuiLAbuKKk1a8cBQMHz0C5DFXQy0UpL4olwU3cprTAYEkOcDiZ8fv1WF-a0QuEc-1PMVgfxud6Q1O_yBhOtt7WlBssa18i2e1oTRTTXUUwZo=",
+    "id": "rs_0af7609f1804745d016aab3bd93a6887d2bc628c6367363fd6",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [],
+    "encrypted_content": "gAAAAABqqzvy4EX1Vf5bOAjhj4Molji33xxZ8V5nsUpVh0pJqr5O48W9HWqa9tPcG0PsTkwWh0Ya019PbkPmEFtxYFqj2sCjuTiwkljW5oDDjZILQo8ekqWWNeyiHKpzmdHSS4TGFtb6-e3ZZp4vgKKvvU73mEc95YasN8yC_il56Oq2WhUghTmCdUbt04Pz33O9cSIOvX-O6Pxj6xVeuXV_xRSJsvyTwr58gKYZkomdp_bIAGZaurYLcarex6CcOa8hoFn55jqfLQAIXKCuBy_z578NRhUdhzsOcM1kMIGbvHky3vyDRrh7sqCHNCv_55-S8gujoFvi1DzZxUSrQAzLvRTsCCcT1uYtm9lf6qdLdozfQbMRNmpJO0Rjbe4ORp0bXjvDcThr1uRLm457uLRfj_DmSJQx1G3k0JGNESzu3pXxwwdH5OGIyZr0JIZAI364qsD9-v4WiDpVNE6h5Zp_n_VUXWLWRdWO8kWRKu3kpdUWfX_ujRFEuumQqnKSW2-XknS-yxqSwWpN95GhZcdsuLPabuPlfX5azwZFnfjsyQzuQ--aT2pOvrBot4vacoWtDsF5mdCn-vHJraSmQFUcSp5ABPVhrNr4xE7KPmCYNGtBiCfoG84qMU85NQsP9uE96UgdCkcvfyAcxvy74JOCcGW25JR7msXeVHYV1AP17w4NaUzI9lYMFPFFe4NK-vUZQaucY1gbbT3Csp_jT8I-Vd8QyvAmuF9BTXUzBLqEtr-b-brtyb72iFyu0YoQHU04gIy1b6PYAs3sQ1-5waqv6eMB4jqn0Fp4xOJ0zZlT2fqWZJRNdmDf3dJsPz6KvAnFfo2J-oyoGF3EWDk6ThU5gq-H4UJq3fnZOfhnFFZB700yRJTxuoWdd-u0auJwzgnl4jBZLSOY5pmfY4NnC1pwkcZCTySQk58PwTe_zIPhDkJ-PvOAv0RZ727ZP59fJTD4Bt1nlxfcSuewF6RjCFDuGUFFK0y2X3DwcmBIfE3PVaiI7a3KFxLHC_uPbctmz19myBhrs1hZCg6qTLyPBhsg9jytXiH6TFsDiKuox8V6nmzIPyNuo_-2Iq9WRMNlXYOXiHwmh7uKybGuJw5jMULE6wgoJCqK9ourwOW3ybDQS7AhL8e7Ags-a-oodWxtLa8615gX9-n2LDEtr0BFiK5nHzbtHKVpZGcHz7KsAK2cwMz6wda5cv0DwTWjOdhDVeoo1cFZWZqhcYIYjv8sF_wbCwiKue135jJ8OJmIILpFsKHQQTTvoeF5duQhs7IqoSrhkAqqH17o6wAqgIXb0G6T2n_mui_OCsN2EIju9IGYDxCG0u3Ahp71_WJO4o8Kma2qi6GwzcZtYWir9k3kVh_6Sc4ZQRucnWxIP5fW6ggheWjXgrD8KT2ZhJxv53qND4jEDbTjMRO9-jDP0BU92FLHUNI4qQMP-nqMNx9RwcTsvSuwcAFjD933BmcypgrnyPrDasT62PglDGFd08suZ9GC8qUUBjRsLE_6wd5ljCZ1brDnz32kxGLxksgh8kLkkXvpTMapFDkE0kiDulk1WImP1WYGPWWDFIPGBdsEu5nyHlcOFu4SdMCC_yRgz7BMDBDyploDx3KHvzDR3nW8aEkh-YiwDWogYnVdPcOW86cB6kXks5WPwNa3u85nlIVIcMsnaTgP3M_8aUxd4wQVXvcOFtwWNGqnnY7I4Btw76DmasuKeyPHJQtkrUAK0oeJvIv77cU8pH_rBOoOuwWaTPNJeUGKEKn-jD-u0W0j2x_q0-Rn4Uww_kq3ZV2dO5J9pzzWfx4dILo28KtFSW8y3w_0_hsYKmToV1xsoN-Y07R84KAvfqyqC4G_B8xGtOUt3VvBwxpdMXP6nxUkLv-wF7OQHkR85MAsnDnVTe9p-lO1YsqybGIo4iZfSLEVo4N15qQUbPA80yLsS2yJb47Rltq3Dl4MzbVJxt4jkHlju-aNpYgG8nj9kl2CgGr--4yvt_Gcnwww__CEnBYSO-bYKxjDkKwWqOjkMYnTgcslJrwik4DyqUIFxVStJpUo2GSyKmdVXiuJkWnevaG6pAXKePa8qaom3183MfHtfuCXT0BpYwmGzouneX39mf-umCRAhb1wTLV7Ry7kOodiupVqBviSnH2GIjGKnyP0MCY4HFc4wmtzhpQBlaP-CxKiv1OAoZslgoR-JrktJPDRWUSZd6k75uz40DUdTyPpbz95Hkfxm3aBPSEvlFdsOaI3QimH4P2MjQ45YxHnLffY6R-ZhlhdQqLLXVUVkC8IfYbCtGJRj_wjA_fwdFAec6sohEsXH3Gc3kInHkjqu3dam0xyPqWZ6ch3IfATDtgZ7KRQlUf_fpRN4MSErB61jgIs5h_RrEuTcptQ2-P28UFY0g84QJ5ZwZw2RCfqnIsp_phCPbd2ZN207g2Wlf5UAPEQ9UbSi3kRJ7WqQWQ8WOghrTxrLx6eESoLNX31dBOzkTVp4F63T7irK0EA-sk8mAUnBzwD-7sOHQ4S7tzr4ZGl7PX6uJPBO6ZOXEJ6hxAz3TtOuESCkP9kb5kqXUP1w88FgLi1tnGC95fVh8b08y1E7EGkW7O5ghhGcVw0H1DmJG3BWr_zjp9UXc0CmFWkeZkF-H7YU_Na2sSWzcaH66chnUdy4Svk0VQYgWRyKzazRu_Exgc7lDktmyteZd5Br4mzs6lingXPHvFSKHJkY1pp8Z5PzpX04XgV0Yu7SY-lSCHk2ZC9uvE-bEMj9CoXRDKntUSQdEh3eDqM8RuwiR0SP0vds-T1l2fN6FMO4Bb0NdqUlfaxUIySa2OT8uaer2ojBFckcFq1Nr5U2zd1gzzThf3KNDzXl1AcnC5zODEMTIpM_8TJHIhXWfJ55drYhO7qQMoBPkYLAzmznT1WzenBc4lh-wY1XaQkU_m8qGGSn4XeL5M8LUMSXP27DmU1K6t2kKTBR9OxvaS021bdm2u4ALfm5EpQUxSoQ6skV9cTfXy9KfG-TyoRQvGpiopYkyKF0-h4kH-A4XCE1yedrjToZ0Q35i5Ucny2sEvU7VftqfVlxPhmv0DBPKrOnrkftCI1dg3XVWMqicM9q8cke7m2rvxBgwPpZT-oeoD1F7oNGU1Uc3rKtCMSeQsBUQh38NQObQXMp0Rjs_iEn-xuIQ8J9Kxf0Wk8Wd_FHLO6sqqiMXsA1uhIWPVRWO7XONlv5YMcjEMIw9SypfglmWcAdD1seJSSoCZMuyHuZzZ-BkSgyG9iQW2fs5ONTlkbrCnkDjdceNixQ7HCdavbBaJrn0tczMT_Zze3GXSNmWjlDQe2VAiIVYd1HJMJ4p-GMRCmgsQKSbR0MRTP5Ljr22POemevMG27tYNV48oltdgaNVTl7AAR58hUdLsE__VQRCZHCmaFh5Rx5T7V1VDCdhbjEvB18822KGZfE2sNvxSJQHvnC6e22REiZg7woOVlVb8NDA_zumjZaNxnzRAzldS6G0RSzmEGrIkGy6hUF7T_wxCd5ZB9NKx7-XKkR0jA-v8dFA_ECafsVB81wjCWel4n_pJkR8CJtCuf30uriCiYbsBqYc-F-eeMIeXzgD49velNbGv7LhtoSOwEAAaeIk-kbHBdneIqDe3IoLh5nN1ljgHHvF0-JXjJx_rkhKVI5YzF2kvrsVGgO9vmm75Qz77fT8CN7UkIe_bbnDP56q-UyZp54vS7LKYBFQEHmYkD-OactyeUT30UDIm5YGiucde--TtNorhQZkdxp03ie4cziDAdjvSk0TOTxzAk2MZWUwZgQlo-nswEv0s3GdiCuMUJyMNfQT2pqZn4vEpcKEFgAlNOg18WuVJTVJxEjElJJuVXcWwpkpXIs8csOGfccvdCJISe8Efx9EGDMQaYoaOSA15F2NzEp9uFfQGSVmm0VDMLCtDHCr8WkWMNv4984NCBPsPrpH--SEOxkhCHER0Maq8uuWa1phy9bHnVFgpY4Ygw4esb7zk9BH8WmlY_LaEjs0FTKni8Q2zlLBD72jRO040ilUXe7r-9jReog6knRvAIpYw2b4QnWba0wjlL2X4WAeVAobPx5rmKOuaFDTcIWoqu5EHZQvj7ERKjLN2A78DDszhtX--310RsjR9uoXA36nja-FuUg7ymoAbJG5zTNgQjL2WSbOX05zojONUWD6SOr_jz1vowqVXA1jUOjtay3LSR7wQ1ZLsidUhhhFEMLx8Us6B0Hz3vQ_6cYzhPhHAPkOVitM7VdW0yn9K9ljcmcaN9AbTMi8z1EKdMhS-y08y3lzRnI3vdQs2pgPK25LZ7SzDmAM8QTMn5fDiJOUAl4q_nNu9lXh-ZIDIcq8KMlE2izSlL8qFudXcyyCfGr3RS6Cg11CfkPCG-E2EanapeUhiSMloJxxmuv09IcLNmOYkvE4j13LfUSMtZnYXX7kH8S9lyq90rf5EDQWDFdgWmaCalfme7nu4Y1WqX95GCxSTeI1Fe-kKcKdjUUl0UXev9TCdw6bhEw6qC5kmkSYn_ySNiWvGZO7cnyzLpq0EpgaAoe-CytbhYFJ-AMUStuULCx7AalbIVfbVYe6ONMIwrGKU__hgLDVtV4pdmUScdiA==",
+    "id": "rs_0af7609f1804745d016aab3be4897887d28fdafca7bdd05dc4",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "```python\n\"\"\"Tiny event bus.\n\nsubscribe(event, handler): register handler; returns an id.\nemit(event, *args): call every handler registered for event, in order.\n  A handler that raises does not prevent the remaining handlers.\nunsubscribe(sub_id): remove that registration; unknown ids are ignored.\nonce(event, handler): handler fires on the next emit only.\nmap_emit(event, *args): like emit, but return the list of handler results.\nclear(event): remove all registrations for event.\nhandler_count(event): number of live registrations for event.\n\"\"\"\n\ndef _new_bus():\n    return {\"handlers\": {}, \"seq\": 0}\n\n_bus = _new_bus()\n_ONCE_HOLDER = {}\n\ndef reset():\n    global _bus\n    _bus = _new_bus()\n\ndef subscribe(event, handler):\n    _bus[\"seq\"] += 1\n    sid = _bus[\"seq\"]\n    _bus[\"handlers\"].setdefault(event, []).append((sid, handler))\n    return sid\n\ndef emit(event, *args):\n    for sid, handler in list(_bus[\"handlers\"].get(event, [])):\n        try:\n            handler(*args)\n        except Exception:\n            continue\n\ndef map_emit(event, *args):\n    results = []\n    for sid, handler in list(_bus[\"handlers\"].get(event, [])):\n        try:\n            results.append(handler(*args))\n        except Exception:\n            continue\n    return results\n\ndef clear(event):\n    _bus[\"handlers\"][event] = []\n\ndef unsubscribe(sub_id):\n    for event, regs in _bus[\"handlers\"].items():\n        for i, (sid, handler) in enumerate(regs):\n            if sid == sub_id:\n                del regs[i]\n                return True\n    return False\n\ndef once(event, handler):\n    sid = None\n\n    def wrapper(*args):\n        unsubscribe(sid)\n        return handler(*args)\n\n    sid = subscribe(event, wrapper)\n\ndef handler_count(event):\n    return len(_bus[\"handlers\"].get(event, []))\n```",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_0af7609f1804745d016aab3bef236487d29dec54feed4e0b2b",
+    "phase": "final_answer",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": "24h",
+  "reasoning": {
+   "context": "all_turns",
+   "effort": "medium",
+   "mode": "standard",
+   "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "status": "completed",
+  "store": false,
+  "temperature": 1.0,
+  "text": {
+   "format": {
+    "type": "text"
+   },
+   "verbosity": "medium"
+  },
+  "tool_choice": "none",
+  "tool_usage": {
+   "image_gen": {
+    "input_tokens": 0,
+    "input_tokens_details": {
+     "image_tokens": 0,
+     "text_tokens": 0
+    },
+    "output_tokens": 0,
+    "output_tokens_details": {
+     "image_tokens": 0,
+     "text_tokens": 0
+    },
+    "total_tokens": 0
+   },
+   "web_search": {
+    "num_requests": 0
+   }
+  },
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 0.98,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 720,
+   "input_tokens_details": {
+    "cache_write_tokens": 0,
+    "cached_tokens": 0
+   },
+   "output_tokens": 1436,
+   "output_tokens_details": {
+    "reasoning_tokens": 1017
+   },
+   "total_tokens": 2156
+  },
+  "user": null
+ },
+ "t": 1789606898.0797663
+}

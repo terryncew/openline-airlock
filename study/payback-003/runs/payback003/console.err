@@ -1,0 +1,77 @@
+Traceback (most recent call last):
+  File "/usr/lib/python3.12/urllib/request.py", line 1344, in do_open
+    h.request(req.get_method(), req.selector, req.data, headers,
+  File "/usr/lib/python3.12/http/client.py", line 1365, in request
+    self._send_request(method, url, body, headers, encode_chunked)
+  File "/usr/lib/python3.12/http/client.py", line 1411, in _send_request
+    self.endheaders(body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.12/http/client.py", line 1360, in endheaders
+    self._send_output(message_body, encode_chunked=encode_chunked)
+  File "/usr/lib/python3.12/http/client.py", line 1120, in _send_output
+    self.send(msg)
+  File "/usr/lib/python3.12/http/client.py", line 1064, in send
+    self.connect()
+  File "/usr/lib/python3.12/http/client.py", line 1499, in connect
+    super().connect()
+  File "/usr/lib/python3.12/http/client.py", line 1030, in connect
+    self.sock = self._create_connection(
+                ^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/socket.py", line 852, in create_connection
+    raise exceptions[0]
+  File "/usr/lib/python3.12/socket.py", line 837, in create_connection
+    sock.connect(sa)
+ConnectionRefusedError: [Errno 111] Connection refused
+
+During handling of the above exception, another exception occurred:
+
+Traceback (most recent call last):
+  File "/home/hatch/workspace/openline-airlock/study/econ-001/src/econ/worker.py", line 297, in invoke
+    status, payload = provider.post(body, headers, timeout_s)
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/study/payback-003/scripts/payback_run.py", line 136, in post
+    out = self._inner.post(body, headers, timeout)
+          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/study/econ-001/src/econ/worker.py", line 156, in post
+    with urllib.request.urlopen(req, timeout=timeout) as resp:
+         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 215, in urlopen
+    return opener.open(url, data, timeout)
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 515, in open
+    response = self._open(req, data)
+               ^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 532, in _open
+    result = self._call_chain(self.handle_open, protocol, protocol +
+             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 492, in _call_chain
+    result = func(*args)
+             ^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1392, in https_open
+    return self.do_open(http.client.HTTPSConnection, req,
+           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/usr/lib/python3.12/urllib/request.py", line 1347, in do_open
+    raise URLError(err)
+urllib.error.URLError: <urlopen error [Errno 111] Connection refused>
+
+The above exception was the direct cause of the following exception:
+
+Traceback (most recent call last):
+  File "/home/hatch/workspace/openline-airlock/study/payback-003/scripts/payback_run.py", line 430, in <module>
+    main()
+  File "/home/hatch/workspace/openline-airlock/study/payback-003/scripts/payback_run.py", line 424, in main
+    print(json.dumps(paid(args), indent=1))
+                     ^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/study/payback-003/scripts/payback_run.py", line 399, in paid
+    operating(tmap, alloc, order, arm, cand, cx)
+  File "/home/hatch/workspace/openline-airlock/study/payback-003/scripts/payback_run.py", line 343, in operating
+    a = _attempt(tasks[t], m, f"{F.P_OP_C if tag=='C' else F.P_OP_T}-{i:04d}", cx)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/study/payback-003/scripts/payback_run.py", line 265, in _attempt
+    a = attempt_mod.attempt(task, method_text, ledger=cx["ledger"],
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/study/econ-001/src/econ/attempt.py", line 24, in attempt
+    res = worker.invoke(
+          ^^^^^^^^^^^^^^
+  File "/home/hatch/workspace/openline-airlock/study/econ-001/src/econ/worker.py", line 322, in invoke
+    raise InfrastructureHalt(
+econ.worker.InfrastructureHalt: infrastructure failure before dispatch (<urlopen error [Errno 111] Connection refused>); halting study, no further invocations
