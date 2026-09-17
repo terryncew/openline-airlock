@@ -9,6 +9,7 @@ qualification and makes no paid contact.
 """
 from __future__ import annotations
 
+import contextlib
 import fcntl
 import hashlib
 import json
@@ -126,6 +127,35 @@ def verify_hermes_pin(hermes_path):
         raise PinMismatch("Hermes checkout is not the pinned commit")
 
 
+@contextlib.contextmanager
+def _isolated_home(home):
+    """Scope a bounded provider window to the isolated Hermes home.
+
+    The active Hermes home selects the plugin manager, the config, and
+    the .env for the whole window (construct -> verify invariants ->
+    run_conversation -> extract usage), so the ambient operator profile
+    can never become active after CONTACT_ARMED: pinned Hermes resolves
+    its plugin manager from the current home on every lifecycle hook
+    (plugins._delivery_manager -> get_plugin_manager -> _plugin_home_key
+    -> get_hermes_home), with lazy discovery on first hook.
+
+    HERMES_ENABLE_PROJECT_PLUGINS is neutralized in the window because
+    project-plugin discovery is cwd-scoped (./.hermes/plugins/), not
+    home-scoped. Both variables are restored in the finally clause.
+    """
+    saved = {k: os.environ.get(k) for k in ("HERMES_HOME", "HERMES_ENABLE_PROJECT_PLUGINS")}
+    os.environ["HERMES_HOME"] = str(home)
+    os.environ.pop("HERMES_ENABLE_PROJECT_PLUGINS", None)
+    try:
+        yield
+    finally:
+        for key, val in saved.items():
+            if val is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = val
+
+
 def _build_agent(hermes_path, home, max_iterations, api_key):
     """Mechanically instantiate the pinned Hermes path. Returns the agent.
 
@@ -143,9 +173,7 @@ def _build_agent(hermes_path, home, max_iterations, api_key):
     env_path = home / ".env"
     env_path.write_text("OPENAI_API_KEY=<redacted>", encoding="utf-8")
     os.chmod(env_path, 0o600)
-    saved_home = os.environ.get("HERMES_HOME")
-    os.environ["HERMES_HOME"] = str(home)
-    try:
+    with _isolated_home(home):
         root = str(hermes_path)
         if root not in sys.path:
             sys.path.insert(0, root)
@@ -161,21 +189,16 @@ def _build_agent(hermes_path, home, max_iterations, api_key):
             api_mode="chat_completions",
             skip_background_review=True,
         )
-    finally:
-        if saved_home is None:
-            os.environ.pop("HERMES_HOME", None)
-        else:
-            os.environ["HERMES_HOME"] = saved_home
-    if agent._api_max_retries != 1:
-        raise GateRefused("Hermes application retry not at single-attempt setting")
-    if agent.compression_enabled:
-        raise GateRefused("Hermes compression not disabled")
-    if agent._fallback_chain:
-        raise GateRefused("Hermes fallback chain not empty")
-    if not agent.skip_background_review:
-        raise GateRefused("Hermes background review not disabled")
-    _assert_frozen_tool_surface(agent)
-    agent._bounded_call_config_hash = config_hash
+        if agent._api_max_retries != 1:
+            raise GateRefused("Hermes application retry not at single-attempt setting")
+        if agent.compression_enabled:
+            raise GateRefused("Hermes compression not disabled")
+        if agent._fallback_chain:
+            raise GateRefused("Hermes fallback chain not empty")
+        if not agent.skip_background_review:
+            raise GateRefused("Hermes background review not disabled")
+        _assert_frozen_tool_surface(agent)
+        agent._bounded_call_config_hash = config_hash
     return agent
 
 
@@ -238,7 +261,13 @@ def production_provider_factory(*, log_path, invocation_id, hermes_path, home,
     def factory():
         agent = _build_agent(hermes_path, home, max_iterations, api_key)
         def call(prompt):
-            return _extract_usage(agent.run_conversation(prompt))
+            # The provider call executes under the SAME isolated home bound
+            # before RESERVED: pinned Hermes resolves its plugin manager
+            # from the current home on every lifecycle hook during
+            # run_conversation, so the ambient profile must not become
+            # active here. Restoration happens in _isolated_home's finally.
+            with _isolated_home(home):
+                return _extract_usage(agent.run_conversation(prompt))
         return call
     return factory
 

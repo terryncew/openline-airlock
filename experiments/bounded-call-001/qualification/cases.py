@@ -221,6 +221,134 @@ def case_q1_tool_surface_binding_reverified():
     assert bc.recover(log, "q1-surface") == "PROVEN_NOT_ENTERED"
 
 
+def _ambient_with_sentinel_plugin():
+    """An ambient operator profile carrying sentinel plugin configuration.
+
+    Its config.yaml enables a sentinel plugin and its plugins/ directory
+    exists. If this profile ever became the active Hermes home during the
+    bounded provider window, pinned plugin discovery would see it. The
+    fixture never executes plugin discovery itself (no third-party code
+    loads); it asserts the home-selection seam only.
+    """
+    ambient = _tmp()
+    (ambient / "plugins").mkdir(parents=True)
+    (ambient / "config.yaml").write_text(
+        "plugins:\n  enabled:\n    - sentinel-plugin\n", encoding="utf-8")
+    return ambient
+
+
+def _run_production_window(invocation, ambient, agent_cls):
+    """Drive the REAL production_provider_factory through invoke_bounded
+    with _build_agent stubbed to a fake agent (no Hermes construction, no
+    network, no model call). The fake run_conversation records the
+    environment the production provider closure actually executes under.
+    Returns (seen, usage_or_exception)."""
+    tmp, log, home = _reserve(invocation)
+    seen = {}
+
+    class _FakeAgent(agent_cls):
+        def run_conversation(self, prompt):
+            seen["home"] = os.environ.get("HERMES_HOME")
+            seen["project_plugins"] = os.environ.get(
+                "HERMES_ENABLE_PROJECT_PLUGINS")
+            return super().run_conversation(prompt)
+
+    real_build = bc._build_agent
+    bc._build_agent = lambda *a, **k: _FakeAgent()
+    saved = {k: os.environ.get(k)
+             for k in ("HERMES_HOME", "HERMES_ENABLE_PROJECT_PLUGINS")}
+    os.environ["HERMES_HOME"] = str(ambient)
+    os.environ["HERMES_ENABLE_PROJECT_PLUGINS"] = "1"
+    try:
+        factory = bc.production_provider_factory(
+            log_path=log, invocation_id=invocation,
+            hermes_path=tmp / "hermes", home=home, api_key="fake")
+        try:
+            usage = bc.invoke_bounded(
+                log_path=log, invocation_id=invocation, home=home,
+                prompt="hi", provider_factory=factory)
+        except Exception as exc:  # noqa: BLE001 - the raise-path is the assertion
+            return seen, exc, saved, tmp, home
+        return seen, usage, saved, tmp, home
+    finally:
+        bc._build_agent = real_build
+        for key, val in saved.items():
+            if val is None:
+                os.environ.pop(key, None)
+            else:
+                os.environ[key] = val
+
+
+class _RecordingAgent:
+    def run_conversation(self, prompt):
+        return {b: 0 for b in bc.BUCKETS}
+
+
+class _RaisingAgent:
+    def run_conversation(self, prompt):
+        raise RuntimeError("synthetic provider failure")
+
+
+def case_q1_runtime_home_scoped():
+    """The provider window executes under the isolated bounded-call home.
+
+    Construction and provider execution both observe the SAME isolated home
+    bound before RESERVED; the ambient profile (carrying sentinel plugin
+    config) is restored only after the provider closure returns. A second
+    run proves restoration also happens when the closure raises. Offline:
+    fake provider behind invoke_bounded, no network, no model call.
+    """
+    ambient = _ambient_with_sentinel_plugin()
+    # The seam itself: both the construction window (inside _build_agent)
+    # and the provider window (inside the production call closure) run
+    # through _isolated_home, so assert its contract directly.
+    home_probe = _tmp() / "probe-home"
+    home_probe.mkdir(parents=True)
+    before = os.environ.get("HERMES_HOME")
+    with bc._isolated_home(home_probe):
+        assert os.environ.get("HERMES_HOME") == str(home_probe)
+        assert os.environ.get("HERMES_ENABLE_PROJECT_PLUGINS") is None
+    assert os.environ.get("HERMES_HOME") == before
+    seen, usage, saved, _, home = _run_production_window(
+        "q1-home", ambient, _RecordingAgent)
+    assert usage == {b: 0 for b in bc.BUCKETS}
+    assert seen["home"] == str(home), seen
+    assert seen["home"] != str(ambient), seen
+    assert seen["project_plugins"] is None, seen
+    assert os.environ.get("HERMES_HOME") == saved["HERMES_HOME"]
+    assert (os.environ.get("HERMES_ENABLE_PROJECT_PLUGINS")
+            == saved["HERMES_ENABLE_PROJECT_PLUGINS"])
+    seen2, exc, saved2, _, home2 = _run_production_window(
+        "q1-home-raise", ambient, _RaisingAgent)
+    assert isinstance(exc, RuntimeError), exc
+    assert seen2["home"] == str(home2), seen2
+    assert seen2["home"] != str(ambient), seen2
+    assert os.environ.get("HERMES_HOME") == saved2["HERMES_HOME"]
+    assert (os.environ.get("HERMES_ENABLE_PROJECT_PLUGINS")
+            == saved2["HERMES_ENABLE_PROJECT_PLUGINS"])
+
+
+def case_q1_runtime_home_negative():
+    """A sentinel ambient plugin profile can never become the active
+    runtime profile during the bounded provider window.
+
+    The ambient HERMES_HOME enables a sentinel plugin; the production
+    provider closure must still execute under the isolated home, so pinned
+    lifecycle-hook dispatch (which resolves the plugin manager from the
+    current home) can never discover the sentinel. Home-selection seam
+    only; no plugin code is loaded.
+    """
+    ambient = _ambient_with_sentinel_plugin()
+    seen, usage, saved, tmp, home = _run_production_window(
+        "q1-homeneg", ambient, _RecordingAgent)
+    assert usage == {b: 0 for b in bc.BUCKETS}
+    assert seen["home"] == str(home), seen
+    assert seen["home"] != str(ambient), seen
+    assert (ambient / "config.yaml").read_text(encoding="utf-8").find(
+        "sentinel-plugin") >= 0
+    assert seen["project_plugins"] is None, seen
+
+
 def case_q2_pre_arm_death_proven_not_entered():
     """Real SIGKILL after durable RESERVED, before CONTACT_ARMED."""
     tmp, log, home = _reserve("q2-inv")
@@ -424,6 +552,9 @@ def case_q6_no_self_release():
 
 
 CASES = (case_q1_gate_and_r_i, case_q1_concurrent_one_shot,
+         case_q1_tool_surface_resolves_empty, case_q1_tool_surface_refusals,
+         case_q1_tool_surface_binding_reverified,
+         case_q1_runtime_home_scoped, case_q1_runtime_home_negative,
          case_q2_pre_arm_death_proven_not_entered,
          case_q3_post_arm_death_indeterminate, case_q4_signed_reconciliation,
          case_q5_accounting_and_over_envelope, case_q6_no_self_release)
