@@ -669,6 +669,30 @@ def part_b3_supervisor():
           open(rd + "/INFRA_TERMINAL.json", "rb").read() == infra_bytes_1)
 
 
+def part_b6_launch_argv_resolution():
+    print("=== PART B6: bare 'python' argv[0] resolves to this interpreter ===")
+    rd = tempfile.mkdtemp(prefix="pb3_sup_main_")
+    old_argv = sys.argv
+    try:
+        sys.argv = ["supervise.py", "--run-dir", rd, "--heartbeat-s", "60",
+                    "--", "python", "-c", "print('hello-from-child')"]
+        supervise.main()
+    finally:
+        sys.argv = old_argv
+    out = open(os.path.join(rd, "console.out")).read()
+    check("bare 'python' child launched and ran", "hello-from-child" in out)
+    sup = json.load(open(os.path.join(rd, "SUPERVISION.json")))
+    check("main() path: exit code 0 persisted", sup["exit_code"] == 0)
+    # No RUN_STATUS.json from a trivial child -> "unexpected" is correct:
+    # the supervisor cannot confirm the runner finished its work.
+    check("main() path: termination unexpected without RUN_STATUS.json",
+          sup["classification"]["termination"] == "unexpected")
+    check("main() path: infra record written for missing RUN_STATUS.json",
+          os.path.exists(os.path.join(rd, "INFRA_TERMINAL.json")))
+    check("main() path: runner pid persisted",
+          isinstance(sup.get("runner_pid"), int) and sup["runner_pid"] > 0)
+
+
 def main():
     print("=== PART A: frozen contract ===")
     part_a()
@@ -678,6 +702,7 @@ def main():
     part_b2_breaker()
     print("=== PART B3/B4/B5: supervisor ===")
     part_b3_supervisor()
+    part_b6_launch_argv_resolution()
     print()
     if FAILURES:
         print(f"{len(FAILURES)} FAILURES:", FAILURES)

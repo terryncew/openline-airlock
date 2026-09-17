@@ -186,6 +186,11 @@ def main() -> None:
         cmd = cmd[1:]
     if not cmd:
         raise SystemExit("refusing: no runner command given")
+    # The documented launch form uses a bare "python"/"python3" argv[0].
+    # Resolve it to this interpreter so the child launches even when no
+    # python is on PATH. An absolute argv[0] is used verbatim.
+    if os.path.basename(cmd[0]) in ("python", "python3"):
+        cmd = [sys.executable] + cmd[1:]
     record = supervise(args.run_dir, cmd, args.study_id, args.heartbeat_s)
     print(json.dumps({"runner_pid": record.get("runner_pid"),
                       "exit_code": record.get("exit_code"),
