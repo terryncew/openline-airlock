@@ -7,6 +7,7 @@ durable log on real disk. The fake provider sits behind the same one-shot
 invoke_bounded() wrapper that would own the real Hermes call, so the paid
 path is what gets qualified. Q2/Q3 use real child processes and real SIGKILL.
 """
+import json
 import os
 import signal
 import tempfile
@@ -94,6 +95,51 @@ def case_q1_gate_and_r_i():
     assert calls == ["factory", "call"]
 
 
+def case_q1_concurrent_one_shot():
+    """Two real processes race one reservation at a pipe barrier: exactly one
+    provider-side sentinel fires, exactly one CONTACT_ARMED lands, the loser
+    refuses pre-provider, the log stays parseable. No timing sleeps."""
+    tmp, log, home = _reserve("q1-race")
+    sentinel = tmp / "sentinel.log"
+    barrier_r, barrier_w = os.pipe()
+
+    def child_main():
+        os.close(barrier_w)
+        assert os.read(barrier_r, 1) == b""
+        os.close(barrier_r)
+        def factory():
+            def call(prompt):
+                with open(sentinel, "a", encoding="utf-8") as handle:
+                    handle.write("provider-entry\n")
+                return {b: 0 for b in bc.BUCKETS}
+            return call
+        try:
+            bc.invoke_bounded(log_path=log, invocation_id="q1-race", home=home,
+                              prompt="hi", provider_factory=factory)
+        except bc.GateRefused:
+            os._exit(42)
+        os._exit(0)
+
+    pids = []
+    for _ in range(2):
+        pid = os.fork()
+        if pid == 0:
+            try:
+                child_main()
+            finally:
+                os._exit(1)
+        pids.append(pid)
+    os.close(barrier_w)
+    os.close(barrier_r)
+    codes = sorted(os.waitstatus_to_exitcode(os.waitpid(p, 0)[1]) for p in pids)
+    assert codes == [0, 42], codes
+    assert sentinel.read_text(encoding="utf-8").splitlines() == ["provider-entry"]
+    recs = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    assert sum(1 for r in recs if r.get("state") == "CONTACT_ARMED"
+               and r.get("invocation_id") == "q1-race") == 1
+
+
 def case_q2_pre_arm_death_proven_not_entered():
     """Real SIGKILL after durable RESERVED, before CONTACT_ARMED."""
     tmp, log, home = _reserve("q2-inv")
@@ -165,6 +211,48 @@ def case_q4_signed_reconciliation():
     assert bc.resolve(log, "q4-inv", auth)["invocation_id"] == "q4-inv"
 
 
+def _hermes_result_fixture(**overrides):
+    """Offline synthetic shaped exactly like pinned turn_finalizer output.
+
+    Pinned agent/turn_finalizer.py builds the result dict with the billing
+    counters as top-level keys (input/output/cache_read/cache_write). No
+    paid call is needed to prove extraction against this shape.
+    """
+    result = {
+        "final_response": "done",
+        "last_reasoning": None,
+        "messages": [],
+        "api_calls": 3,
+        "completed": True,
+        "turn_exit_reason": "completed",
+        "failed": False,
+        "partial": False,
+        "interrupted": False,
+        "response_transformed": False,
+        "pre_transform_response": None,
+        "response_previewed": False,
+        "model": "gpt-5.6-sol",
+        "provider": "openai-api",
+        "base_url": "",
+        "input_tokens": 12345,
+        "output_tokens": 678,
+        "cache_read_tokens": 91011,
+        "cache_write_tokens": 1213,
+        "reasoning_tokens": 0,
+        "prompt_tokens": 104569,
+        "completion_tokens": 678,
+        "total_tokens": 105247,
+        "last_prompt_tokens": 0,
+        "estimated_cost_usd": 0.0,
+        "cost_status": "ok",
+        "cost_source": "live",
+        "service_tier": None,
+        "session_id": "fixture",
+    }
+    result.update(overrides)
+    return result
+
+
 def case_q5_accounting_and_over_envelope():
     """272K boundary derived mechanically from buckets; over-envelope preserved."""
     at = {"input_tokens": 272000, "cache_read_tokens": 0,
@@ -176,6 +264,25 @@ def case_q5_accounting_and_over_envelope():
     cache_heavy = {"input_tokens": 0, "cache_read_tokens": 200000,
                    "cache_write_tokens": 73000, "output_tokens": 10}
     assert bc.price_usage(cache_heavy) == Decimal("0.8903")
+    extracted = bc._extract_usage(_hermes_result_fixture())
+    assert extracted == {"input_tokens": 12345, "cache_read_tokens": 91011,
+                         "cache_write_tokens": 1213, "output_tokens": 678}
+    assert bc.price_usage(extracted) == bc.price_usage(
+        {"input_tokens": 12345, "cache_read_tokens": 91011,
+         "cache_write_tokens": 1213, "output_tokens": 678})
+    missing = _hermes_result_fixture()
+    del missing["cache_write_tokens"]
+    for bad in (missing,
+                _hermes_result_fixture(input_tokens=True),
+                _hermes_result_fixture(output_tokens=-1),
+                _hermes_result_fixture(cache_read_tokens=1.5),
+                "not-a-mapping"):
+        try:
+            bc._extract_usage(bad)
+        except bc.GateRefused:
+            pass
+        else:
+            raise AssertionError("extraction failed closed on %r" % (bad,))
     tmp, log, home = _reserve("q5-inv", max_iterations=1, budget=Decimal("200"))
     big = {"input_tokens": 0, "cache_read_tokens": 0,
            "cache_write_tokens": 0, "output_tokens": 10 ** 9}
@@ -235,6 +342,7 @@ def case_q6_no_self_release():
         raise AssertionError("reconcile signed without CONTACT_ARMED")
 
 
-CASES = (case_q1_gate_and_r_i, case_q2_pre_arm_death_proven_not_entered,
+CASES = (case_q1_gate_and_r_i, case_q1_concurrent_one_shot,
+         case_q2_pre_arm_death_proven_not_entered,
          case_q3_post_arm_death_indeterminate, case_q4_signed_reconciliation,
          case_q5_accounting_and_over_envelope, case_q6_no_self_release)

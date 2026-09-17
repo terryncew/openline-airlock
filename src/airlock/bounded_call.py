@@ -9,6 +9,7 @@ qualification and makes no paid contact.
 """
 from __future__ import annotations
 
+import fcntl
 import hashlib
 import json
 import os
@@ -47,6 +48,7 @@ assert _P_CALL == Decimal("11.48304"), "frozen P_call derivation drifted"
 P_CALL = Decimal("11.48304")
 
 BUCKETS = ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens")
+_MISSING = object()
 
 
 class GateRefused(Exception):
@@ -90,7 +92,8 @@ def price_usage(usage):
 
 def frozen_config_text():
     """Exact bytes of the adapter-owned Hermes config that make the bound true."""
-    return "agent:\n  api_max_retries: 1\n  compression:\n    enabled: false\n"
+    return ("agent:\n  api_max_retries: 1\n  compression:\n    enabled: false\n"
+            "auxiliary:\n  background_review:\n    enabled: false\n")
 
 
 def write_driver_config(home):
@@ -143,6 +146,7 @@ def _build_agent(hermes_path, home, max_iterations, api_key):
             fallback_model=None,
             disabled_toolsets=["delegation"],
             api_mode="chat_completions",
+            skip_background_review=True,
         )
     finally:
         if saved_home is None:
@@ -155,21 +159,55 @@ def _build_agent(hermes_path, home, max_iterations, api_key):
         raise GateRefused("Hermes compression not disabled")
     if agent._fallback_chain:
         raise GateRefused("Hermes fallback chain not empty")
+    if not agent.skip_background_review:
+        raise GateRefused("Hermes background review not disabled")
     agent._bounded_call_config_hash = config_hash
     return agent
 
 
 def _extract_usage(result):
-    """Map a Hermes run result onto the four billing buckets.
+    """Extract billing counters from the top level of a pinned Hermes result.
 
-    Integration point; never exercised in qualification (no paid contact).
+    Pinned turn_finalizer() returns input/output/cache_read/cache_write as
+    top-level keys of the result dict. Fail closed: a non-mapping result, or
+    any counter missing, non-integer, boolean, or negative, refuses. Never
+    substitutes zero for missing live telemetry. Exercised in qualification
+    against an offline synthetic fixture shaped like pinned finalizer
+    output (no paid contact).
     """
-    usage = result.get("usage", {}) if isinstance(result, dict) else {}
-    return {bucket: int(usage.get(bucket, 0)) for bucket in BUCKETS}
+    if not isinstance(result, dict):
+        raise GateRefused("Hermes result is not a mapping")
+    usage = {}
+    for bucket in BUCKETS:
+        value = result.get(bucket, _MISSING)
+        if value is _MISSING or type(value) is not int or value < 0:
+            raise GateRefused("bad live billing counter: %s" % bucket)
+        usage[bucket] = value
+    return usage
 
 
-def real_provider_factory(*, hermes_path, home, max_iterations, api_key):
-    """Zero-arg factory returning the real pinned-Hermes provider call."""
+def production_provider_factory(*, log_path, invocation_id, hermes_path, home,
+                                api_key):
+    """Zero-arg factory for the real pinned-Hermes provider call.
+
+    Every envelope value -- max_iterations, provider, model, Hermes pin,
+    output cap, driver config -- is derived from the durable RESERVED record
+    and frozen constants. The caller supplies only operator infrastructure
+    (checkout path, prepared home, credential); no duplicate unconstrained
+    envelope value is accepted, so reserving K=3 cannot run K=30.
+    """
+    recs = [r for r in _read_log(log_path) if r.get("invocation_id") == invocation_id]
+    reserved = [r for r in recs if r.get("state") == "RESERVED"]
+    if not reserved:
+        raise GateRefused("no durable RESERVED for invocation")
+    bound = reserved[0]
+    frozen = (("hermes_pin", HERMES_PIN), ("provider", PROVIDER),
+              ("model", MODEL), ("output_cap", OUTPUT_CAP))
+    if any(bound.get(field) != value for field, value in frozen):
+        raise GateRefused("RESERVED envelope field drifted from frozen")
+    max_iterations = bound.get("max_iterations")
+    if type(max_iterations) is not int or max_iterations < 1:
+        raise GateRefused("RESERVED max_iterations not a positive int")
     def factory():
         agent = _build_agent(hermes_path, home, max_iterations, api_key)
         def call(prompt):
@@ -193,20 +231,19 @@ def _verify_config_binding(home, config_hash):
 def invoke_bounded(*, log_path, invocation_id, home, prompt, provider_factory):
     """One-shot provider invocation bound to the durable reservation.
 
-    Verifies durable RESERVED and the bound config SHA, writes CONTACT_ARMED
-    (fsync), then makes the sole provider call through provider_factory, a
-    zero-arg callable returning call(prompt) -> usage dict. The raw agent is
-    never returned to callers. A second invocation under the same ID refuses
-    before provider contact.
+    Verifies durable RESERVED and the bound config SHA, atomically claims
+    CONTACT_ARMED under an advisory file lock (fsync), then makes the sole
+    provider call through provider_factory, a zero-arg callable returning
+    call(prompt) -> usage dict. The raw agent is never returned to callers.
+    A second invocation under the same ID refuses before provider contact,
+    even across concurrent processes.
     """
     recs = [r for r in _read_log(log_path) if r.get("invocation_id") == invocation_id]
     reserved = [r for r in recs if r.get("state") == "RESERVED"]
     if not reserved:
         raise GateRefused("no durable RESERVED for invocation")
     _verify_config_binding(home, reserved[0]["config_hash"])
-    if any(r.get("state") == "CONTACT_ARMED" for r in recs):
-        raise GateRefused("invocation already used: one-shot")
-    _arm_contact(log_path, invocation_id)
+    _claim_contact_armed(log_path, invocation_id)
     call_provider = provider_factory()
     return call_provider(prompt)
 
@@ -272,14 +309,30 @@ def reserve(log_path, invocation_id, bound, config_hash):
     return _append_record(log_path, record)
 
 
-def _arm_contact(log_path, invocation_id):
-    """Durably write CONTACT_ARMED. Only after RESERVED is durable."""
-    recs = _read_log(log_path)
-    if not any(r.get("state") == "RESERVED" and r.get("invocation_id") == invocation_id
-               for r in recs):
-        raise GateRefused("cannot arm contact without durable RESERVED")
-    return _append_record(log_path, {"state": "CONTACT_ARMED",
-                                     "invocation_id": invocation_id})
+def _claim_contact_armed(log_path, invocation_id):
+    """Atomically claim the one-shot under an advisory file lock.
+
+    Read -> verify unused -> append/fsync CONTACT_ARMED holds LOCK_EX, so
+    two concurrent processes cannot consume the same reservation. The lock
+    is released before any provider construction or factory entry.
+    """
+    path = Path(log_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a+", encoding="utf-8") as handle:
+        fcntl.flock(handle.fileno(), fcntl.LOCK_EX)
+        try:
+            handle.seek(0)
+            recs = [json.loads(line) for line in handle if line.strip()]
+            if any(r.get("state") == "CONTACT_ARMED"
+                   and r.get("invocation_id") == invocation_id for r in recs):
+                raise GateRefused("invocation already used: one-shot")
+            handle.write(json.dumps({"state": "CONTACT_ARMED",
+                                     "invocation_id": invocation_id},
+                                    sort_keys=True) + "\n")
+            handle.flush()
+            os.fsync(handle.fileno())
+        finally:
+            fcntl.flock(handle.fileno(), fcntl.LOCK_UN)
 
 
 def recover(log_path, invocation_id):
