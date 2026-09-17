@@ -3,7 +3,9 @@
 NOT EXECUTED. Importing this module runs nothing, and the file name matches
 no test-discovery pattern, so broad discovery can never invoke Q1-Q6.
 Each case encodes its amended-contract check exactly, against a real
-durable log on real disk. Q2/Q3 use real child processes and real SIGKILL.
+durable log on real disk. The fake provider sits behind the same one-shot
+invoke_bounded() wrapper that would own the real Hermes call, so the paid
+path is what gets qualified. Q2/Q3 use real child processes and real SIGKILL.
 """
 import os
 import signal
@@ -26,6 +28,17 @@ def _gate_fields(**overrides):
     return fields
 
 
+def _reserve(invocation, **gate_overrides):
+    """Config first, then gate, then durable RESERVED binding the config SHA."""
+    tmp = _tmp()
+    log = tmp / "log.jsonl"
+    home = tmp / "home"
+    config_hash = bc.write_driver_config(home)
+    bound = bc.precontact_gate(**_gate_fields(**gate_overrides))
+    bc.reserve(log, invocation, bound, config_hash)
+    return tmp, log, home
+
+
 def _kill_child_after(fn):
     pid = os.fork()
     if pid == 0:
@@ -38,7 +51,7 @@ def _kill_child_after(fn):
 
 
 def case_q1_gate_and_r_i():
-    """Corrected R_i matches the hand-computed value; every refusal is terminal."""
+    """Corrected R_i; every refusal terminal; provider runs only after arm; one-shot."""
     assert bc.compute_r_i(3) == Decimal("436.35552")
     bound = bc.precontact_gate(**_gate_fields())
     assert bound["r_i"] == "436.35552"
@@ -47,67 +60,90 @@ def case_q1_gate_and_r_i():
     assert bound["p_call"] == "11.48304"
     assert bound["prereg_sha"] == bc.PREREG_SHA
     assert bound["amendment_sha"] == bc.AMENDMENT_SHA
-    refusals = [
-        dict(budget=Decimal("1")),
-        dict(model="gpt-9"),
-        dict(provider="other"),
-        dict(price_table_sha="0" * 64),
-        dict(hermes_pin="0" * 40),
-        dict(max_iterations=0),
-    ]
-    for bad in refusals:
+    for bad in (dict(budget=Decimal("1")), dict(model="gpt-9"),
+                dict(provider="other"), dict(price_table_sha="0" * 64),
+                dict(hermes_pin="0" * 40), dict(max_iterations=0)):
         try:
             bc.precontact_gate(**_gate_fields(**bad))
         except bc.GateRefused:
             pass
         else:
             raise AssertionError("gate failed to refuse %r" % (bad,))
+    tmp, log, home = _reserve("q1-inv")
+    calls = []
+
+    def factory():
+        calls.append("factory")
+        def call(prompt):
+            assert bc.recover(log, "q1-inv") == "INDETERMINATE"
+            calls.append("call")
+            return {b: 0 for b in bc.BUCKETS}
+        return call
+
+    usage = bc.invoke_bounded(log_path=log, invocation_id="q1-inv", home=home,
+                              prompt="hi", provider_factory=factory)
+    assert usage == {b: 0 for b in bc.BUCKETS}
+    assert calls == ["factory", "call"]
+    try:
+        bc.invoke_bounded(log_path=log, invocation_id="q1-inv", home=home,
+                          prompt="hi", provider_factory=factory)
+    except bc.GateRefused:
+        pass
+    else:
+        raise AssertionError("second invocation not refused")
+    assert calls == ["factory", "call"]
 
 
 def case_q2_pre_arm_death_proven_not_entered():
     """Real SIGKILL after durable RESERVED, before CONTACT_ARMED."""
-    tmp = _tmp()
-    log = tmp / "log.jsonl"
-    invocation = "q2-inv"
-    bound = bc.precontact_gate(**_gate_fields())
+    tmp, log, home = _reserve("q2-inv")
 
     def child():
-        bc.reserve(log, invocation, bound)
+        pass  # RESERVED already durable; dies before any invocation
 
     _kill_child_after(child)
-    assert bc.recover(log, invocation) == "PROVEN_NOT_ENTERED"
+    assert bc.recover(log, "q2-inv") == "PROVEN_NOT_ENTERED"
+    try:
+        bc.recover(log, "no-such-invocation")
+    except bc.GateRefused:
+        pass
+    else:
+        raise AssertionError("unknown invocation classified instead of error")
 
 
 def case_q3_post_arm_death_indeterminate():
-    """Real SIGKILL after CONTACT_ARMED, driver never invoked."""
-    tmp = _tmp()
-    log = tmp / "log.jsonl"
-    invocation = "q3-inv"
-    bound = bc.precontact_gate(**_gate_fields())
+    """Real SIGKILL inside the provider window, after CONTACT_ARMED."""
+    tmp, log, home = _reserve("q3-inv")
 
     def child():
-        bc.reserve(log, invocation, bound)
-        bc.arm_contact(log, invocation)
+        def factory():
+            def call(prompt):
+                os.kill(os.getpid(), signal.SIGKILL)
+            return call
+        bc.invoke_bounded(log_path=log, invocation_id="q3-inv", home=home,
+                          prompt="hi", provider_factory=factory)
 
     _kill_child_after(child)
-    assert bc.recover(log, invocation) == "INDETERMINATE"
+    assert bc.recover(log, "q3-inv") == "INDETERMINATE"
 
 
 def case_q4_signed_reconciliation():
     """Only correctly invocation-bound, untampered signatures verify."""
-    tmp = _tmp()
-    log = tmp / "log.jsonl"
-    invocation = "q4-inv"
-    bound = bc.precontact_gate(**_gate_fields())
-    bc.reserve(log, invocation, bound)
-    bc.arm_contact(log, invocation)
-    auth = bc.ReconciliationAuthority(tmp / "rec.key")
+    tmp, log, home = _reserve("q4-inv")
     usage = {"input_tokens": 1000, "cache_read_tokens": 200000,
              "cache_write_tokens": 500, "output_tokens": 300}
-    record = auth.reconcile(invocation_id=invocation, log_path=log,
-                            usage=usage, prompt_tokens=201500)
-    payload = auth.verify(record, invocation)
+
+    def factory():
+        return lambda prompt: dict(usage)
+
+    got = bc.invoke_bounded(log_path=log, invocation_id="q4-inv", home=home,
+                            prompt="hi", provider_factory=factory)
+    assert got == usage
+    auth = bc.ReconciliationAuthority(tmp / "rec.key")
+    record = auth.reconcile(invocation_id="q4-inv", log_path=log, usage=got)
+    payload = auth.verify(record, "q4-inv")
     assert payload["outcome"] == "EXECUTED"
+    assert payload["prompt_tokens"] == 201500
     assert payload["envelope_violation"] is False
     tampered = {"alg": "HMAC-SHA256",
                 "payload": dict(record["payload"], observed_charge="0.01"),
@@ -115,7 +151,7 @@ def case_q4_signed_reconciliation():
     for bad, label in ((tampered, "tampered"), ({"payload": record["payload"]}, "unsigned"),
                        ("not-a-record", "non-mapping")):
         try:
-            auth.verify(bad, invocation)
+            auth.verify(bad, "q4-inv")
         except bc.EvidenceRejected:
             pass
         else:
@@ -126,28 +162,31 @@ def case_q4_signed_reconciliation():
         pass
     else:
         raise AssertionError("wrong-invocation record verified")
-    resolved = bc.resolve(log, invocation, auth)
-    assert resolved["invocation_id"] == invocation
+    assert bc.resolve(log, "q4-inv", auth)["invocation_id"] == "q4-inv"
 
 
 def case_q5_accounting_and_over_envelope():
-    """Four-bucket accounting; over-envelope actual charge preserved as violation."""
-    usage = {"input_tokens": 100000, "cache_read_tokens": 100000,
-             "cache_write_tokens": 100000, "output_tokens": 1000}
-    assert bc.price_usage(usage, 300000) == Decimal("1.91")
-    assert bc.price_usage(usage, 200000) == Decimal("0.96")
-    tmp = _tmp()
-    log = tmp / "log.jsonl"
-    invocation = "q5-inv"
-    bound = bc.precontact_gate(**_gate_fields(max_iterations=1, budget=Decimal("200")))
-    assert bound["r_i"] == "160.76256"
-    bc.reserve(log, invocation, bound)
-    bc.arm_contact(log, invocation)
+    """272K boundary derived mechanically from buckets; over-envelope preserved."""
+    at = {"input_tokens": 272000, "cache_read_tokens": 0,
+          "cache_write_tokens": 0, "output_tokens": 0}
+    over_line = {"input_tokens": 272001, "cache_read_tokens": 0,
+                 "cache_write_tokens": 0, "output_tokens": 0}
+    assert bc.price_usage(at) == Decimal("1.088")
+    assert bc.price_usage(over_line) == Decimal("2.176008")
+    cache_heavy = {"input_tokens": 0, "cache_read_tokens": 200000,
+                   "cache_write_tokens": 73000, "output_tokens": 10}
+    assert bc.price_usage(cache_heavy) == Decimal("0.8903")
+    tmp, log, home = _reserve("q5-inv", max_iterations=1, budget=Decimal("200"))
+    big = {"input_tokens": 0, "cache_read_tokens": 0,
+           "cache_write_tokens": 0, "output_tokens": 10 ** 9}
+
+    def factory():
+        return lambda prompt: dict(big)
+
+    got = bc.invoke_bounded(log_path=log, invocation_id="q5-inv", home=home,
+                            prompt="hi", provider_factory=factory)
     auth = bc.ReconciliationAuthority(tmp / "rec.key")
-    over = {"input_tokens": 0, "cache_read_tokens": 0,
-            "cache_write_tokens": 0, "output_tokens": 10 ** 9}
-    record = auth.reconcile(invocation_id=invocation, log_path=log,
-                            usage=over, prompt_tokens=10 ** 9)
+    record = auth.reconcile(invocation_id="q5-inv", log_path=log, usage=got)
     payload = record["payload"]
     assert payload["outcome"] == "EXECUTED"
     assert payload["envelope_violation"] is True
@@ -158,36 +197,38 @@ def case_q5_accounting_and_over_envelope():
 
 def case_q6_no_self_release():
     """Provider-shaped failures cannot release a CONTACT_ARMED reservation."""
-    tmp = _tmp()
-    log = tmp / "log.jsonl"
-    invocation = "q6-inv"
-    bound = bc.precontact_gate(**_gate_fields())
-    bc.reserve(log, invocation, bound)
-    bc.arm_contact(log, invocation)
+    tmp, log, home = _reserve("q6-inv")
     auth = bc.ReconciliationAuthority(tmp / "rec.key")
 
     class InfrastructureHalt(Exception):
         """PAYBACK-003 halt shape: must stay INDETERMINATE after CONTACT_ARMED."""
 
+    def factory():
+        def call(prompt):
+            raise InfrastructureHalt("halt inside provider window")
+        return call
+
     try:
-        raise InfrastructureHalt("simulated provider halt after CONTACT_ARMED")
+        bc.invoke_bounded(log_path=log, invocation_id="q6-inv", home=home,
+                          prompt="hi", provider_factory=factory)
     except InfrastructureHalt:
         pass
-    assert bc.recover(log, invocation) == "INDETERMINATE"
-    for fake in ({"invocation_id": invocation, "outcome": "PROVEN_NOT_ENTERED"},
+    else:
+        raise AssertionError("provider halt swallowed")
+    assert bc.recover(log, "q6-inv") == "INDETERMINATE"
+    for fake in ({"invocation_id": "q6-inv", "outcome": "PROVEN_NOT_ENTERED"},
                  InfrastructureHalt("not entered")):
         try:
-            auth.verify(fake, invocation)
+            auth.verify(fake, "q6-inv")
         except bc.EvidenceRejected:
             pass
         else:
             raise AssertionError("self-attestation released the reservation")
-    assert bc.resolve(log, invocation, auth) is None
-    log2 = tmp / "log2.jsonl"
-    bc.reserve(log2, "q6-pre", bc.precontact_gate(**_gate_fields()))
+    assert bc.resolve(log, "q6-inv", auth) is None
+    tmp2, log2, home2 = _reserve("q6-pre")
     try:
         auth.reconcile(invocation_id="q6-pre", log_path=log2,
-                        usage={b: 0 for b in bc.BUCKETS}, prompt_tokens=0)
+                        usage={b: 0 for b in bc.BUCKETS})
     except bc.EvidenceRejected:
         pass
     else:

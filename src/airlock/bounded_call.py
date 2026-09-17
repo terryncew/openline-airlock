@@ -3,7 +3,9 @@
 Implements the amended precontact contract: the corrected conservative R_i,
 mechanically established driver exclusions, HMAC-authenticated
 reconciliation with key separation, and durable RESERVED -> CONTACT_ARMED
-ordering. This module performs no qualification and makes no paid contact.
+ordering. The sole provider-call path is the one-shot invoke_bounded();
+the raw agent is never returned to callers. This module performs no
+qualification and makes no paid contact.
 """
 from __future__ import annotations
 
@@ -68,12 +70,14 @@ def compute_r_i(max_iterations):
     return (A_SLOT * max_iterations + 2) * P_CALL
 
 
-def price_usage(usage, prompt_tokens):
+def price_usage(usage):
     """Price the four mutually exclusive buckets; reasoning stays inside output.
 
-    Long-context multipliers apply iff whole-request prompt tokens exceed
-    the frozen 272000 threshold.
+    Prompt exposure is derived from the buckets (input + cache_read +
+    cache_write); long-context multipliers apply iff it exceeds 272000.
     """
+    prompt_tokens = (usage["input_tokens"] + usage["cache_read_tokens"]
+                     + usage["cache_write_tokens"])
     mult_in = LC_IN_MULT if prompt_tokens > LC_THRESHOLD else Decimal(1)
     mult_out = LC_OUT_MULT if prompt_tokens > LC_THRESHOLD else Decimal(1)
     return (
@@ -106,8 +110,11 @@ def verify_hermes_pin(hermes_path):
         raise PinMismatch("Hermes checkout is not the pinned commit")
 
 
-def build_driver(hermes_path, home, max_iterations, api_key):
+def _build_agent(hermes_path, home, max_iterations, api_key):
     """Mechanically instantiate the pinned Hermes path. Returns the agent.
+
+    Module-private: callers never receive the raw agent. The one-shot
+    invoke_bounded() owns the sole provider call made through it.
 
     Does not invoke the agent (no paid contact here). The reconciliation key
     is never accepted by this function and never forwarded: the signature
@@ -150,6 +157,58 @@ def build_driver(hermes_path, home, max_iterations, api_key):
         raise GateRefused("Hermes fallback chain not empty")
     agent._bounded_call_config_hash = config_hash
     return agent
+
+
+def _extract_usage(result):
+    """Map a Hermes run result onto the four billing buckets.
+
+    Integration point; never exercised in qualification (no paid contact).
+    """
+    usage = result.get("usage", {}) if isinstance(result, dict) else {}
+    return {bucket: int(usage.get(bucket, 0)) for bucket in BUCKETS}
+
+
+def real_provider_factory(*, hermes_path, home, max_iterations, api_key):
+    """Zero-arg factory returning the real pinned-Hermes provider call."""
+    def factory():
+        agent = _build_agent(hermes_path, home, max_iterations, api_key)
+        def call(prompt):
+            return _extract_usage(agent.run_conversation(prompt))
+        return call
+    return factory
+
+
+def _verify_config_binding(home, config_hash):
+    """The bound config SHA must equal the frozen bytes, and the on-disk
+    config.yaml must hash to the same value. Checked before CONTACT_ARMED."""
+    expected = hashlib.sha256(frozen_config_text().encode("utf-8")).hexdigest()
+    if config_hash != expected:
+        raise GateRefused("RESERVED config hash is not the frozen config")
+    on_disk = Path(home) / "config.yaml"
+    if (not on_disk.exists()
+            or hashlib.sha256(on_disk.read_bytes()).hexdigest() != expected):
+        raise GateRefused("driver config on disk does not match bound hash")
+
+
+def invoke_bounded(*, log_path, invocation_id, home, prompt, provider_factory):
+    """One-shot provider invocation bound to the durable reservation.
+
+    Verifies durable RESERVED and the bound config SHA, writes CONTACT_ARMED
+    (fsync), then makes the sole provider call through provider_factory, a
+    zero-arg callable returning call(prompt) -> usage dict. The raw agent is
+    never returned to callers. A second invocation under the same ID refuses
+    before provider contact.
+    """
+    recs = [r for r in _read_log(log_path) if r.get("invocation_id") == invocation_id]
+    reserved = [r for r in recs if r.get("state") == "RESERVED"]
+    if not reserved:
+        raise GateRefused("no durable RESERVED for invocation")
+    _verify_config_binding(home, reserved[0]["config_hash"])
+    if any(r.get("state") == "CONTACT_ARMED" for r in recs):
+        raise GateRefused("invocation already used: one-shot")
+    _arm_contact(log_path, invocation_id)
+    call_provider = provider_factory()
+    return call_provider(prompt)
 
 
 def _append_record(log_path, record):
@@ -202,14 +261,18 @@ def precontact_gate(*, max_iterations, budget, model, provider,
     }
 
 
-def reserve(log_path, invocation_id, bound):
-    """Durably write RESERVED. The entry mark; fsync before return."""
-    record = {"state": "RESERVED", "invocation_id": invocation_id}
+def reserve(log_path, invocation_id, bound, config_hash):
+    """Durably write RESERVED, binding the exact driver config SHA.
+
+    The config is generated and verified before RESERVED; fsync before return.
+    """
+    record = {"state": "RESERVED", "invocation_id": invocation_id,
+              "config_hash": config_hash}
     record.update(bound)
     return _append_record(log_path, record)
 
 
-def arm_contact(log_path, invocation_id):
+def _arm_contact(log_path, invocation_id):
     """Durably write CONTACT_ARMED. Only after RESERVED is durable."""
     recs = _read_log(log_path)
     if not any(r.get("state") == "RESERVED" and r.get("invocation_id") == invocation_id
@@ -222,11 +285,14 @@ def arm_contact(log_path, invocation_id):
 def recover(log_path, invocation_id):
     """Post-crash recovery from the durable log alone.
 
-    Before CONTACT_ARMED: PROVEN_NOT_ENTERED (the entry mark was never
-    durably written, so no provider invocation could have begun).
+    Unknown invocation (no durable RESERVED) is an error, never a
+    classification. Before CONTACT_ARMED: PROVEN_NOT_ENTERED (the entry mark
+    was never durably written, so no provider invocation could have begun).
     After CONTACT_ARMED with no verified resolution: INDETERMINATE.
     """
     recs = [r for r in _read_log(log_path) if r.get("invocation_id") == invocation_id]
+    if not any(r.get("state") == "RESERVED" for r in recs):
+        raise GateRefused("unknown invocation: no durable RESERVED")
     if not any(r.get("state") == "CONTACT_ARMED" for r in recs):
         return "PROVEN_NOT_ENTERED"
     return "INDETERMINATE"
@@ -252,7 +318,7 @@ class ReconciliationAuthority:
     def __init__(self, key_path):
         self._key = ensure_key(Path(key_path))
 
-    def reconcile(self, *, invocation_id, log_path, usage, prompt_tokens):
+    def reconcile(self, *, invocation_id, log_path, usage):
         if not isinstance(usage, dict):
             raise EvidenceRejected("usage must be a mapping")
         for bucket in BUCKETS:
@@ -266,7 +332,9 @@ class ReconciliationAuthority:
         if not reserved or not armed:
             raise EvidenceRejected("no durable RESERVED -> CONTACT_ARMED")
         r_i = Decimal(reserved[0]["r_i"])
-        observed = price_usage(usage, prompt_tokens)
+        prompt_tokens = (usage["input_tokens"] + usage["cache_read_tokens"]
+                         + usage["cache_write_tokens"])
+        observed = price_usage(usage)
         payload = {
             "invocation_id": invocation_id,
             "outcome": "EXECUTED",
