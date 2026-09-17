@@ -50,6 +50,19 @@ P_CALL = Decimal("11.48304")
 BUCKETS = ("input_tokens", "cache_read_tokens", "cache_write_tokens", "output_tokens")
 _MISSING = object()
 
+# Frozen minimal tool surface. The production agent is constructed with an
+# explicit EMPTY toolset allowlist: enabled_toolsets=[] resolves through the
+# pinned Hermes toolset machinery (model_tools._compute_tool_definitions,
+# `enabled_toolsets is not None` branch) to zero tools. No tool can then
+# initiate an auxiliary model/provider call (vision_analyze's auxiliary
+# vision router, image_generate's FAL submission, browser_vision's
+# auxiliary-vision fallback, delegate_task's subagent forks are all
+# unreachable: the model is never offered them). The empty surface is the
+# primitive's frozen surface; BOUNDED-CALL-001 is a single bounded
+# prompt->response call and requires no tools.
+TOOLSETS_ENABLED = ()
+FROZEN_TOOL_NAMES = ()
+
 
 class GateRefused(Exception):
     """Pre-contact refusal. Terminal; never silently passed."""
@@ -144,7 +157,7 @@ def _build_agent(hermes_path, home, max_iterations, api_key):
             max_iterations=max_iterations,
             max_tokens=OUTPUT_CAP,
             fallback_model=None,
-            disabled_toolsets=["delegation"],
+            enabled_toolsets=list(TOOLSETS_ENABLED),
             api_mode="chat_completions",
             skip_background_review=True,
         )
@@ -161,8 +174,22 @@ def _build_agent(hermes_path, home, max_iterations, api_key):
         raise GateRefused("Hermes fallback chain not empty")
     if not agent.skip_background_review:
         raise GateRefused("Hermes background review not disabled")
+    _assert_frozen_tool_surface(agent)
     agent._bounded_call_config_hash = config_hash
     return agent
+
+
+def _assert_frozen_tool_surface(agent):
+    """Fail closed unless the resolved tool surface is exactly the frozen one.
+
+    Reads the actual resolved surface (agent.tools plus the registry name
+    set), not the requested selection: an unexpected tool, a differently
+    expanding toolset, or any model-calling auxiliary tool present refuses.
+    Exercised in qualification against offline stand-ins (no paid contact).
+    """
+    resolved = [t.get("function", {}).get("name") for t in agent.tools or []]
+    if resolved != list(FROZEN_TOOL_NAMES) or getattr(agent, "valid_tool_names", None):
+        raise GateRefused("tool surface is not the frozen surface: %r" % (resolved,))
 
 
 def _extract_usage(result):
@@ -243,6 +270,9 @@ def invoke_bounded(*, log_path, invocation_id, home, prompt, provider_factory):
     if not reserved:
         raise GateRefused("no durable RESERVED for invocation")
     _verify_config_binding(home, reserved[0]["config_hash"])
+    surface = (reserved[0].get("toolsets_enabled"), reserved[0].get("tool_names"))
+    if surface != (list(TOOLSETS_ENABLED), list(FROZEN_TOOL_NAMES)):
+        raise GateRefused("RESERVED tool-surface binding drifted from frozen")
     _claim_contact_armed(log_path, invocation_id)
     call_provider = provider_factory()
     return call_provider(prompt)
@@ -295,6 +325,8 @@ def precontact_gate(*, max_iterations, budget, model, provider,
         "p_call": str(P_CALL),
         "r_i": str(r_i),
         "budget": str(budget),
+        "toolsets_enabled": list(TOOLSETS_ENABLED),
+        "tool_names": list(FROZEN_TOOL_NAMES),
     }
 
 

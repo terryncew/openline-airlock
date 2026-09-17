@@ -10,6 +10,8 @@ path is what gets qualified. Q2/Q3 use real child processes and real SIGKILL.
 import json
 import os
 import signal
+import subprocess
+import sys
 import tempfile
 from decimal import Decimal
 from pathlib import Path
@@ -138,6 +140,85 @@ def case_q1_concurrent_one_shot():
             if line.strip()]
     assert sum(1 for r in recs if r.get("state") == "CONTACT_ARMED"
                and r.get("invocation_id") == "q1-race") == 1
+
+
+def case_q1_tool_surface_resolves_empty():
+    """The production toolset selection resolves to exactly the frozen surface.
+
+    Offline: drives the pinned Hermes toolset-resolution code path that
+    _build_agent triggers (model_tools.get_tool_definitions with the exact
+    production selection, pinned commit verified before import), plus the
+    RESERVED binding. Asserts resolved tool defs == []. No provider/model
+    call; the model is never offered any tool, so no tool can initiate an
+    auxiliary model/provider call outside C_calls."""
+    assert list(bc.TOOLSETS_ENABLED) == []
+    assert list(bc.FROZEN_TOOL_NAMES) == []
+    bound = bc.precontact_gate(**_gate_fields())
+    assert bound["toolsets_enabled"] == [] and bound["tool_names"] == []
+    pin_root = Path.home() / "workspace" / "vendor" / "hermes-pin"
+    out = subprocess.run(["git", "-C", str(pin_root), "rev-parse", "HEAD"],
+                         capture_output=True, text=True, check=True)
+    assert out.stdout.strip() == bc.HERMES_PIN, "Hermes pin checkout mismatch"
+    sys.path.insert(0, str(pin_root))
+    try:
+        from model_tools import get_tool_definitions
+        resolved = get_tool_definitions(
+            enabled_toolsets=list(bc.TOOLSETS_ENABLED),
+            disabled_toolsets=None, quiet_mode=True)
+    finally:
+        sys.path.remove(str(pin_root))
+    assert resolved == [], resolved
+
+
+def _surface_agent(names):
+    class _A:
+        pass
+    agent = _A()
+    agent.tools = [{"type": "function", "function": {"name": n}} for n in names]
+    agent.valid_tool_names = set(names)
+    return agent
+
+
+def case_q1_tool_surface_refusals():
+    """The fail-closed surface check accepts the frozen empty surface and
+    refuses any other: at minimum vision_analyze (auxiliary vision router),
+    image_generate (FAL image-model provider call), delegate_task (subagent
+    forks), a mixed model-calling surface, and any unrelated tool. Offline
+    stand-ins; no provider/model call."""
+    bc._assert_frozen_tool_surface(_surface_agent([]))
+    for bad in (["vision_analyze"], ["image_generate"], ["delegate_task"],
+                ["vision_analyze", "image_generate"], ["read_file"]):
+        try:
+            bc._assert_frozen_tool_surface(_surface_agent(bad))
+        except bc.GateRefused:
+            pass
+        else:
+            raise AssertionError("tool surface %r not refused" % (bad,))
+
+
+def case_q1_tool_surface_binding_reverified():
+    """RESERVED binds the frozen tool surface; a drifted binding refuses
+    before CONTACT_ARMED and the factory is never entered. Offline."""
+    tmp, log, home = _reserve("q1-surface")
+    recs = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()
+            if line.strip()]
+    reserved = [r for r in recs if r.get("state") == "RESERVED"][0]
+    assert reserved["toolsets_enabled"] == [] and reserved["tool_names"] == []
+    tampered = dict(reserved, toolsets_enabled=["vision"],
+                    tool_names=["vision_analyze"])
+    log.write_text(json.dumps(tampered, sort_keys=True) + "\n", encoding="utf-8")
+
+    def factory():
+        raise AssertionError("factory entered despite drifted tool surface")
+
+    try:
+        bc.invoke_bounded(log_path=log, invocation_id="q1-surface", home=home,
+                          prompt="hi", provider_factory=factory)
+    except bc.GateRefused:
+        pass
+    else:
+        raise AssertionError("drifted tool surface not refused pre-arm")
+    assert bc.recover(log, "q1-surface") == "PROVEN_NOT_ENTERED"
 
 
 def case_q2_pre_arm_death_proven_not_entered():
