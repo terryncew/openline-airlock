@@ -509,6 +509,52 @@ def run_preflight(run_dir, provider):
     return rec
 
 
+def run_qualify(run_dir, provider):
+    """Model-output qualification (apparatus, paid): exact model, reasoning
+    effort, completion budget, and parser qualified pre-contact for nonempty
+    output. Toy prompts only: never the method, never a corpus task."""
+    led = ledger_mod.Ledger(BUDGET_APP,
+                            os.path.join(run_dir, "apparatus_ledger.jsonl"))
+    cases = [
+        ("q_solve1", ENVS["solving"],
+         "Emit exactly one ```python fenced block containing a Python "
+         "function add(a, b) that returns a+b. No other text.",
+         "solve", extract.extract_file_block),
+        ("q_delta1", ENVS["proposal"],
+         "Emit exactly one ```delta fenced block containing exactly this "
+         "line: REPLACE_STEP 6: CHECK. Rewritten check. No other text.",
+         "proposal", extract.extract_delta),
+        ("q_solve2", ENVS["solving"],
+         "Emit exactly one ```python fenced block containing a Python "
+         "function mul(a, b) that returns a*b. No other text.",
+         "solve", extract.extract_file_block),
+    ]
+    results = []
+    for name, env, prompt, parser in cases:
+        iid = f"{SID}_qual_{name}"
+        try:
+            res = worker.invoke(instructions=prompt, input_text="qualify",
+                                envelope=env, ledger=led, provider=provider,
+                                invocation_id=iid, timeout_s=120.0,
+                                raw_dir=os.path.join(run_dir, "raw"))
+        except (worker.OperatorStop, worker.InfrastructureHalt) as e:
+            rec = {"invocation_id": iid, "scientific": False, "toy": True,
+                   "ok": False, "failure_class": "pre_dispatch_or_halt",
+                   "reason": f"{type(e).__name__}: {str(e)[:200]}"}
+            results.append(rec)
+            return results, led
+        parsed = parser(res.text or "") if res.status == "ok" else None
+        ok = (res.status == "ok" and res.usage is not None
+              and parsed is not None and len(parsed.strip()) > 0)
+        results.append({"invocation_id": iid, "scientific": False,
+                        "toy": True, "ok": ok, "status": res.status,
+                        "settled_usd": res.actual_usd,
+                        "parsed_chars": len(parsed) if parsed else 0,
+                        "nonempty_output": bool(res.text and res.text.strip()),
+                        "reason": None if ok else (res.error or "qualify_failed")})
+    return results, led
+
+
 def main():
     args = set(sys.argv[1:])
     run_dir = os.path.join(STUDY, "runs", SID)
@@ -521,6 +567,18 @@ def main():
         print(json.dumps(rec, indent=1))
         if not rec.get("ok"):
             raise SystemExit("PREFLIGHT FAILED: no scientific contact")
+        return
+    if "--qualify" in args:
+        from dynamic_credentials import get_compact_credential
+        worker.set_credential_provider(
+            lambda: get_compact_credential("custom.openai"))
+        results, led = run_qualify(run_dir, worker.RealProvider())
+        print(json.dumps(results, indent=1))
+        print("apparatus ledger encumbered: %.6f / %.2f" %
+              (led.encumbered, led.budget))
+        if not all(r.get("ok") for r in results):
+            raise SystemExit("QUALIFICATION FAILED: no scientific contact")
+        print("MODEL-OUTPUT QUALIFICATION PASSED")
         return
     if "--authorize-paid-contact" in args:
         from dynamic_credentials import get_compact_credential
