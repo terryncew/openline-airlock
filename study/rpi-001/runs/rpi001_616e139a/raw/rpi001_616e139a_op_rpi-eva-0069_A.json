@@ -1,0 +1,127 @@
+{
+ "envelope": "solving",
+ "http_status": 200,
+ "invocation_id": "rpi001_616e139a_op_rpi-eva-0069_A",
+ "request": {
+  "input": "TASK rpi-eva-0069\n\nFix the layered settings module so every function matches its docstring. Later layers win. There may be several defects, including subtle ones.\n\nThe file target.py currently contains:\n```python\n\"\"\"Layered settings.\n\nDefaults < file config < environment overrides (later wins).\nget(key, default=None): dotted lookup, e.g. \"db.host\".\nset(key, value): dotted set, creating intermediate dicts.\nload(file_cfg, env): build the effective settings dict.\nvalidate(cfg): every \"limits.*\" value must satisfy 0 <= v <= 100.\nmerge(base, override): deep merge; override wins; inputs not mutated.\nsnapshot(): deep copy of the effective settings.\nrestore(snap): replace effective settings with the snapshot.\n\"\"\"\n\nimport copy\n\ndef _get_path(cfg, key, default=None):\n    cur = cfg\n    for part in key.split(\".\"):\n        if not isinstance(cur, dict) or part not in cur:\n            return default\n        cur = cur[part]\n    return cur\n\ndef get(key, default=None):\n    return _get_path(_EFFECTIVE, key, default)\n\ndef set(key, value):\n    parts = key.split(\".\")\n    cur = _EFFECTIVE\n    for part in parts[:-1]:\n        cur = cur.setdefault(part, {})\n    cur[parts[-1]] = value\n\ndef load(file_cfg, env):\n    global _EFFECTIVE\n    merged = merge(env, file_cfg)\n    merged = merge(merged, _DEFAULTS)\n    _EFFECTIVE = merged\n    return merged\n\ndef validate(cfg):\n    for key in (\"limits.rate\", \"limits.burst\"):\n        v = _get_path(cfg, key)\n        if v is None:\n            continue\n        if not (0 < v <= 100):\n            return False\n    return True\n\ndef merge(base, override):\n    out = base\n    for k, v in override.items():\n        if k in out and isinstance(out[k], dict) and isinstance(v, dict):\n            out[k] = merge(out[k], v)\n        else:\n            out[k] = v\n    return out\n\ndef snapshot():\n    return copy.deepcopy(_EFFECTIVE)\n\ndef restore(snap):\n    global _EFFECTIVE\n    _EFFECTIVE = copy.deepcopy(snap)\n\n_DEFAULTS = {\"limits\": {\"rate\": 0, \"burst\": 100}, \"db\": {\"host\": \"localhost\"}}\n_EFFECTIVE = copy.deepcopy(_DEFAULTS)\n\n```\n\nOutput contract: reply with exactly one ```python fenced block containing the COMPLETE corrected file. No other text.",
+  "instructions": "You fix one small Python module. Follow this procedure exactly.\n\n1. READ. Read the task statement, the target file, and the visible tests\n   once. Do not invent requirements beyond the statement.\n2. REPRODUCE. Before changing anything, write down the smallest input\n   that exposes the defect, using the visible tests as examples.\n3. DIAGNOSE. Name the single root cause: one wrong expression, one\n   missing case, one wrong boundary. If you cannot name it, say so and\n   make the most conservative change consistent with the statement.\n4. FIX. Change the target file minimally so the root cause is gone.\n   Do not refactor, rename, or add features. Keep every public name\n   and signature the target file already has.\n5. CHECK. Walk the visible tests against your fixed file by hand.\n   Cover the edge case from step 2 explicitly.\n6. OUTPUT. Emit ONLY the complete corrected target file inside one\n   fenced block marked ```python. No commentary before or after.\n   The file must be runnable as-is.\n\nOutput contract: exactly one fenced block (```python ... ```) containing\nthe complete corrected target file. Nothing outside the block is read.\n",
+  "max_output_tokens": 4096,
+  "model": "gpt-5.6-sol",
+  "reasoning": {
+   "effort": "medium"
+  },
+  "store": false,
+  "stream": false,
+  "tool_choice": "none",
+  "tools": []
+ },
+ "response": {
+  "background": false,
+  "billing": {
+   "payer": "developer"
+  },
+  "completed_at": 1790009149,
+  "created_at": 1790009125,
+  "error": null,
+  "frequency_penalty": 0.0,
+  "id": "resp_04dfdde2b83918ec016ab15f251a1487d29955069d18cc542d",
+  "incomplete_details": null,
+  "instructions": "You fix one small Python module. Follow this procedure exactly.\n\n1. READ. Read the task statement, the target file, and the visible tests\n   once. Do not invent requirements beyond the statement.\n2. REPRODUCE. Before changing anything, write down the smallest input\n   that exposes the defect, using the visible tests as examples.\n3. DIAGNOSE. Name the single root cause: one wrong expression, one\n   missing case, one wrong boundary. If you cannot name it, say so and\n   make the most conservative change consistent with the statement.\n4. FIX. Change the target file minimally so the root cause is gone.\n   Do not refactor, rename, or add features. Keep every public name\n   and signature the target file already has.\n5. CHECK. Walk the visible tests against your fixed file by hand.\n   Cover the edge case from step 2 explicitly.\n6. OUTPUT. Emit ONLY the complete corrected target file inside one\n   fenced block marked ```python. No commentary before or after.\n   The file must be runnable as-is.\n\nOutput contract: exactly one fenced block (```python ... ```) containing\nthe complete corrected target file. Nothing outside the block is read.\n",
+  "max_output_tokens": 4096,
+  "max_tool_calls": null,
+  "metadata": {},
+  "model": "gpt-5.6-sol",
+  "moderation": null,
+  "object": "response",
+  "output": [
+   {
+    "content": [],
+    "encrypted_content": "gAAAAABqsV89W2i6110r6xoe17Oidyx2iF1KM22SER_bR_LDp4pR3Pumu5JUg_UCfvfBBJXs1QTrPirU-eIl8wnDHqrfMvUXbrajRgaQWv55tpX8a9eYDNBZaPP7mj6aeWinqUUFtWLRtplamgLGZDfT4G3zqxyJvJX5yGXE9NA9MIDVcuZnxSxS7z-6E86KPauVdcI5OAsBjtsjmmwnhMBlhV3n8I40GL5772q06hMHBEI8ic_COzqJREeETt9UEzpzb2yeYMBblfduwRu0WbMn1B3-hBCFIOUM_ZMaO3JOKIL4Rj6mzRpDnSSHTIKpUkNM2g1R7Ojq-7hGPkF0DWSelGSwQEaCEaJx495k93RKjHcCRh9WSNPu0DmpWIWitjBk1ULS7CZRs0CTqA6wi_zsvchDsInPh5wqVwfPZQGto_lWjHm_c_RQ1mtZ4FeALkKv5xsaslx2CRTR5_-pWXMtbrFtscGTUD1WAGB5pgMO5TFrqrILYMUkomF6U03NCvY6JrceIAwPxP64FFaJKo7S9zpSBBtaiHieQ-bz19qjbQ2q-mfAoZ37uYmAQ1L1Eq_5AdQHietpJhB5xaZcQI8TmIKKZAehg4stLVYYefiqQXcoXKQbUau0v1RqYa4oBLGl-Bmbma9PdSmSMtFIy4rIIEQY2WCbuwkvSWNOObDHF2-oBwIPopVGVhHN1vieUAxGu4NDaFPKKlP0BtMfaTvpHUoCbvxeCW-_Tf09BOiicytmkhuY40nLXtewxjGuDFpUQ12gVjOVRLJqCZneysSW7vr8-Yq1axQUyDXS6kxzlY_bNgA435H1KB3Tz-mvCN_76lcLbksdZo6saviincq5Sa7E8ZEpmCIIZ2tBHjDFlXY1K9S1dL5bcKrCz1L0SqBU9QFxJsOV72c0Op-dVa3iTxHGkxW-nwKohFAj_7JAaZYxhtH1flFqaDaNbGx5NRIz8Cu7Os3CXJLd8V8rIgoLnfXMRT2cAjf6DKxReMfbzwGDhkiw9nqB0vulDHrk9YgQdsUSz6g6JySFRSMzZDHn2AGIw7OwfB_Q055OIGBczU-PXQxtfs-br_aSFP8beZaVBlDmlz_Ytz-PjYboQ8KqT_dwkkL3vz4IqWhDCGZXVY1Fxe8I0X9MpjvjxY1Ta0BaAep53tu5ehQOxcbzaV7CE_UgP8lIRkOA4WlP7v661sYbbz8MaH9VaaiyPx2rq4_uKvjKBVcJ4BTVWobTGvLNnmlfZxozvP2JI9bd6p8W2KOZnIhbg8TPGWN1d_CpBO33Nzs5EVn5Fu9bDaz8iIxNYcffvGyz_f7cvlc4oM8CAKVyRCODj-jtus0LcNLV5XMjo7TsXBFUE3CzLwHxH5nVJSFoxJGw0TrTLF_ZIogIgUMWvuz2KxYr2chgwRG8w5YYbM-1zK3VSXN7Drr6o4GIsYiVSYH0bRckPQzhe_NF1CoouUAEif2c5GMRh0P-FzQhCE4vrQKDfWrymKoV1bvqH8TZDdW51LARi2YpC5my6KPPJ4USj1RmmiwGHEz1kAD15sGjXxgDd5MPZEUXIfyADL3s2DACFkvbTvVaEq-QrnANLp4jzOyoelCCNRBlbp7bNG7SCaYPQjN5jxTVUh2gasTjd10_D_Eqtc4IAODZWvGoXiW8XxE7SYttB5RJ2r8h8YeM40nQGFLqpnHhgWsNzSXglC7KQXTsLREtmHH1CbKsUKE-GEJKcyGzRtk1XQ31cwnQNXZrn3y9fKFU946X0gYmuMYlquEzeu4qpEesl3fOyuSnhtFKA9iESDx0htnhV7pshlOS8AjRpElQL_jBO7QOCQApzlebRBKUspSSsB5-2IhDIQwcA2XOAaoFMGgF8G5syBOcVrdJa5dIr6IWQqcNXhERPHQJtp7B_Gzc_ZejbiqeZ1lKsXFOF1pZ_IdnZReI74Si6ysAwN_yX4qrZUaXlW7zRf0q2M3u3X-XmitFPpPBeUr0M7-mUYGCmF8_i3daoOuRpYcTDcjXUeIkyVLzo7CH-pXM8Rbgld8hJ25_LxLBf_LjzJO8PySvZ3otobg5mbBxSaAHUtfwJ7qFG7fYZE42iUI-ao2Xz0PJrOWbSlWzxD5Y9DFjalSVHlf3zx99MOySMMYHQeCowLYJuG1PfEB9fCQ2fOmIHTQNoJu_2M7PVM6CF9_dcaqqdfRbCb7c7GZOWOL5LZlOJAlWfTiW_OqyAAI2tKeFmHwnrEhnY6km0nFoHXi6upwA7HLn2_nGRj-jQEwBaAxWuh_g0eDQ529rWX0g2n9Hs8Vgxy2p7Ivf8VpWbqAsyK5TAMI7JeQdOJ4DpDDi55ibW1C1DVpfYDxRaeUNCDVNCy7ZfgJ9GeAt7IVPgRKr-0u3so7AjnhMND_DqT68od2NfIMdnVLszCg_IWl56RDD_cYD0lF_MW5h_du7OGp9fY-X4v98ENnozCi-Y0ab1qpNcbqv5WftIX14dpLLNjRRR387rAj_Q6Dd8dqprFaYbPe581f2QdcAXZZOPI6HW3GvqYqnnD2SYz2IzHosBJnNOBIGKF0QeXvXenTCo86aIQ8c-J6KQv9LSvlwDw4QIUXoQhvwavhFWwnEmtgRcFEqjRCCBKR1DGfia80f8Xv04ywi0pmeOkWG_fcrFmthxHsA1Id5ylpVB793zyMZer91nuVUGd2quRcywLC273a000WHPX7oXK_Ve97kXDq_PP4-2UO9ElvplG8saluYhoHeIeq9uM-OFpAoND_78L48zCz7SWYE_6YJUyTYnTuGKaPsiHk_rSDxajS-y_v4Ybe_AX_GiO4YvgdEL_ZyAt3uNH9tvMBQfEGxsebf-CWes-zdVK_bVXDoVwA3S2d7qafKF6-7nN3GYXScZdmdOouPxP1K-giynf15jyHbewF2-SIITm5AgGM3k3TRh4C1IjmiZ8N8yP_3MbpQQaqzWfYNEb9EmHvOtpuL_Il5mN38Z1_k8ZkK2-bYMVupq-P9EQbAJNIbN6lecQNwq93Kkx3TKJ7-XBZiY72NkTyAMGXaxTWgtP0HzSlWQaoyG0usL3SOTLqevH50e8p638QKpg-TEC-FL1iiRB8LBvnNJpKyTh2tb5d-QoWxl9w27JepPhrd7xLL4VA0HDzsnJejUTpXLTjqx47RzwGVlSY6KD_wG-4ReOmgs9Q8Fazvzns55I1mjvY0kXMeQbJWtCQDMdEycCILYvfXBid7d7bVOG7ZEnEyjvZHtHe8PTD9mL_SoXKik5wDJCIW5W3nbUiXfPzSLawDNwOp63p43z0jgBbMA8qY-hhpbEC3GRfBurS7CCHZbjGUwTpwe17BigdoxNsWtJ9GsaKVLDxh1lOgMx4qcHN6NzuUtpRv_P-Uxk7GSrOlSAMS25qtXWYbrqsqeJpEEfDoZcTl8C9A0S9YrLscTDwldaG5qPOFgrVFdpTiFaNFfTRVts9TiAEIWBlml7Q9fl3Tikhyv46SFRAE_llqr9yu8P1lCVVzG1Sy61qe_tvmQqDL26sKydfAjuUwzjvc9SxrSJtNeoJX6mFd4YJq_bbnkG_g-3cpOPISoK1RfZR_wlXT_g-N6WiK3PolBI1oGIImA7sUn8tdjSpBJFkmFave9TKb2vOVxqYqQkIGcy2JVgZdkqFlNrqFy0yDKt1xZggfYJVyx52E_mBFlM_eejmeKp6G782zt2w37HShTZN8ObAhl5jVG2e5zZi1x8ivdQshnx1tEcUVn9pPF-glUQPF4r-Lk19UofVXCO4d9hW8zJrK7rdtOlk8oT1UnzBCZT4A-sZeIVT5JExS9UEFunq9uOzXGnx84_OW9X-scEu7J8qyXs_jWGq2BX4pUhEVXtrj6KCpdKb7NsYdbxzGtmPUSnBCIF-NvFYpLWAaeW1sZJeJFZSRTDECvUUyaBDSo-YEI6f6k0CXMELQubv1TRl2y2hBKsjeF2-7a5rzMzFT6BmlR_kjiVqyu1bVzVnN3FFYCSuEDNQm6AScpIQuZabonj99NcuAG3JnMbkutTBCG65Hxv9CCSS4UTayITgffERQNJv2YDQOaSsY3ygv2aOT0DMWiKKTi1LvjNka7m3iSvg23n_aIkChwQ3Fd_nfOFXXXwSvzH18ZdTuXdZk7iiw_mEN6mz67g3WbynkftCDm5MOQOG8wGHb7SbhhH1X2iCwWGiNQ4qzADEwPDrP5OaC03_rJ5lBwYz6zjeEg3JeiAVbBwUyFV1-g9VzczVjeXLgo0Z7LUuKFySJCwQ9mVBiZwpkzOhWTWVeKRfJKhK8MF9xAAapmAEIMYBILgd7vOe861s92YjLW00w6SlMGNY0-wceCtLlivtf50Bm1sjO-b7yuoJYE2OlhXkZM_d9xGrNaOaqFoEFJwhBMHVevlw-QHr6t1QAChnfFHmdQFxfzbOoitthYt4DOBaDYcxzdLAFj4UhUFgIIIdYPwSvDkQeUv_6-xPYSuE8RJwzxDYRGQeg-MCmu3MROhpg2WGgdmX75DF93ixGAkXxLOX0tm8z682FsGKUhebHrQdOaY3LQ84qNBKlxZ7kzoxI0CsTYHyok8zt9a9NEOJQdev47IC39-IcMrNHx57NnVyVnkV4SL_wpGe_lv_fFZdrJ8AjojjWO7ymfTD0wG6wMHvydSQTA3YGxjy4klxgJwN2fMSR1zdSQkudkkLr07grhHGBZSgZGOWTNfqycgKGW4arWZ972uQ6cG2j0ARWyw==",
+    "id": "rs_04dfdde2b83918ec016ab15f267bf487d2841ada638e2cbed6",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [],
+    "encrypted_content": "gAAAAABqsV89aOSlAdow9QVtvQPWiGuuXNMuTpKQWad9HU_i5RhcDrTuKUnnhIkXfgpSZAB78DrR8lkcLfAcRSxiHMDHsxbVUG2jA64m8jpuGd5P-LO7SKbLRgfp_HR78fcnfdaLVEvZ-NXg7sNvM6QMV_eA9Z-rlc55PCZ8VF4LPlNt7emzo2CdhdZ3yRiHxgAMi_0ZwlhHG8ahNvI9U6YXTpn4j3NGX12Tb1zpbnCKZHF3CvUjbZazuEedHaJjxS2gX2kt74HnBB4Zx6OwL2d6lZFdE5cxv8T2G5_ij-5tsrurdBX1G7UwDKq3q3haQQrapigAEtLrZqWxpFK6lp-j0y1pDmZfS95ki-2knmRvjAxWF57_PuWY4Do2k4uHduj8cawEub_CvZNxtvyyCITC9AVHPZxK-9uqjqbpvGovZGAehy8B8DSr0ywGS85s4VNQCtl0O4yKuWqZTXBk4uy-yyO-PKm1wpP_bGSMysBWkQDuw6qpeMlvjMTwkDZp8_JOwHtHkd1PuhXJ64pWedrJmh3IPSkpBH8NTd57TB478y7wjZRfmZ_M_ZJ_X_RD2Cx-zq-yrN6ZCpv0Pdl2fUPAoWJ3zqoiV8jUiPBrRAq24oLAXC25CDtFik3WpduGFq9fPVv2mGAxL7lq2CMRUkwDOyNBFfd61oSAGHFDMVlWiDX5tCZpiHd2PooCB99FOxj3HPkCDxUYOsXmfPxFp4N7hB4Q_bNLQX8VseBB_tlBX8HNohKErnHNbbPfbT0skOgQsdCeE-heYG4dY7cFpwvf2kchIbQaMR5HK0u0R7nh5maQAJYgUq4xAKhWkQYX1PSqDOvXvP92nJYv0RQGJz6XPIv9tALRWoqW-ZfqMd53Gkl3x6yKt1HLf_MXxiQgQQoc1tUWosqWKmXQJPJy7KkCfMsjAPSsD429OcoDBTPAiZXaUaWGGYEErcE74AWvJPjxJEu6rTDlJ9MpsTwA6OGcacrGQXEkmKE86ZycbTKvrn__lJZuCh9dDT0epu0XNKcH2KHRWSVi5VsKyKKVLnl859U7gS9JRlqFTpM6PkNwBFve8zsTY1JshxEg1PYiU9Om0qC5YupXGbbx3sC5ShT5kLS54kj3dquvSRscJ0vmErSIUjGNwXip3WTm5pYxN79Js_XATPXuPt_7SYgO6ChLYp9pVubizuGqdr5Fx41-7e2Z-CHp3eXJ9bOQKoRbtGEoCBMEXvE3WflV5U6jGjWiVDc3MJ2UoS03xywEumq3KlZqdVOO9Dvbmj7-keFNBwJVqRmMr7ALGFairwUTmgmLc8HsSutWfzUYA5l_FzKNHJjzqAAObDoSWsXd5K5qqRqmgU9dSaPcsv_CYKB89FPKWLT3N-9paxd-akX8iVyHszVo-HPKb4EOYHPyXO90esfBsRFy9rjwrIQy6DFlPA3-XDqtU2yAkR9EG6GcxA7yCtszaHsoEwHmrh1ItaOQWzviJb61JEhnbnw32yQa3kT1v8_E7ABzRFm3Eyf3COR2ADwuud1qZd-NNgGz_JFTURnSbtlc_1e2dEdacT2PZ2Tjxd40t5UAbgbVz9lysZH2fM0zJk_OUEZpDAZR7IAm-hQ6dTeTU3FRFRVlNxY9hFbnVkSVn4dp62SNbkN0aEiJN6Ja61meYJA65aYGFNRV1Dv2c2tZF2Ze1ZkPdSxxgZM7Dx_-nu0_DrsrtA8jzIoRs5GImOU_299A3wsjwWxeIxmKrbSDQlPotgoZ0iSZ9tOZcSgDjQK89gcQdAgTrM9l_qXAvtOL88rw-hQkWoEVVWje5kbv8eyZ6nsxYjIPi1jUxWJcnWBKDS6sNSLWbjzm5f86tne8Dq9qfKOTNwW15C5I7Cb7TCQ4ehBoygzvUtgCMoL_hvvvTZEctFcfbFC525Bvl2TR9QBgJVjdco8wG8q-NuaEC8pkRT4EDx9l_u8VOTyhBFv5_LuuPvLFg5Iy2AfuJocdTnkd4vSZ31UAghQ8RRwYCJhQi967V-8zf8EzKnIVkO-Ka6U3ijp9AIKMxz75HprqpqePjEqrIf-KR-A4uHcqiG2XhxCouiZV5ow28hO32D328zIJMBjN4657iFAGB8i35TM9jraG1bziIry1XDLKomoQ_3a0dJKBlzc0u39CpKobbQkxrts3NRp7W5fwv8ZsbI_pt-qw0Cv9s24Y_yoMHEp4vY28m_x8VIT3_Ka2l7qwh4_w8jqjpZf8GG5UkgsJ3sNXjwyF-UziBIBrS65xFWMMVCc3ZlZypOJ7tBH9azQFvW9BigCdjvAzq57p08WztDYKl3lgb2EJtVXRphGUQOS_47UOsHMxMbeJUVkF-ti87j5SUovHRBzykMQFxqQfb_9A4fqnfm7jS95GskzLlX3eR-Cr7F3W8H5pgWfrBLQ9T01fjz6xQeNESc3301DIO8WUFwdRK_W_KeRoSW6ktDK3EyB7YN8ASihSghRXntAvL3zAJidayws43Nfw_a4lRto5PBKnSfSLqTiIkVBUGlOF-rHeASbHfIeRCuP1s4bB1wSc3r5gwqIhhPt4FcFOPwYEin2lZN1GHayjJ7DfF9Ai4Nro57kVmwtgouAGQ14Swt8SGwxqBJLRt4_wsg-7d-jXBrB1as_PLFYRflteM0wUvebY9LVxZGZnxtvtp6WJjA==",
+    "id": "rs_04dfdde2b83918ec016ab15f33476c87d28504fdefaa696007",
+    "summary": [],
+    "type": "reasoning"
+   },
+   {
+    "content": [
+     {
+      "annotations": [],
+      "logprobs": [],
+      "text": "```python\n\"\"\"Layered settings.\n\nDefaults < file config < environment overrides (later wins).\nget(key, default=None): dotted lookup, e.g. \"db.host\".\nset(key, value): dotted set, creating intermediate dicts.\nload(file_cfg, env): build the effective settings dict.\nvalidate(cfg): every \"limits.*\" value must satisfy 0 <= v <= 100.\nmerge(base, override): deep merge; override wins; inputs not mutated.\nsnapshot(): deep copy of the effective settings.\nrestore(snap): replace effective settings with the snapshot.\n\"\"\"\n\nimport copy\n\n\ndef _get_path(cfg, key, default=None):\n    cur = cfg\n    for part in key.split(\".\"):\n        if not isinstance(cur, dict) or part not in cur:\n            return default\n        cur = cur[part]\n    return cur\n\n\ndef get(key, default=None):\n    return _get_path(_EFFECTIVE, key, default)\n\n\ndef set(key, value):\n    parts = key.split(\".\")\n    cur = _EFFECTIVE\n    for part in parts[:-1]:\n        if part not in cur or not isinstance(cur[part], dict):\n            cur[part] = {}\n        cur = cur[part]\n    cur[parts[-1]] = value\n\n\ndef load(file_cfg, env):\n    global _EFFECTIVE\n    merged = merge(_DEFAULTS, file_cfg)\n    merged = merge(merged, env)\n    _EFFECTIVE = merged\n    return merged\n\n\ndef validate(cfg):\n    limits = _get_path(cfg, \"limits\")\n    if not isinstance(limits, dict):\n        return True\n    for v in limits.values():\n        try:\n            if not (0 <= v <= 100):\n                return False\n        except TypeError:\n            return False\n    return True\n\n\ndef merge(base, override):\n    out = copy.deepcopy(base)\n    for k, v in override.items():\n        if k in out and isinstance(out[k], dict) and isinstance(v, dict):\n            out[k] = merge(out[k], v)\n        else:\n            out[k] = copy.deepcopy(v)\n    return out\n\n\ndef snapshot():\n    return copy.deepcopy(_EFFECTIVE)\n\n\ndef restore(snap):\n    global _EFFECTIVE\n    _EFFECTIVE = copy.deepcopy(snap)\n\n\n_DEFAULTS = {\"limits\": {\"rate\": 0, \"burst\": 100}, \"db\": {\"host\": \"localhost\"}}\n_EFFECTIVE = copy.deepcopy(_DEFAULTS)\n```",
+      "type": "output_text"
+     }
+    ],
+    "id": "msg_04dfdde2b83918ec016ab15f38d02487d28ef6308dd6c290ef",
+    "phase": "final_answer",
+    "role": "assistant",
+    "status": "completed",
+    "type": "message"
+   }
+  ],
+  "parallel_tool_calls": true,
+  "presence_penalty": 0.0,
+  "previous_response_id": null,
+  "prompt_cache_key": null,
+  "prompt_cache_retention": "24h",
+  "reasoning": {
+   "context": "all_turns",
+   "effort": "medium",
+   "mode": "standard",
+   "summary": null
+  },
+  "safety_identifier": null,
+  "service_tier": "default",
+  "status": "completed",
+  "store": false,
+  "temperature": 1.0,
+  "text": {
+   "format": {
+    "type": "text"
+   },
+   "verbosity": "medium"
+  },
+  "tool_choice": "none",
+  "tool_usage": {
+   "image_gen": {
+    "input_tokens": 0,
+    "input_tokens_details": {
+     "image_tokens": 0,
+     "text_tokens": 0
+    },
+    "output_tokens": 0,
+    "output_tokens_details": {
+     "image_tokens": 0,
+     "text_tokens": 0
+    },
+    "total_tokens": 0
+   },
+   "web_search": {
+    "num_requests": 0
+   }
+  },
+  "tools": [],
+  "top_logprobs": 0,
+  "top_p": 0.98,
+  "truncation": "disabled",
+  "usage": {
+   "input_tokens": 802,
+   "input_tokens_details": {
+    "cache_write_tokens": 0,
+    "cached_tokens": 0
+   },
+   "output_tokens": 1275,
+   "output_tokens_details": {
+    "reasoning_tokens": 757
+   },
+   "total_tokens": 2077
+  },
+  "user": null
+ },
+ "t": 1790009149.0534618
+}
