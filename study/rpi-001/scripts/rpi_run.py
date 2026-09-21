@@ -560,18 +560,12 @@ def main():
     run_dir = os.path.join(STUDY, "runs", SID)
     os.makedirs(run_dir, exist_ok=True)
     if "--preflight" in args:
-        from dynamic_credentials import get_compact_credential
-        worker.set_credential_provider(
-            lambda: get_compact_credential("custom.openai"))
         rec = run_preflight(run_dir, worker.RealProvider())
         print(json.dumps(rec, indent=1))
         if not rec.get("ok"):
             raise SystemExit("PREFLIGHT FAILED: no scientific contact")
         return
     if "--qualify" in args:
-        from dynamic_credentials import get_compact_credential
-        worker.set_credential_provider(
-            lambda: get_compact_credential("custom.openai"))
         results, led = run_qualify(run_dir, worker.RealProvider())
         print(json.dumps(results, indent=1))
         print("apparatus ledger encumbered: %.6f / %.2f" %
@@ -581,9 +575,6 @@ def main():
         print("MODEL-OUTPUT QUALIFICATION PASSED")
         return
     if "--authorize-paid-contact" in args:
-        from dynamic_credentials import get_compact_credential
-        worker.set_credential_provider(
-            lambda: get_compact_credential("custom.openai"))
         cx = Ctx(run_dir, worker.RealProvider(),
                  ledger_mod.Ledger(BUDGET_SCI,
                                    os.path.join(run_dir, "ledger.jsonl")))
