@@ -519,15 +519,15 @@ def run_qualify(run_dir, provider):
         ("q_solve1", ENVS["solving"],
          "Emit exactly one ```python fenced block containing a Python "
          "function add(a, b) that returns a+b. No other text.",
-         "solve", extract.extract_file_block),
+         extract.extract_file_block),
         ("q_delta1", ENVS["proposal"],
          "Emit exactly one ```delta fenced block containing exactly this "
          "line: REPLACE_STEP 6: CHECK. Rewritten check. No other text.",
-         "proposal", extract.extract_delta),
+         extract.extract_delta),
         ("q_solve2", ENVS["solving"],
          "Emit exactly one ```python fenced block containing a Python "
          "function mul(a, b) that returns a*b. No other text.",
-         "solve", extract.extract_file_block),
+         extract.extract_file_block),
     ]
     results = []
     for name, env, prompt, parser in cases:
