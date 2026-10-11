@@ -1,0 +1,650 @@
+{
+  "H_00": {
+    "condition": "HOLDOUT",
+    "bug_type": "WRONG_VAR",
+    "bug_description": "WRONG_VAR: fib(n-1)+fib(n-1) doubles instead of summing",
+    "defect_location": {
+      "line": 5,
+      "content": "return fib(n - 1) + fib(n - 1)"
+    },
+    "correct_code": "def fib(n):\n    \"\"\"Return the nth Fibonacci number (fib(0)=0, fib(1)=1).\"\"\"\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)",
+    "hidden_tests": [
+      [
+        [
+          2
+        ],
+        1
+      ],
+      [
+        [
+          3
+        ],
+        2
+      ],
+      [
+        [
+          4
+        ],
+        3
+      ],
+      [
+        [
+          5
+        ],
+        5
+      ],
+      [
+        [
+          7
+        ],
+        13
+      ],
+      [
+        [
+          10
+        ],
+        55
+      ]
+    ]
+  },
+  "H_01": {
+    "condition": "HOLDOUT",
+    "bug_type": "OFF_BY_ONE",
+    "bug_description": "OFF_BY_ONE: lst[:-1] skips last element",
+    "defect_location": {
+      "line": 4,
+      "content": "for x in lst[:-1]:"
+    },
+    "correct_code": "def count_occurrences(lst, val):\n    \"\"\"Return the number of times val appears in lst.\"\"\"\n    count = 0\n    for x in lst:\n        if x == val:\n            count += 1\n    return count",
+    "hidden_tests": [
+      [
+        [
+          [
+            1,
+            1,
+            1
+          ],
+          1
+        ],
+        3
+      ],
+      [
+        [
+          [
+            1,
+            2,
+            3
+          ],
+          4
+        ],
+        0
+      ],
+      [
+        [
+          [],
+          1
+        ],
+        0
+      ],
+      [
+        [
+          [
+            5,
+            5,
+            5,
+            5
+          ],
+          5
+        ],
+        4
+      ],
+      [
+        [
+          [
+            1,
+            2,
+            1,
+            2,
+            1
+          ],
+          2
+        ],
+        2
+      ]
+    ]
+  },
+  "H_02": {
+    "condition": "HOLDOUT",
+    "bug_type": "SWAPPED_ARGS",
+    "bug_description": "SWAPPED_ARGS: return values swapped (True/False inverted)",
+    "defect_location": {
+      "line": 5,
+      "content": "return True"
+    },
+    "correct_code": "def is_sorted(lst):\n    \"\"\"Return True if lst is sorted in non-decreasing order.\"\"\"\n    for i in range(len(lst) - 1):\n        if lst[i] > lst[i + 1]:\n            return False\n    return True",
+    "hidden_tests": [
+      [
+        [
+          []
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1
+          ]
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1,
+            3,
+            2
+          ]
+        ],
+        false
+      ],
+      [
+        [
+          [
+            5,
+            4,
+            3,
+            2,
+            1
+          ]
+        ],
+        false
+      ],
+      [
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        ],
+        true
+      ]
+    ]
+  },
+  "H_03": {
+    "condition": "HOLDOUT",
+    "bug_type": "WRONG_OP",
+    "bug_description": "WRONG_OP: total initialized to 1 instead of 0 (off by one)",
+    "defect_location": {
+      "line": 3,
+      "content": "total = 1"
+    },
+    "correct_code": "def sum_range(n):\n    \"\"\"Return the sum of integers from 1 to n inclusive.\"\"\"\n    total = 0\n    for i in range(1, n + 1):\n        total += i\n    return total",
+    "hidden_tests": [
+      [
+        [
+          0
+        ],
+        0
+      ],
+      [
+        [
+          3
+        ],
+        6
+      ],
+      [
+        [
+          7
+        ],
+        28
+      ],
+      [
+        [
+          20
+        ],
+        210
+      ],
+      [
+        [
+          100
+        ],
+        5050
+      ]
+    ]
+  },
+  "H_04": {
+    "condition": "HOLDOUT",
+    "bug_type": "MISSING_RETURN",
+    "bug_description": "MISSING_RETURN: sorted lists return None instead of True",
+    "defect_location": {
+      "line": 6,
+      "content": "pass  # bug: missing return"
+    },
+    "correct_code": "def is_sorted(lst):\n    \"\"\"Return True if lst is sorted in non-decreasing order.\"\"\"\n    for i in range(len(lst) - 1):\n        if lst[i] > lst[i + 1]:\n            return False\n    return True",
+    "hidden_tests": [
+      [
+        [
+          []
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1
+          ]
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1,
+            3,
+            2
+          ]
+        ],
+        false
+      ],
+      [
+        [
+          [
+            5,
+            4,
+            3,
+            2,
+            1
+          ]
+        ],
+        false
+      ],
+      [
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        ],
+        true
+      ]
+    ]
+  },
+  "H_05": {
+    "condition": "HOLDOUT",
+    "bug_type": "WRONG_OP",
+    "bug_description": "WRONG_OP: < instead of > finds minimum, not maximum",
+    "defect_location": {
+      "line": 5,
+      "content": "if x < best:"
+    },
+    "correct_code": "def find_max(lst):\n    \"\"\"Return the maximum element in a non-empty list.\"\"\"\n    best = lst[0]\n    for x in lst[1:]:\n        if x > best:\n            best = x\n    return best",
+    "hidden_tests": [
+      [
+        [
+          [
+            1,
+            2,
+            3
+          ]
+        ],
+        3
+      ],
+      [
+        [
+          [
+            3,
+            2,
+            1
+          ]
+        ],
+        3
+      ],
+      [
+        [
+          [
+            -5,
+            -1,
+            -10
+          ]
+        ],
+        -1
+      ],
+      [
+        [
+          [
+            7,
+            7,
+            7
+          ]
+        ],
+        7
+      ],
+      [
+        [
+          [
+            0
+          ]
+        ],
+        0
+      ]
+    ]
+  },
+  "H_06": {
+    "condition": "HOLDOUT",
+    "bug_type": "OFF_BY_ONE",
+    "bug_description": "OFF_BY_ONE: range(len-2) skips last comparison",
+    "defect_location": {
+      "line": 3,
+      "content": "for i in range(len(lst) - 2):"
+    },
+    "correct_code": "def is_sorted(lst):\n    \"\"\"Return True if lst is sorted in non-decreasing order.\"\"\"\n    for i in range(len(lst) - 1):\n        if lst[i] > lst[i + 1]:\n            return False\n    return True",
+    "hidden_tests": [
+      [
+        [
+          []
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1
+          ]
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1,
+            1,
+            1
+          ]
+        ],
+        true
+      ],
+      [
+        [
+          [
+            1,
+            3,
+            2
+          ]
+        ],
+        false
+      ],
+      [
+        [
+          [
+            5,
+            4,
+            3,
+            2,
+            1
+          ]
+        ],
+        false
+      ],
+      [
+        [
+          [
+            1,
+            2,
+            3,
+            4,
+            5
+          ]
+        ],
+        true
+      ]
+    ]
+  },
+  "H_07": {
+    "condition": "HOLDOUT",
+    "bug_type": "OFF_BY_ONE",
+    "bug_description": "OFF_BY_ONE: range(1, n) excludes n, sum is short by n",
+    "defect_location": {
+      "line": 4,
+      "content": "for i in range(1, n):"
+    },
+    "correct_code": "def sum_range(n):\n    \"\"\"Return the sum of integers from 1 to n inclusive.\"\"\"\n    total = 0\n    for i in range(1, n + 1):\n        total += i\n    return total",
+    "hidden_tests": [
+      [
+        [
+          0
+        ],
+        0
+      ],
+      [
+        [
+          3
+        ],
+        6
+      ],
+      [
+        [
+          7
+        ],
+        28
+      ],
+      [
+        [
+          20
+        ],
+        210
+      ],
+      [
+        [
+          100
+        ],
+        5050
+      ]
+    ]
+  },
+  "H_08": {
+    "condition": "HOLDOUT",
+    "bug_type": "WRONG_OP",
+    "bug_description": "WRONG_OP: n<1 instead of n<=1, fib(1) recurses infinitely",
+    "defect_location": {
+      "line": 3,
+      "content": "if n < 1:"
+    },
+    "correct_code": "def fib(n):\n    \"\"\"Return the nth Fibonacci number (fib(0)=0, fib(1)=1).\"\"\"\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)",
+    "hidden_tests": [
+      [
+        [
+          2
+        ],
+        1
+      ],
+      [
+        [
+          3
+        ],
+        2
+      ],
+      [
+        [
+          4
+        ],
+        3
+      ],
+      [
+        [
+          5
+        ],
+        5
+      ],
+      [
+        [
+          7
+        ],
+        13
+      ],
+      [
+        [
+          10
+        ],
+        55
+      ]
+    ]
+  },
+  "H_09": {
+    "condition": "HOLDOUT",
+    "bug_type": "MISSING_RETURN",
+    "bug_description": "MISSING_RETURN: function returns None instead of total",
+    "defect_location": {
+      "line": 6,
+      "content": "pass  # bug: missing return"
+    },
+    "correct_code": "def sum_range(n):\n    \"\"\"Return the sum of integers from 1 to n inclusive.\"\"\"\n    total = 0\n    for i in range(1, n + 1):\n        total += i\n    return total",
+    "hidden_tests": [
+      [
+        [
+          0
+        ],
+        0
+      ],
+      [
+        [
+          3
+        ],
+        6
+      ],
+      [
+        [
+          7
+        ],
+        28
+      ],
+      [
+        [
+          20
+        ],
+        210
+      ],
+      [
+        [
+          100
+        ],
+        5050
+      ]
+    ]
+  },
+  "H_10": {
+    "condition": "HOLDOUT",
+    "bug_type": "OFF_BY_ONE",
+    "bug_description": "OFF_BY_ONE: base case returns n+1 instead of n",
+    "defect_location": {
+      "line": 4,
+      "content": "return n + 1"
+    },
+    "correct_code": "def fib(n):\n    \"\"\"Return the nth Fibonacci number (fib(0)=0, fib(1)=1).\"\"\"\n    if n <= 1:\n        return n\n    return fib(n - 1) + fib(n - 2)",
+    "hidden_tests": [
+      [
+        [
+          2
+        ],
+        1
+      ],
+      [
+        [
+          3
+        ],
+        2
+      ],
+      [
+        [
+          4
+        ],
+        3
+      ],
+      [
+        [
+          5
+        ],
+        5
+      ],
+      [
+        [
+          7
+        ],
+        13
+      ],
+      [
+        [
+          10
+        ],
+        55
+      ]
+    ]
+  },
+  "H_11": {
+    "condition": "HOLDOUT",
+    "bug_type": "WRONG_OP",
+    "bug_description": "WRONG_OP: total initialized to 1 instead of 0 (off by one)",
+    "defect_location": {
+      "line": 3,
+      "content": "total = 1"
+    },
+    "correct_code": "def sum_range(n):\n    \"\"\"Return the sum of integers from 1 to n inclusive.\"\"\"\n    total = 0\n    for i in range(1, n + 1):\n        total += i\n    return total",
+    "hidden_tests": [
+      [
+        [
+          0
+        ],
+        0
+      ],
+      [
+        [
+          3
+        ],
+        6
+      ],
+      [
+        [
+          7
+        ],
+        28
+      ],
+      [
+        [
+          20
+        ],
+        210
+      ],
+      [
+        [
+          100
+        ],
+        5050
+      ]
+    ]
+  }
+}
